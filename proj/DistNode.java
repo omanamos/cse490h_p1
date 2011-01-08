@@ -8,56 +8,66 @@ import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
 	
-	private String sessionId;
+	private HashMap<Integer, String> activeServerSessions;
 	
 	/**
 	 * 
 	 */
-	private HashMap<Integer, Session> activeSessions;
+	private HashMap<Integer, Session> activeClientSessions;
 	
 
 	//TODO: Add Error reporting
 	@Override
 	public void onRIOReceive(Integer from, int protocol, byte[] msg) {
 		String data = Utility.byteArrayToString(msg);
-		switch(protocol){
-		case Protocol.APPEND: case Protocol.PUT:
-			String[] parts = data.split(" ");
-			try {
-				this.getWriter(parts[0], protocol == Protocol.APPEND).write(parts[1]);
-			} catch (IOException e) {
-				e.printStackTrace();
+		
+		if(protocol != Protocol.ACK && protocol != Protocol.ACK_SESSION){
+			if(!this.activeClientSessions.containsKey(from)){
+				this.activeClientSessions.put(from, new Session(from));
 			}
-			break;
-		case Protocol.CREATE:
-			try {
-				this.getWriter(data, false);
-			} catch (IOException e) {
-				e.printStackTrace();
+			switch(protocol){
+				case Protocol.APPEND: case Protocol.PUT:
+					String[] parts = data.split(" ");
+					try {
+						this.getWriter(parts[0], protocol == Protocol.APPEND).write(parts[1]);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					break;
+				case Protocol.CREATE:
+					try {
+						this.getWriter(data, false);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					break;
+				case Protocol.DELETE:
+					try{
+						this.getWriter(data, false).delete();
+					}catch(IOException e){
+						e.printStackTrace();
+					}
+					break;
+				case Protocol.GET:
+					try {
+						printReader(this.getReader(data));
+					} catch (FileNotFoundException e) {
+						System.out.println("10 File does not exist");
+					}
+					break;
+				default:
+					return;
 			}
-			break;
-		case Protocol.DELETE:
-			try{
-				this.getWriter(data, false).delete();
-			}catch(IOException e){
-				e.printStackTrace();
-			}
-			break;
-		case Protocol.GET:
-			try {
-				printReader(this.getReader(data));
-			} catch (FileNotFoundException e) {
-				System.out.println("10 File does not exist");
-			}
-			break;
-		default:
-			return;
+			
+		}else{
+			
 		}
 	}
 	
 	@Override
 	public void start() {
-		
+		this.activeClientSessions = new HashMap<Integer, Session>();
+		this.activeServerSessions = new HashMap<Integer, String>();
 	}
 
 	@Override
@@ -136,8 +146,8 @@ public class DistNode extends RIONode {
 			return this.lastSeqNum;
 		}
 	
-		public void setLastSeqNum( int num ) {
-			this.lastSeqNum = num;
+		public void incrSeqNum( int num ) {
+			this.lastSeqNum++;
 		}
 		
 		

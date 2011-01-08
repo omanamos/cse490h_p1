@@ -13,8 +13,7 @@ public class Protocol {
 	public static final int PUT = 4;
 	public static final int APPEND = 5;
 	public static final int DELETE = 6;
-	public static final int GET_SESSION = 7;
-	public static final int RTN_SESSION = 8;
+	public static final int ACK_SESSION = 7;
 
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
@@ -30,7 +29,7 @@ public class Protocol {
 	 * @return true if the protocol is valid, false otherwise
 	 */
 	public static boolean isPktProtocolValid(int p) {
-		return (p == DATA || p == ACK || p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE || p == GET_SESSION || p == RTN_SESSION);
+		return (p == DATA || p == ACK || p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE || p == ACK_SESSION);
 	}
 
 	/**
