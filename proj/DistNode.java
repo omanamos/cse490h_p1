@@ -16,15 +16,26 @@
 			}
  */
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.UUID;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
-
+	
+	private String sessionId;
+	
+	/**
+	 * 
+	 */
+	private HashMap<Integer, Session> activeSessions;
+	
+	
 	@Override
 	public void onRIOReceive(Integer from, int protocol, byte[] msg) {
-		
+		//
 	}
 
 	@Override
@@ -63,4 +74,36 @@ public class DistNode extends RIONode {
 			e.printStackTrace();
 		}
 	}
+	
+	public class Session {
+		private String sessionId;
+		private int nodeId;
+		private int lastSeqNum;
+		
+		public Session( int nodeId ) {
+			this.sessionId =  UUID.randomUUID().toString();
+			this.nodeId = nodeId;
+			this.lastSeqNum = -1;
+		}
+		
+		public String getSessionId() {
+			return this.sessionId;
+		}
+		
+		public int getNodeId() {
+			return this.nodeId;
+		}
+		
+		public int getLastSeqNum() {
+			return this.lastSeqNum;
+		}
+	
+		public void setLastSeqNum( int num ) {
+			this.lastSeqNum = num;
+		}
+		
+		
+	}
 }
+
+
