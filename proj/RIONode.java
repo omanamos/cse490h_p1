@@ -10,7 +10,7 @@ import edu.washington.cs.cse490h.lib.Node;
  * overriding the onReceive() method to include a call to super.onReceive()
  */
 public abstract class RIONode extends Node {
-	private ReliableInOrderMsgLayer RIOLayer;
+	protected ReliableInOrderMsgLayer RIOLayer;
 	
 	public static int NUM_NODES = 10;
 	

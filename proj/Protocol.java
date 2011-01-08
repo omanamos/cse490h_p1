@@ -8,6 +8,11 @@ public class Protocol {
 	// These should be Packet protocols
 	public static final int DATA = 0;
 	public static final int ACK = 1;
+	public static final int CREATE = 2;
+	public static final int GET = 3;
+	public static final int PUT = 4;
+	public static final int APPEND = 5;
+	public static final int DELETE = 6;
 
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
@@ -22,8 +27,8 @@ public class Protocol {
 	 *            The protocol in question
 	 * @return true if the protocol is valid, false otherwise
 	 */
-	public static boolean isPktProtocolValid(int protocol) {
-		return (protocol == DATA || protocol == ACK);
+	public static boolean isPktProtocolValid(int p) {
+		return (p == DATA || p == ACK || p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE);
 	}
 
 	/**
