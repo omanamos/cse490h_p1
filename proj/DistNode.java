@@ -1,19 +1,10 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.UUID;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
-	
-	private HashMap<Integer, String> activeServerSessions;
-	
-	/**
-	 * 
-	 */
-	private HashMap<Integer, Session> activeClientSessions;
 	
 
 	//TODO: Add Error reporting
@@ -22,9 +13,6 @@ public class DistNode extends RIONode {
 		String data = Utility.byteArrayToString(msg);
 		
 		if(protocol != Protocol.ACK && protocol != Protocol.ACK_SESSION){
-			if(!this.activeClientSessions.containsKey(from)){
-				this.activeClientSessions.put(from, new Session(from));
-			}
 			switch(protocol){
 				case Protocol.APPEND: case Protocol.PUT:
 					String[] parts = data.split(" ");
@@ -60,14 +48,21 @@ public class DistNode extends RIONode {
 			}
 			
 		}else{
-			
+			switch( protocol ) {
+			//TODO: check to make sure ack shit is handled.
+			case Protocol.ACK: 
+				break;
+			case Protocol.ACK_SESSION:
+				break;
+			case Protocol.ERROR:
+				break;
+			}
+				
 		}
 	}
 	
 	@Override
 	public void start() {
-		this.activeClientSessions = new HashMap<Integer, Session>();
-		this.activeServerSessions = new HashMap<Integer, String>();
 	}
 
 	@Override
@@ -123,35 +118,7 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	public class Session {
-		private String sessionId;
-		private int nodeId;
-		private int lastSeqNum;
-		
-		public Session( int nodeId ) {
-			this.sessionId =  UUID.randomUUID().toString();
-			this.nodeId = nodeId;
-			this.lastSeqNum = -1;
-		}
-		
-		public String getSessionId() {
-			return this.sessionId;
-		}
-		
-		public int getNodeId() {
-			return this.nodeId;
-		}
-		
-		public int getLastSeqNum() {
-			return this.lastSeqNum;
-		}
-	
-		public void incrSeqNum( int num ) {
-			this.lastSeqNum++;
-		}
-		
-		
-	}
+
 }
 
 

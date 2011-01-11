@@ -14,6 +14,7 @@ public class Protocol {
 	public static final int APPEND = 5;
 	public static final int DELETE = 6;
 	public static final int ACK_SESSION = 7;
+	public static final int ERROR = 8;
 
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
