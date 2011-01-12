@@ -24,11 +24,11 @@ public abstract class RIONode extends Node {
 		if(protocol == Protocol.ACK) {
 			RIOLayer.RIOAckReceive(from, msg);
 		}else if(protocol == Protocol.EXPIRED_SESSION) {
-			RIOLayer.RIOErrorReceive(from, msg);
+			RIOLayer.RIOExpiredSessionReceive(from, msg);
 		}else if(protocol == Protocol.ACK_SESSION){
 			RIOLayer.RIOSessionAckReceive(from, msg);
 		}else{
-			RIOLayer.RIODataReceive(from, msg);
+			RIOLayer.RPCReceive(from, msg);
 		}
 	}
 

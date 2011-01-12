@@ -6,7 +6,6 @@ import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
 	
-
 	//TODO: Add Error reporting
 	@Override
 	public void onRIOReceive(Integer from, int protocol, byte[] msg) {
@@ -49,7 +48,6 @@ public class DistNode extends RIONode {
 			
 		}else{
 			switch( protocol ) {
-			//TODO: check to make sure ack shit is handled.
 			case Protocol.ACK: 
 				break;
 			case Protocol.ACK_SESSION:
@@ -85,7 +83,6 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	//TODO: check for max packet size
 	private void create(int server, String filename){
 		this.RIOLayer.RIOSend(server, Protocol.CREATE, Utility.stringToByteArray(filename));
 	}

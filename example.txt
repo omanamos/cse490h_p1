@@ -1,0 +1,14 @@
+./execute.pl -s -n TwoGenerals -f 0
+./execute.pl -s -n TwoGenerals -f [user control of failure-level]
+
+Time: 0
+Please input a seq...
+start 0
+start 1
+
+Time: 1
+Please input a seq...
+propose 0
+
+Deterministic Replay
+./excecute.pl -s -n TwoGenerals -f 0 -seed=[seed from run to replay]

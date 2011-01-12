@@ -5,7 +5,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 import edu.washington.cs.cse490h.lib.Packet;
-import edu.washington.cs.cse490h.lib.Utility;
 
 /**
  * This conveys the header for reliable, in-order message transfer. This is
@@ -15,11 +14,11 @@ import edu.washington.cs.cse490h.lib.Utility;
 public class RIOPacket {
 
 	public static final int MAX_PACKET_SIZE = Packet.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 21;
+	public static final int HEADER_SIZE = 9;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
 	private int protocol;
-	private String sessionId;
+	private int sessionId;
 	private int seqNum;
 	private byte[] payload;
 
@@ -29,7 +28,25 @@ public class RIOPacket {
 	 * @param seqNum The sequence number of the packet
 	 * @param payload The payload of the packet.
 	 */
-	public RIOPacket(int protocol, String sessionId, int seqNum, byte[] payload) throws IllegalArgumentException {
+	public RIOPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
+		if (!Protocol.isRIOProtocolValid(protocol) || payload.length > MAX_PAYLOAD_SIZE) {
+			throw new IllegalArgumentException("Illegal arguments given to RIOPacket");
+		}
+
+		this.protocol = protocol;
+		this.sessionId = -1;
+		this.seqNum = seqNum;
+		this.payload = payload;
+	}
+	
+	/**
+	 * Constructing a new RIO packet.
+	 * @param type The type of packet. Either SYN, ACK, FIN, or DATA
+	 * @param sessionId The sessionId between the sender and receiver
+	 * @param seqNum The sequence number of the packet
+	 * @param payload The payload of the packet.
+	 */
+	public RIOPacket(int protocol, int sessionId, int seqNum, byte[] payload) throws IllegalArgumentException {
 		if (!Protocol.isRIOProtocolValid(protocol) || payload.length > MAX_PAYLOAD_SIZE) {
 			throw new IllegalArgumentException("Illegal arguments given to RIOPacket");
 		}
@@ -61,8 +78,14 @@ public class RIOPacket {
 		return this.payload;
 	}
 	
-	public String getSessionId(){
+	public int getSessionId(){
+		if(!this.hasSessionId())
+			throw new IllegalStateException("This packet doesn't have a sessionId.");
 		return this.sessionId;
+	}
+	
+	public boolean hasSessionId(){
+		return this.sessionId == -1;
 	}
 
 	/**
@@ -80,7 +103,7 @@ public class RIOPacket {
 
 			out.writeByte(protocol);
 			out.writeInt(seqNum);
-			out.writeChars(sessionId);
+			out.writeInt(sessionId);
 
 			out.write(payload, 0, payload.length);
 
@@ -104,9 +127,7 @@ public class RIOPacket {
 
 			int protocol = in.readByte();
 			int seqNum = in.readInt();
-			byte[] tmp = new byte[16];
-			in.read(tmp, 0, tmp.length);
-			String sid = Utility.byteArrayToString(tmp);
+			int sid = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);

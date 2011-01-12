@@ -20,6 +20,7 @@ public class ReliableInOrderMsgLayer {
 	private HashMap<Integer, InChannel> inConnections;
 	private HashMap<Integer, OutChannel> outConnections;
 	private RIONode n;
+	private int nextSessionId = 0;
 
 	/**
 	 * Constructor.
@@ -45,21 +46,22 @@ public class ReliableInOrderMsgLayer {
 	 * @param pkt
 	 *            The Packet of data
 	 */
-	public void RIODataReceive(int from, byte[] msg) {
+	public void RPCReceive(int from, byte[] msg) {
 		RIOPacket riopkt = RIOPacket.unpack(msg);
 
+		InChannel in = inConnections.get(from);
+		if(in == null && riopkt.hasSessionId()) {
+			sendExpiredSessionError(from);
+		}else if(in == null){
+			in = new InChannel(nextSessionId);
+			nextSessionId++;
+			inConnections.put(from, in);
+		}else if(riopkt.getSessionId() == in.getSessionId()){
+			
+		}
+		
 		byte[] seqNumByteArray = Utility.stringToByteArray("" + riopkt.getSeqNum());
 		n.send(from, Protocol.ACK, seqNumByteArray);
-		
-		InChannel in = inConnections.get(from);
-		if(in == null) {
-			in = new InChannel();
-			inConnections.put(from, in);
-		}else{
-			if(!riopkt.getSessionId().equals(in.getSessionId())){
-				sendExpiredSessionError(from);
-			}
-		}
 		
 		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(riopkt);
 		for(RIOPacket p: toBeDelivered) {
@@ -70,20 +72,24 @@ public class ReliableInOrderMsgLayer {
 	
 	private void sendExpiredSessionError(int from){
 		this.inConnections.remove(from);
-		n.send(from, Protocol.EXPIRED_SESSION, Utility.stringToByteArray(""));
+		InChannel in = new InChannel(nextSessionId);
+		nextSessionId++;
+		inConnections.put(from, in);
+		n.send(from, Protocol.EXPIRED_SESSION, Utility.stringToByteArray("" + in.getSessionId()));
 	}
 	
-	public void RIOErrorReceive(Integer from, byte[] msg) {
-		this.outConnections.get(from).;
+	public void RIOExpiredSessionReceive(Integer from, byte[] msg) {
+		int newSessionId = Integer.parseInt(Utility.byteArrayToString(msg));
+		this.outConnections.get(from).resetSession(newSessionId);
 		System.out.println("Node " + this.n.addr + ": Error: Session expired on server " + from);
 	}
 	
 	public void RIOSessionAckReceive(int from, byte[] msg){
 		String[] parts = Utility.byteArrayToString(msg).split(" ");
-		String session = parts[0];
+		int session = Integer.parseInt(parts[0]);
 		int seqNum = Integer.parseInt(parts[1]);
 
-		outConnections.get(from).gotSessionACK(seqNum, session);
+		outConnections.get(from).gotSessionACK(session, seqNum);
 	}
 	
 	/**
@@ -152,12 +158,12 @@ public class ReliableInOrderMsgLayer {
 class InChannel {
 	private int lastSeqNumDelivered;
 	private HashMap<Integer, RIOPacket> outOfOrderMsgs;
-	private String sessionId;
+	private int sessionId;
 	
-	InChannel(){
+	InChannel(int nextSessionId){
 		lastSeqNumDelivered = -1;
 		outOfOrderMsgs = new HashMap<Integer, RIOPacket>();
-		sessionId = UUID.randomUUID().toString();
+		sessionId = nextSessionId;
 	}
 
 	/**
@@ -199,7 +205,7 @@ class InChannel {
 		}
 	}
 	
-	public String getSessionId() {
+	public int getSessionId() {
 		return this.sessionId;
 	}
 	
@@ -217,12 +223,13 @@ class OutChannel {
 	private int lastSeqNumSent;
 	private ReliableInOrderMsgLayer parent;
 	private int destAddr;
-	private String sessionId;
+	private int sessionId;
 	
 	OutChannel(ReliableInOrderMsgLayer parent, int destAddr){
 		lastSeqNumSent = -1;
 		unACKedPackets = new HashMap<Integer, RIOPacket>();
 		this.parent = parent;
+		this.sessionId = -1;
 		this.destAddr = destAddr;
 	}
 	
@@ -274,9 +281,15 @@ class OutChannel {
 		unACKedPackets.remove(seqNum);
 	}
 	
-	protected void gotSessionACK(int seqNum, String sessionId) {
+	protected void gotSessionACK(int sessionId, int seqNum) {
 		this.sessionId = sessionId;
 		this.gotACK(seqNum);
+	}
+	
+	protected void resetSession(int sessionId){
+		this.sessionId = sessionId;
+		this.lastSeqNumSent = 0;
+		this.unACKedPackets = new HashMap<Integer, RIOPacket>();
 	}
 	
 	/**
