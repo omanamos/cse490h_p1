@@ -56,7 +56,7 @@ public class ReliableInOrderMsgLayer {
 			in = new InChannel(nextSessionId);
 			nextSessionId++;
 			inConnections.put(from, in);
-		}else if(riopkt.getSessionId() == in.getSessionId()){
+		}else if(riopkt.getSessionId() != in.getSessionId()){
 			
 		}
 		
@@ -80,7 +80,10 @@ public class ReliableInOrderMsgLayer {
 	
 	public void RIOExpiredSessionReceive(Integer from, byte[] msg) {
 		int newSessionId = Integer.parseInt(Utility.byteArrayToString(msg));
-		this.outConnections.get(from).resetSession(newSessionId);
+		
+		this.outConnections.remove(from);
+		this.outConnections.put(from, new OutChannel(this, from, newSessionId));
+		
 		System.out.println("Node " + this.n.addr + ": Error: Session expired on server " + from);
 	}
 	
@@ -233,6 +236,14 @@ class OutChannel {
 		this.destAddr = destAddr;
 	}
 	
+	OutChannel(ReliableInOrderMsgLayer parent, int destAddr, int sessionId){
+		lastSeqNumSent = -1;
+		unACKedPackets = new HashMap<Integer, RIOPacket>();
+		this.parent = parent;
+		this.sessionId = sessionId;
+		this.destAddr = destAddr;
+	}
+	
 	/**
 	 * Send a new RIOPacket out on this channel.
 	 * 
@@ -284,12 +295,6 @@ class OutChannel {
 	protected void gotSessionACK(int sessionId, int seqNum) {
 		this.sessionId = sessionId;
 		this.gotACK(seqNum);
-	}
-	
-	protected void resetSession(int sessionId){
-		this.sessionId = sessionId;
-		this.lastSeqNumSent = 0;
-		this.unACKedPackets = new HashMap<Integer, RIOPacket>();
 	}
 	
 	/**
