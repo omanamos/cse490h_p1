@@ -49,8 +49,10 @@ public class RIOPacket {
 	 * @param payload The payload of the packet.
 	 */
 	public RIOPacket(int protocol, int sessionId, int seqNum, byte[] payload) throws IllegalArgumentException {
-		if (!Protocol.isRIOProtocolValid(protocol) || payload.length > MAX_PAYLOAD_SIZE) {
-			throw new IllegalArgumentException("Illegal arguments given to RIOPacket");
+		if (!Protocol.isRIOProtocolValid(protocol)) {
+			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Invalid protocol");
+		}else if(payload.length > MAX_PAYLOAD_SIZE){
+			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Payload to large");
 		}
 
 		this.protocol = protocol;
