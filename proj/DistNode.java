@@ -54,7 +54,7 @@ public class DistNode extends RIONode {
 				break;
 			case Protocol.ACK_SESSION:
 				break;
-			case Protocol.ERROR:
+			case Protocol.EXPIRED_SESSION:
 				break;
 			}
 				

@@ -57,8 +57,7 @@ public class ReliableInOrderMsgLayer {
 			inConnections.put(from, in);
 		}else{
 			if(!riopkt.getSessionId().equals(in.getSessionId())){
-				this.inConnections.remove(from);
-				n.send(from, Protocol.ERROR, Utility.stringToByteArray(""));
+				sendExpiredSessionError(from);
 			}
 		}
 		
@@ -69,8 +68,13 @@ public class ReliableInOrderMsgLayer {
 		}
 	}
 	
+	private void sendExpiredSessionError(int from){
+		this.inConnections.remove(from);
+		n.send(from, Protocol.EXPIRED_SESSION, Utility.stringToByteArray(""));
+	}
+	
 	public void RIOErrorReceive(Integer from, byte[] msg) {
-		this.outConnections.get(from).resetSessionId();
+		this.outConnections.get(from).;
 		System.out.println("Node " + this.n.addr + ": Error: Session expired on server " + from);
 	}
 	

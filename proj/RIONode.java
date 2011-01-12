@@ -23,7 +23,7 @@ public abstract class RIONode extends Node {
 	public void onReceive(Integer from, int protocol, byte[] msg) {
 		if(protocol == Protocol.ACK) {
 			RIOLayer.RIOAckReceive(from, msg);
-		}else if(protocol == Protocol.ERROR) {
+		}else if(protocol == Protocol.EXPIRED_SESSION) {
 			RIOLayer.RIOErrorReceive(from, msg);
 		}else if(protocol == Protocol.ACK_SESSION){
 			RIOLayer.RIOSessionAckReceive(from, msg);
