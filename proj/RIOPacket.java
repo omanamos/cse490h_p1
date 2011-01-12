@@ -29,7 +29,7 @@ public class RIOPacket {
 	 * @param payload The payload of the packet.
 	 */
 	public RIOPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		if (!Protocol.isRIOProtocolValid(protocol)) {
+		if (!Protocol.isPktProtocolValid(protocol)) {
 			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Invalid protocol");
 		}else if(payload.length > MAX_PAYLOAD_SIZE){
 			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Payload to large");
@@ -49,7 +49,7 @@ public class RIOPacket {
 	 * @param payload The payload of the packet.
 	 */
 	public RIOPacket(int protocol, int sessionId, int seqNum, byte[] payload) throws IllegalArgumentException {
-		if (!Protocol.isRIOProtocolValid(protocol)) {
+		if (!Protocol.isPktProtocolValid(protocol)) {
 			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Invalid protocol");
 		}else if(payload.length > MAX_PAYLOAD_SIZE){
 			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Payload to large");
@@ -89,7 +89,7 @@ public class RIOPacket {
 	}
 	
 	public boolean hasSessionId(){
-		return this.sessionId == -1;
+		return this.sessionId != -1;
 	}
 
 	/**

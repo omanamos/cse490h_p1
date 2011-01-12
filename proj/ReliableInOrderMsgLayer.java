@@ -1,7 +1,6 @@
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.UUID;
 
 import edu.washington.cs.cse490h.lib.Callback;
 import edu.washington.cs.cse490h.lib.Utility;
@@ -52,12 +51,14 @@ public class ReliableInOrderMsgLayer {
 		InChannel in = inConnections.get(from);
 		if(in == null && riopkt.hasSessionId()) {
 			sendExpiredSessionError(from);
+			return;
 		}else if(in == null){
 			in = new InChannel(nextSessionId);
 			nextSessionId++;
 			inConnections.put(from, in);
-		}else if(riopkt.getSessionId() != in.getSessionId()){
-			
+		}else if(!riopkt.hasSessionId() || riopkt.getSessionId() != in.getSessionId()){
+			sendExpiredSessionError(from);
+			return;
 		}
 		
 		byte[] seqNumByteArray = Utility.stringToByteArray("" + riopkt.getSeqNum());
