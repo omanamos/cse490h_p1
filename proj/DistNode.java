@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.util.regex.Pattern;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
+import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
@@ -21,11 +22,14 @@ public class DistNode extends RIONode {
 				
 				try {
 					if(fileExists(fileName))
-						this.getWriter(fileName, protocol == Protocol.APPEND).write(content);
+						if(protocol == Protocol.PUT)
+							putFile(fileName, content);
+						else
+							writeFile(this.getWriter(fileName, true), content);
 					else
-						printError(from, protocol, fileName, Error.ERR_10);
+						printError(this.addr, from, protocol, fileName, Error.ERR_10);
 				} catch (IOException e) {
-					printError(from, protocol, fileName, Error.ERR_10);
+					printError(this.addr, from, protocol, fileName, Error.ERR_10);
 				}
 				break;
 			case Protocol.CREATE:
@@ -33,7 +37,7 @@ public class DistNode extends RIONode {
 					if(!fileExists(data))
 						this.getWriter(data, false);
 					else
-						printError(from, protocol, data, Error.ERR_11);
+						printError(this.addr, from, protocol, data, Error.ERR_11);
 					
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -41,16 +45,19 @@ public class DistNode extends RIONode {
 				break;
 			case Protocol.DELETE:
 				try{
-					this.getWriter(data, true).delete();
+					if(fileExists(data))
+						this.getWriter(data, true).delete();
+					else
+						throw new IOException();
 				}catch(IOException e){
-					printError(from, protocol, data, Error.ERR_10);
+					printError(this.addr, from, protocol, data, Error.ERR_10);
 				}
 				break;
 			case Protocol.GET:
 				try {
 					printReader(this.getReader(data));
 				} catch (FileNotFoundException e) {
-					printError(from, protocol, data, Error.ERR_10);
+					printError(this.addr, from, protocol, data, Error.ERR_10);
 				}
 				break;
 			default:
@@ -58,22 +65,71 @@ public class DistNode extends RIONode {
 		}
 	}
 	
+	private void putFile(String fileName, String content){
+		try{
+			PersistentStorageReader oldFile = this.getReader(fileName);
+			this.getWriter(".temp", false).delete();
+			PersistentStorageWriter temp = getWriter(".temp", true);
+			
+			temp.write("foo.txt");
+			temp.newLine();
+			
+			copyFile(oldFile, temp);
+			
+			PersistentStorageWriter newFile = getWriter(fileName, false);
+			writeFile(newFile, content);
+			temp.delete();
+		}catch(IOException e){
+			e.printStackTrace();
+		}
+	}
+	
+	private void writeFile(PersistentStorageWriter w, String contents) throws IOException{
+		String[] lines = contents.split("\\n");
+		for(String line : lines){
+			w.write(line);
+			w.newLine();
+		}
+	}
+	
 	private boolean fileExists(String fileName){
 		try {
-			printReader(this.getReader(fileName));
+			this.getReader(fileName);
 			return true;
 		} catch (FileNotFoundException e) {
 			return false;
 		}
 	}
 	
-	private void printError(int from, int protocol, String fileName, int code){
+	private void copyFile(PersistentStorageReader r, PersistentStorageWriter w) throws IOException{
+		String line = r.readLine(); 
+		while(line != null){
+			w.write(line);
+			w.newLine();
+		}
+	}
+	
+	static void printError(int addr, int from, int protocol, String fileName, int code){
 		System.out.println("Node " + from + ": Error: " + Protocol.protocolToString(protocol) + " on server " + 
-							this.addr + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code]);
+							addr + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code]);
 	}
 	
 	@Override
 	public void start() {
+		if(fileExists(".temp")){
+			try{
+				PersistentStorageReader tempR = this.getReader(".temp");
+				PersistentStorageWriter tempW = getWriter(".temp", false);
+				if (tempR.ready())
+					tempW.delete();
+				else{
+					String fileName = tempR.readLine();
+					copyFile(tempR, this.getWriter(fileName, false));
+				}
+			}catch(IOException e){
+				e.printStackTrace();
+			}
+		}
 	}
 
 	@Override
@@ -87,7 +143,6 @@ public class DistNode extends RIONode {
 		int indexOfSpace = command.indexOf(' ');
 		int lastSpace = indexOfSpace + 1;
 		String code = command.substring(0, indexOfSpace);
-		
 		
 		indexOfSpace = command.indexOf(' ', lastSpace);
 		int server = Integer.parseInt(command.substring(lastSpace, indexOfSpace));
@@ -123,11 +178,17 @@ public class DistNode extends RIONode {
 	}
 	
 	private void put(int server, String filename, String contents){
-		this.RIOLayer.sendRIO(server, Protocol.PUT, Utility.stringToByteArray(filename + " " + contents));
+		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
+		if(payload.length > RIOPacket.MAX_PAYLOAD_SIZE)
+			printError(this.addr, server, Protocol.PUT, filename, Error.ERR_30);
+		this.RIOLayer.sendRIO(server, Protocol.PUT, payload);
 	}
 	
 	private void append(int server, String filename, String contents){
-		this.RIOLayer.sendRIO(server, Protocol.APPEND, Utility.stringToByteArray(filename + " " + contents));
+		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
+		if(payload.length > RIOPacket.MAX_PAYLOAD_SIZE)
+			printError(this.addr, server, Protocol.APPEND, filename, Error.ERR_30);
+		this.RIOLayer.sendRIO(server, Protocol.APPEND, payload);
 	}
 	
 	private void delete(int server, String filename){

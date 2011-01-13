@@ -13,8 +13,8 @@ import edu.washington.cs.cse490h.lib.Utility;
 public class RIOTester extends RIONode {
 	// The RIO layer is not correct in the presence of node failures.
 	public static double getFailureRate() { return 0/100.0; }
-	public static double getDropRate() { return 0/100.0; }	//25
-	public static double getDelayRate() { return 0/100.0; } //50
+	public static double getDropRate() { return 25/100.0; }
+	public static double getDelayRate() { return 50/100.0; }
 
 	private HashMap<Integer, Integer> receivedNums;
 	private HashMap<Integer, Integer> nextNum;

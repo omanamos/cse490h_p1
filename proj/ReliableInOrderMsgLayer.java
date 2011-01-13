@@ -64,7 +64,9 @@ public class ReliableInOrderMsgLayer {
 		}
 		
 		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(riopkt);
+		
 		for(RIOPacket p: toBeDelivered) {
+			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
 			// deliver in-order the next sequence of packets
 			n.onRIOReceive(from, p.getProtocol(), p.getPayload());
 		}
@@ -357,7 +359,10 @@ class OutChannel {
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", parent, new String[]{ "java.lang.Integer", "java.lang.Integer" });
 			RIOPacket riopkt = unACKedPackets.get(seqNum);
 			
-			n.send(destAddr, Protocol.DATA, riopkt.pack());
+			if(riopkt.getProtocol() == Protocol.ESTB_SESSION)
+				n.send(destAddr, Protocol.ESTB_SESSION, riopkt.getPayload());
+			else
+				n.send(destAddr, Protocol.DATA, riopkt.pack());
 			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();
