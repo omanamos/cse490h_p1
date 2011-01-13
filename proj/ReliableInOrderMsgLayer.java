@@ -49,20 +49,19 @@ public class ReliableInOrderMsgLayer {
 		RIOPacket riopkt = RIOPacket.unpack(msg);
 
 		InChannel in = inConnections.get(from);
-		if(in == null && riopkt.hasSessionId()) {
+		if((in == null && riopkt.hasSessionId()) || (in != null && (!riopkt.hasSessionId() || riopkt.getSessionId() != in.getSessionId()))) {
 			sendExpiredSessionError(from);
 			return;
 		}else if(in == null){
 			in = new InChannel(nextSessionId);
-			nextSessionId++;
+			
 			inConnections.put(from, in);
-		}else if(!riopkt.hasSessionId() || riopkt.getSessionId() != in.getSessionId()){
-			sendExpiredSessionError(from);
-			return;
+			n.send(from, Protocol.ACK_SESSION, Utility.stringToByteArray(nextSessionId + " " + riopkt.getSeqNum()));
+			nextSessionId++;
+		}else{
+			byte[] seqNumByteArray = Utility.stringToByteArray("" + riopkt.getSeqNum());
+			n.send(from, Protocol.ACK, seqNumByteArray);
 		}
-		
-		byte[] seqNumByteArray = Utility.stringToByteArray("" + riopkt.getSeqNum());
-		n.send(from, Protocol.ACK, seqNumByteArray);
 		
 		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(riopkt);
 		for(RIOPacket p: toBeDelivered) {
@@ -76,7 +75,7 @@ public class ReliableInOrderMsgLayer {
 		InChannel in = new InChannel(nextSessionId);
 		nextSessionId++;
 		inConnections.put(from, in);
-		n.send(from, Protocol.EXPIRED_SESSION, Utility.stringToByteArray("" + in.getSessionId()));
+		n.send(from, Protocol.EXPIRED_SESSION, Utility.stringToByteArray(in.getSessionId() + ""));
 	}
 	
 	public void RIOExpiredSessionReceive(Integer from, byte[] msg) {

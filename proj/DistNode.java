@@ -1,5 +1,6 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.regex.Pattern;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.Utility;
@@ -14,9 +15,14 @@ public class DistNode extends RIONode {
 		if(protocol != Protocol.ACK && protocol != Protocol.ACK_SESSION){
 			switch(protocol){
 				case Protocol.APPEND: case Protocol.PUT:
-					String[] parts = data.split(" ");
+					int indexOfSpace = data.indexOf(' ');
+					String fileName = data.substring(0, indexOfSpace);
+					String content = data.substring(indexOfSpace + 1);
+					if(content.charAt(0) == '"')
+						content = content.substring(1, content.length() - 1);
+					
 					try {
-						this.getWriter(parts[0], protocol == Protocol.APPEND).write(parts[1]);
+						this.getWriter(fileName, protocol == Protocol.APPEND).write(content);
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -65,21 +71,39 @@ public class DistNode extends RIONode {
 
 	@Override
 	public void onCommand(String command) {
-		String[] parts = command.split(" ");
-		int server = Integer.parseInt(parts[1]);
-		
-		if(parts[0].equals("create")){
-			this.create(server, parts[2]);
-		}else if(parts[0].equals("get")){
-			this.get(server, parts[2]);
-		}else if(parts[0].equals("put")){
-			this.put(server, parts[2], parts[3]);
-		}else if(parts[0].equals("append")){
-			this.append(server, parts[2], parts[3]);
-		}else if(parts[0].equals("delete")){
-			this.delete(server, parts[2]);
-		}else{
+		command = command.trim();
+		if(!Pattern.matches("^((create|get|delete) [^ ]+ [^ ]+|(put|append) [^ ]+ [^ ]+ (\\\".+\\\"|[^ ]+))$", command)){
 			System.out.println("Invalid command.");
+			return;
+		}
+		
+		int indexOfSpace = command.indexOf(' ');
+		int lastSpace = indexOfSpace + 1;
+		String code = command.substring(0, indexOfSpace);
+		
+		
+		indexOfSpace = command.indexOf(' ', lastSpace);
+		int server = Integer.parseInt(command.substring(lastSpace, indexOfSpace));
+		lastSpace = indexOfSpace + 1;
+		
+		indexOfSpace = command.indexOf(' ', lastSpace);
+		if(indexOfSpace < 0)
+			indexOfSpace = command.length();
+		String fileName = command.substring(lastSpace, indexOfSpace);
+		lastSpace = indexOfSpace + 1;
+		
+		if(code.equals("create")){
+			this.create(server, fileName);
+		}else if(code.equals("get")){
+			this.get(server, fileName);
+		}else if(code.equals("put")){
+			String content = command.substring(lastSpace);
+			this.put(server, fileName, content);
+		}else if(code.equals("append")){
+			String content = command.substring(lastSpace);
+			this.append(server, fileName, content);
+		}else if(code.equals("delete")){
+			this.delete(server, fileName);
 		}
 	}
 	
