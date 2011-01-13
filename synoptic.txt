@@ -1,0 +1,15 @@
+Simulator Logs Events Already
+-----------------------------
+ - All transmissions
+ - All receipts
+ - All timeouts
+ - All Persistent Storage Access
+ - User Defined Events
+ 
+ Execute Help
+ ---------------
+ ./execute.pl -h
+ 
+ code.google.com/p/synoptic
+ 
+ 

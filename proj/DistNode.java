@@ -29,6 +29,7 @@ public class DistNode extends RIONode {
 					break;
 				case Protocol.CREATE:
 					try {
+						
 						this.getWriter(data, false);
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -62,6 +63,15 @@ public class DistNode extends RIONode {
 				break;
 			}
 				
+		}
+	}
+	
+	private boolean fileExists(String fileName){
+		try {
+			printReader(this.getReader(fileName));
+			return true;
+		} catch (FileNotFoundException e) {
+			return false;
 		}
 	}
 	
