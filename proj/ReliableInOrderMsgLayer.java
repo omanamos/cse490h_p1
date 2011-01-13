@@ -291,6 +291,7 @@ class OutChannel {
 	
 	public void establishSession(){
 		RIOPacket sessionPkt = new RIOPacket(Protocol.ESTB_SESSION, ++lastSeqNumSent, Utility.stringToByteArray(""));
+		this.establishingSession = true;
 		this.sendRIOPacket(sessionPkt, false);
 	}
 	

@@ -25,7 +25,7 @@ public class DistNode extends RIONode {
 						if(protocol == Protocol.PUT)
 							putFile(fileName, content);
 						else
-							writeFile(this.getWriter(fileName, true), content);
+							this.getWriter(fileName, true).write(content);
 					else
 						printError(this.addr, from, protocol, fileName, Error.ERR_10);
 				} catch (IOException e) {
@@ -77,7 +77,7 @@ public class DistNode extends RIONode {
 			copyFile(oldFile, temp);
 			
 			PersistentStorageWriter newFile = getWriter(fileName, false);
-			writeFile(newFile, content);
+			newFile.write(content);
 			temp.delete();
 		}catch(IOException e){
 			e.printStackTrace();
