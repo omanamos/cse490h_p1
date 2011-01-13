@@ -115,23 +115,23 @@ public class DistNode extends RIONode {
 	}
 	
 	private void create(int server, String filename){
-		this.RIOLayer.RIOSend(server, Protocol.CREATE, Utility.stringToByteArray(filename));
+		this.RIOLayer.sendRIO(server, Protocol.CREATE, Utility.stringToByteArray(filename));
 	}
 	
 	private void get(int server, String filename){
-		this.RIOLayer.RIOSend(server, Protocol.GET, Utility.stringToByteArray(filename));
+		this.RIOLayer.sendRIO(server, Protocol.GET, Utility.stringToByteArray(filename));
 	}
 	
 	private void put(int server, String filename, String contents){
-		this.RIOLayer.RIOSend(server, Protocol.PUT, Utility.stringToByteArray(filename + " " + contents));
+		this.RIOLayer.sendRIO(server, Protocol.PUT, Utility.stringToByteArray(filename + " " + contents));
 	}
 	
 	private void append(int server, String filename, String contents){
-		this.RIOLayer.RIOSend(server, Protocol.APPEND, Utility.stringToByteArray(filename + " " + contents));
+		this.RIOLayer.sendRIO(server, Protocol.APPEND, Utility.stringToByteArray(filename + " " + contents));
 	}
 	
 	private void delete(int server, String filename){
-		this.RIOLayer.RIOSend(server, Protocol.DELETE, Utility.stringToByteArray(filename));
+		this.RIOLayer.sendRIO(server, Protocol.DELETE, Utility.stringToByteArray(filename));
 	}
 	
 	private void printReader(PersistentStorageReader r){

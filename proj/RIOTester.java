@@ -128,7 +128,7 @@ public class RIOTester extends RIONode {
 		
 
 		// Send the message
-		RIOSend(destAddr, Protocol.RIOTEST_PKT,
+		sendRIO(destAddr, Protocol.RIOTEST_PKT,
 				Utility.stringToByteArray("" + next));
 		nextNum.put(destAddr, next + 1);
 

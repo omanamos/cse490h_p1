@@ -22,13 +22,15 @@ public abstract class RIONode extends Node {
 	@Override
 	public void onReceive(Integer from, int protocol, byte[] msg) {
 		if(protocol == Protocol.ACK) {
-			RIOLayer.RIOAckReceive(from, msg);
+			RIOLayer.receiveAck(from, msg);
 		}else if(protocol == Protocol.EXPIRED_SESSION) {
-			RIOLayer.RIOExpiredSessionReceive(from, msg);
+			RIOLayer.receiveExpiredSessionError(from, msg);
 		}else if(protocol == Protocol.ACK_SESSION){
-			RIOLayer.RIOSessionAckReceive(from, msg);
+			RIOLayer.receiveSessionAck(from, msg);
+		}else if(protocol == Protocol.ESTB_SESSION){
+			RIOLayer.receiveEstablishSession(from);
 		}else{
-			RIOLayer.RPCReceive(from, msg);
+			RIOLayer.receiveRPC(from, msg);
 		}
 	}
 
@@ -42,8 +44,8 @@ public abstract class RIONode extends Node {
 	 * @param payload
 	 *            The payload of the message
 	 */
-	public void RIOSend(int destAddr, int protocol, byte[] payload) {
-		RIOLayer.RIOSend(destAddr, protocol, payload);
+	public void sendRIO(int destAddr, int protocol, byte[] payload) {
+		RIOLayer.sendRIO(destAddr, protocol, payload);
 	}
 
 	/**
