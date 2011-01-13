@@ -49,7 +49,7 @@ public class ReliableInOrderMsgLayer {
 		RIOPacket riopkt = RIOPacket.unpack(msg);
 
 		InChannel in = inConnections.get(from);
-		if((in == null && riopkt.hasSessionId()) || (in != null && (!riopkt.hasSessionId() || riopkt.getSessionId() != in.getSessionId()))) {
+		if((in == null && riopkt.hasSessionId()) || (in != null && (riopkt.getSessionId() != in.getSessionId()))) {
 			sendExpiredSessionError(from);
 			return;
 		}else if(in == null){
@@ -59,8 +59,11 @@ public class ReliableInOrderMsgLayer {
 			n.send(from, Protocol.ACK_SESSION, Utility.stringToByteArray(nextSessionId + " " + riopkt.getSeqNum()));
 			nextSessionId++;
 		}else{
-			byte[] seqNumByteArray = Utility.stringToByteArray("" + riopkt.getSeqNum());
-			n.send(from, Protocol.ACK, seqNumByteArray);
+			if(!riopkt.hasSessionId()){
+				n.send(from, Protocol.ACK_SESSION, Utility.stringToByteArray(in.getSessionId() + " " + riopkt.getSeqNum() + " " + in.getLastSeqNumDelivered()));
+			}else{
+				n.send(from, Protocol.ACK, Utility.stringToByteArray("" + riopkt.getSeqNum()));
+			}
 		}
 		
 		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(riopkt);
@@ -91,8 +94,8 @@ public class ReliableInOrderMsgLayer {
 		String[] parts = Utility.byteArrayToString(msg).split(" ");
 		int session = Integer.parseInt(parts[0]);
 		int seqNum = Integer.parseInt(parts[1]);
-
-		outConnections.get(from).gotSessionACK(session, seqNum);
+		int lastSeqNumRecd = Integer.parseInt(parts[2]);
+		outConnections.get(from).gotSessionACK(session, seqNum, lastSeqNumRecd);
 	}
 	
 	/**
@@ -208,6 +211,10 @@ class InChannel {
 		}
 	}
 	
+	public int getLastSeqNumDelivered(){
+		return this.lastSeqNumDelivered;
+	}
+	
 	public int getSessionId() {
 		return this.sessionId;
 	}
@@ -292,7 +299,7 @@ class OutChannel {
 		unACKedPackets.remove(seqNum);
 	}
 	
-	protected void gotSessionACK(int sessionId, int seqNum) {
+	protected void gotSessionACK(int sessionId, int seqNum, int lastSeqNumRecd) {
 		this.sessionId = sessionId;
 		this.gotACK(seqNum);
 	}

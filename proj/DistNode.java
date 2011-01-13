@@ -7,62 +7,54 @@ import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
 	
-	//TODO: Add Error reporting
 	@Override
 	public void onRIOReceive(Integer from, int protocol, byte[] msg) {
 		String data = Utility.byteArrayToString(msg);
 		
-		if(protocol != Protocol.ACK && protocol != Protocol.ACK_SESSION){
-			switch(protocol){
-				case Protocol.APPEND: case Protocol.PUT:
-					int indexOfSpace = data.indexOf(' ');
-					String fileName = data.substring(0, indexOfSpace);
-					String content = data.substring(indexOfSpace + 1);
-					if(content.charAt(0) == '"')
-						content = content.substring(1, content.length() - 1);
-					
-					try {
-						this.getWriter(fileName, protocol == Protocol.APPEND).write(content);
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					break;
-				case Protocol.CREATE:
-					try {
-						
-						this.getWriter(data, false);
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					break;
-				case Protocol.DELETE:
-					try{
-						this.getWriter(data, false).delete();
-					}catch(IOException e){
-						e.printStackTrace();
-					}
-					break;
-				case Protocol.GET:
-					try {
-						printReader(this.getReader(data));
-					} catch (FileNotFoundException e) {
-						System.out.println("10 File does not exist");
-					}
-					break;
-				default:
-					return;
-			}
-			
-		}else{
-			switch( protocol ) {
-			case Protocol.ACK: 
-				break;
-			case Protocol.ACK_SESSION:
-				break;
-			case Protocol.EXPIRED_SESSION:
-				break;
-			}
+		switch(protocol){
+			case Protocol.APPEND: case Protocol.PUT:
+				int indexOfSpace = data.indexOf(' ');
+				String fileName = data.substring(0, indexOfSpace);
+				String content = data.substring(indexOfSpace + 1);
+				if(content.charAt(0) == '"')
+					content = content.substring(1, content.length() - 1);
 				
+				try {
+					if(fileExists(fileName))
+						this.getWriter(fileName, protocol == Protocol.APPEND).write(content);
+					else
+						printError(from, protocol, fileName, Error.ERR_10);
+				} catch (IOException e) {
+					printError(from, protocol, fileName, Error.ERR_10);
+				}
+				break;
+			case Protocol.CREATE:
+				try {
+					if(!fileExists(data))
+						this.getWriter(data, false);
+					else
+						printError(from, protocol, data, Error.ERR_11);
+					
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				break;
+			case Protocol.DELETE:
+				try{
+					this.getWriter(data, true).delete();
+				}catch(IOException e){
+					printError(from, protocol, data, Error.ERR_10);
+				}
+				break;
+			case Protocol.GET:
+				try {
+					printReader(this.getReader(data));
+				} catch (FileNotFoundException e) {
+					printError(from, protocol, data, Error.ERR_10);
+				}
+				break;
+			default:
+				return;
 		}
 	}
 	
@@ -73,6 +65,11 @@ public class DistNode extends RIONode {
 		} catch (FileNotFoundException e) {
 			return false;
 		}
+	}
+	
+	private void printError(int from, int protocol, String fileName, int code){
+		System.out.println("Node " + from + ": Error: " + Protocol.protocolToString(protocol) + " on server " + 
+							this.addr + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code]);
 	}
 	
 	@Override
