@@ -29,6 +29,8 @@ public abstract class RIONode extends Node {
 			RIOLayer.receiveAckSession(from, msg);
 		}else if(protocol == Protocol.ESTB_SESSION){
 			RIOLayer.receiveEstablishSession(from);
+		}else if(protocol == Protocol.DATA_RTN){
+			RIOLayer.receiveDataRtn(msg);
 		}else{
 			RIOLayer.receiveRPC(from, msg);
 		}

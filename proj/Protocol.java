@@ -16,6 +16,7 @@ public class Protocol {
 	public static final int ACK_SESSION = 7;
 	public static final int EXPIRED_SESSION = 8;
 	public static final int ESTB_SESSION = 9;
+	public static final int DATA_RTN = 11;
 
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
@@ -31,7 +32,7 @@ public class Protocol {
 	 * @return true if the protocol is valid, false otherwise
 	 */
 	public static boolean isPktProtocolValid(int p) {
-		return (p == DATA || p == ACK || p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE || p == ACK_SESSION || p == EXPIRED_SESSION || p == ESTB_SESSION);
+		return (p == DATA || p == ACK || p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE || p == ACK_SESSION || p == EXPIRED_SESSION || p == ESTB_SESSION || p == DATA_RTN);
 	}
 
 	/**
@@ -80,6 +81,8 @@ public class Protocol {
 			return "RIO Expired Session Packet";
 		case ESTB_SESSION:
 			return "RIO Establish Session Packet";
+		case DATA_RTN:
+			return "RIO Return Data Packet";
 		default:
 			return "Unknown Protocol";
 		}

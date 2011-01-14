@@ -106,6 +106,14 @@ public class ReliableInOrderMsgLayer {
 	}
 	
 	/**
+	 * Prints out the message returned.
+	 * @param msg payload to print out
+	 */
+	public void receiveDataRtn(byte[] msg){
+		System.out.println(Utility.byteArrayToString(msg));
+	}
+	
+	/**
 	 * CLIENT METHOD<br>
 	 * Called when the client receives an EXPIRED_SESSION packet.
 	 * Resets the OutChannel going to the server that sent the EXPIRED_SESSION packet.

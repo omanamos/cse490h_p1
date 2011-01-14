@@ -58,8 +58,8 @@ public class DistNode extends RIONode {
 				break;
 			case Protocol.GET:
 				try {
-					printReader(this.getReader(data));
-				} catch (FileNotFoundException e) {
+					returnFile(from, data);
+				} catch (Exception e) {
 					printError(this.addr, from, protocol, data, Error.ERR_10);
 				}
 				break;
@@ -217,19 +217,24 @@ public class DistNode extends RIONode {
 	}
 	
 	/**
-	 * Prints the given file to System.out
-	 * @param r Buffer to print out.
+	 * Returns a file to the client
+	 * @param r Buffer to return
+	 * @throws IOException 
 	 */
-	private void printReader(PersistentStorageReader r){
-		try{
-			String line = r.readLine();
-			while(line != null){
-				System.out.println(line);
-				line = r.readLine();
-			}
-		}catch(IOException e){
-			e.printStackTrace();
+	private void returnFile(int from, String fileName) throws IOException{
+		PersistentStorageReader r = this.getReader(fileName);
+		String file = "";
+		String line = r.readLine();
+		while(line != null){
+			file += line;
+			line = r.readLine();
 		}
+		
+		byte[] rtn = Utility.stringToByteArray(file);
+		if(rtn.length > RIOPacket.MAX_PAYLOAD_SIZE)
+			printError(this.addr, from, Protocol.GET, fileName, Error.ERR_30);
+		else
+			this.send(from, Protocol.DATA_RTN, rtn);
 	}
 	
 
