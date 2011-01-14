@@ -21,11 +21,13 @@ public class DistNode extends RIONode {
 					content = content.substring(1, content.length() - 1);
 				
 				try {
+					content = content.replaceAll("\\\\n", "\n");
 					if(fileExists(fileName))
 						if(protocol == Protocol.PUT)
 							putFile(fileName, content);
-						else
+						else{
 							this.getWriter(fileName, true).write(content);
+						}
 					else
 						printError(this.addr, from, protocol, fileName, Error.ERR_10);
 				} catch (IOException e) {
@@ -102,11 +104,12 @@ public class DistNode extends RIONode {
 	}
 	
 	private void copyFile(PersistentStorageReader r, PersistentStorageWriter w) throws IOException{
+		String file = "";
 		String line = r.readLine(); 
 		while(line != null){
-			w.write(line);
-			w.newLine();
+			file += line + "\n";
 		}
+		w.write(file);
 	}
 	
 	static void printError(int addr, int from, int protocol, String fileName, int code){
