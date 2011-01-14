@@ -21,6 +21,7 @@ public class DistNode extends RIONode {
 					content = content.substring(1, content.length() - 1);
 				
 				try {
+					//Unescape newline character
 					content = content.replaceAll("\\\\n", "\n");
 					if(fileExists(fileName))
 						if(protocol == Protocol.PUT)
@@ -67,33 +68,27 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	private void putFile(String fileName, String content){
-		try{
-			PersistentStorageReader oldFile = this.getReader(fileName);
-			this.getWriter(".temp", false).delete();
-			PersistentStorageWriter temp = getWriter(".temp", true);
-			
-			temp.write("foo.txt");
-			temp.newLine();
-			
-			copyFile(oldFile, temp);
-			
-			PersistentStorageWriter newFile = getWriter(fileName, false);
-			newFile.write(content);
-			temp.delete();
-		}catch(IOException e){
-			e.printStackTrace();
-		}
+	/**
+	 * Handles the special case of replacing a file's contents with PUT
+	 * @param fileName The name of the file to overwrite
+	 * @param content The content to replace the file with.
+	 * @throws IOException 
+	 */
+	private void putFile(String fileName, String content) throws IOException{
+		PersistentStorageReader oldFile = this.getReader(fileName);
+		PersistentStorageWriter temp = getWriter(".temp", false);
+		
+		copyFile(oldFile, temp, fileName + "\n");
+		
+		PersistentStorageWriter newFile = getWriter(fileName, false);
+		newFile.write(content);
+		temp.delete();
 	}
 	
-	private void writeFile(PersistentStorageWriter w, String contents) throws IOException{
-		String[] lines = contents.split("\\n");
-		for(String line : lines){
-			w.write(line);
-			w.newLine();
-		}
-	}
-	
+	/**
+	 * @param fileName The name of the file to check for
+	 * @return true if the file exists, false otherwise
+	 */
 	private boolean fileExists(String fileName){
 		try {
 			this.getReader(fileName);
@@ -103,31 +98,51 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	private void copyFile(PersistentStorageReader r, PersistentStorageWriter w) throws IOException{
-		String file = "";
+	/**
+	 * Copies the file in r to the file in w, appending start to the beginning of the file
+	 * @param r Buffer to read from - source
+	 * @param w Buffer to write to - destination
+	 * @param start String to append to the beginning of the file
+	 * @throws IOException
+	 */
+	private void copyFile(PersistentStorageReader r, PersistentStorageWriter w, String start) throws IOException{
+		String file = start;
 		String line = r.readLine(); 
 		while(line != null){
 			file += line + "\n";
+			line = r.readLine();
 		}
 		w.write(file);
 	}
 	
+	/**
+	 * Prints out an error in the following form Node #{addr}: Error: #{protocol} on server #{server} and file #{fileName} returned error code #{code}"
+	 * @param addr server node
+	 * @param from client node
+	 * @param protocol protocol used
+	 * @param fileName name of file in command
+	 * @param code error code returned as defined by Error class
+	 */
 	static void printError(int addr, int from, int protocol, String fileName, int code){
 		System.out.println("Node " + from + ": Error: " + Protocol.protocolToString(protocol) + " on server " + 
 							addr + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code]);
 	}
 	
 	@Override
+	/**
+	 * Starts up the node. Checks for unfinished PUT commands.
+	 */
 	public void start() {
 		if(fileExists(".temp")){
 			try{
 				PersistentStorageReader tempR = this.getReader(".temp");
-				PersistentStorageWriter tempW = getWriter(".temp", false);
-				if (tempR.ready())
-					tempW.delete();
+				String fileName = tempR.readLine();
+				
+				if (fileName == null)
+					this.getWriter(".temp", false).delete();
 				else{
-					String fileName = tempR.readLine();
-					copyFile(tempR, this.getWriter(fileName, false));
+					copyFile(tempR, this.getWriter(fileName, false), "");
+					this.getWriter(".temp", false).delete();
 				}
 			}catch(IOException e){
 				e.printStackTrace();
@@ -136,10 +151,13 @@ public class DistNode extends RIONode {
 	}
 
 	@Override
+	/**
+	 * Handles given command. Prints error if command is not properly formed.
+	 */
 	public void onCommand(String command) {
 		command = command.trim();
 		if(!Pattern.matches("^((create|get|delete) [^ ]+ [^ ]+|(put|append) [^ ]+ [^ ]+ (\\\".+\\\"|[^ ]+))$", command)){
-			System.out.println("Invalid command.");
+			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
 			return;
 		}
 		
@@ -198,6 +216,10 @@ public class DistNode extends RIONode {
 		this.RIOLayer.sendRIO(server, Protocol.DELETE, Utility.stringToByteArray(filename));
 	}
 	
+	/**
+	 * Prints the given file to System.out
+	 * @param r Buffer to print out.
+	 */
 	private void printReader(PersistentStorageReader r){
 		try{
 			String line = r.readLine();

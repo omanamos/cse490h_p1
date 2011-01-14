@@ -39,6 +39,7 @@ public class ReliableInOrderMsgLayer {
 	}
 	
 	/**
+	 * SERVER METHOD<br>
 	 * Receive a data packet.
 	 * 
 	 * @param from
@@ -50,17 +51,13 @@ public class ReliableInOrderMsgLayer {
 		RIOPacket riopkt = RIOPacket.unpack(msg);
 
 		InChannel in = inConnections.get(from);
-		if((in == null && riopkt.hasSessionId()) || (in != null && (riopkt.getSessionId() != in.getSessionId()))) {
+		if((in == null && riopkt.hasSessionId()) || (in != null && (riopkt.getSessionId() != in.getSessionId()))) { //Expired Session -> Server has crashed recently
 			sendExpiredSessionError(from);
 			return;
-		}else if(in == null || !riopkt.hasSessionId()){
+		}else if(in == null || !riopkt.hasSessionId()){ //Client should have set Protocol.ESTB_SESSION packet before this one.
 			System.out.println("Fatal Error: Node " + from + " doesn't have a sessionId on server " + this.n.addr + " but didn't request one.");
-		}else{
-			if(!riopkt.hasSessionId()){
-				System.out.println("Fatal Error: Node " + from + " doesn't have a sessionId on server " + this.n.addr + " but didn't request one.");
-			}else{
-				n.send(from, Protocol.ACK, Utility.stringToByteArray("" + riopkt.getSeqNum()));
-			}
+		}else{ //Normal RPC
+			n.send(from, Protocol.ACK, Utility.stringToByteArray("" + riopkt.getSeqNum()));
 		}
 		
 		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(riopkt);
@@ -72,6 +69,15 @@ public class ReliableInOrderMsgLayer {
 		}
 	}
 	
+	/**
+	 * <pre>
+	 * SERVER METHOD
+	 * Called when the server receives an establish session packet
+	 * Sends an ACK_SESSION packet back to the client:
+	 *      payload -> sessionID curSeqNum
+	 * </pre> 
+	 * @param from client node the packet came from
+	 */
 	public void receiveEstablishSession(int from){
 		InChannel in = inConnections.get(from);
 		if(in == null){
@@ -80,9 +86,17 @@ public class ReliableInOrderMsgLayer {
 			nextSessionId++;
 		}
 		
+		//
 		n.send(from, Protocol.ACK_SESSION, Utility.stringToByteArray(in.getSessionId() + " " + in.getLastSeqNumDelivered()));
 	}
 	
+	/**
+	 * SERVER METHOD<br>
+	 * Called when the server receives a packet with an expired/invalid sessionId
+	 * Creates a new session on the InChannel and sends back the new sessionId
+	 * in a EXPIRED_SESSION packet
+	 * @param from client node packet came from
+	 */
 	private void sendExpiredSessionError(int from){
 		this.inConnections.remove(from);
 		InChannel in = new InChannel(nextSessionId);
@@ -91,6 +105,13 @@ public class ReliableInOrderMsgLayer {
 		n.send(from, Protocol.EXPIRED_SESSION, Utility.stringToByteArray(in.getSessionId() + ""));
 	}
 	
+	/**
+	 * CLIENT METHOD<br>
+	 * Called when the client receives an EXPIRED_SESSION packet.
+	 * Resets the OutChannel going to the server that sent the EXPIRED_SESSION packet.
+	 * @param from server node packet came from
+	 * @param msg new SessionID from the server
+	 */
 	public void receiveExpiredSessionError(Integer from, byte[] msg) {
 		int newSessionId = Integer.parseInt(Utility.byteArrayToString(msg));
 		
@@ -100,7 +121,14 @@ public class ReliableInOrderMsgLayer {
 		System.out.println("Node " + this.n.addr + ": Error: Session expired on server " + from);
 	}
 	
-	public void receiveSessionAck(int from, byte[] msg){
+	/**
+	 * CLIENT METHOD<br>
+	 * Called when the client receives an ACK_SESSION packet.
+	 * Tells the OutChannel that it has established a session with the server.
+	 * @param from
+	 * @param msg
+	 */
+	public void receiveAckSession(int from, byte[] msg){
 		String[] parts = Utility.byteArrayToString(msg).split(" ");
 		int session = Integer.parseInt(parts[0]);
 		int seqNum = Integer.parseInt(parts[1]);
@@ -108,6 +136,7 @@ public class ReliableInOrderMsgLayer {
 	}
 	
 	/**
+	 * CLIENT METHOD<br>
 	 * Receive an acknowledgment packet.
 	 * 
 	 * @param from
@@ -168,7 +197,8 @@ public class ReliableInOrderMsgLayer {
 }
 
 /**
- * Representation of an incoming channel to this node
+ * Representation of an incoming channel to this node.
+ * Stores the client's session information on the server side
  */
 class InChannel {
 	private int lastSeqNumDelivered;
@@ -235,7 +265,8 @@ class InChannel {
 }
 
 /**
- * Representation of an outgoing channel to this node
+ * Representation of an outgoing channel to this node.
+ * Stores the clients session information on the client side.
  */
 class OutChannel {
 	private HashMap<Integer, RIOPacket> unACKedPackets;
@@ -246,8 +277,8 @@ class OutChannel {
 	private int destAddr;
 	private int sessionId;
 	
-	private boolean establishingSession;
-	private Queue<RIOPacket> queuedCommands;
+	private boolean establishingSession; //true if this connection is currently setting up the session.
+	private Queue<RIOPacket> queuedCommands; //fills up with queued commands while the session is being established.
 	
 	OutChannel(ReliableInOrderMsgLayer parent, RIONode n, int destAddr){
 		this(parent, n, destAddr, -1);
@@ -279,22 +310,32 @@ class OutChannel {
 	protected void sendRIOPacket(int protocol, byte[] payload) {
 		RIOPacket newPkt = new RIOPacket(protocol, sessionId, ++lastSeqNumSent, payload);
 		
-		if(establishingSession){
+		if(establishingSession){			//Connection establishing a session
 			this.queuedCommands.add(newPkt);
-		}else if(this.sessionId == -1){
+		}else if(this.sessionId == -1){		//Connection needs to establish a session
 			this.queuedCommands.add(newPkt);
 			this.establishSession();
-		}else{
+		}else{								//Session is already set up. Proceed normally.
 			sendRIOPacket(newPkt, true);
 		}
 	}
 	
+	/**
+	 * Sends the server an ESTB_SESSION packet.<br>
+	 * Sets the state of this OutChannel to cache commands while
+	 * the session is being established.
+	 */
 	public void establishSession(){
 		RIOPacket sessionPkt = new RIOPacket(Protocol.ESTB_SESSION, ++lastSeqNumSent, Utility.stringToByteArray(""));
 		this.establishingSession = true;
 		this.sendRIOPacket(sessionPkt, false);
 	}
 	
+	/**
+	 * Sends the given RIOPacket
+	 * @param pkt data to send
+	 * @param pack if true, this will encapsulate the packet inside of another packet and send it using the DATA protocol
+	 */
 	private void sendRIOPacket(RIOPacket pkt, boolean pack){
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", parent, new String[]{ "java.lang.Integer", "java.lang.Integer" });
@@ -334,12 +375,20 @@ class OutChannel {
 		unACKedPackets.remove(seqNum);
 	}
 	
+	/**
+	 * Called to set up session on client side, after server has responded with sessionID and current seqNum for given sessionID.
+	 * Also sets state of this connection to be not setting up session and sends commands that were queued while the session was being established.
+	 * Does nothing if the session is already set.
+	 * @param sessionId set sessionId to for this connection
+	 * @param seqNum set lastSeqNumSent to for this connection (could be not initial value in case of client failure)
+	 */
 	protected void gotSessionACK(int sessionId, int seqNum) {
 		if(this.sessionId == -1){
 			this.establishingSession = false;
 			this.unACKedPackets = new HashMap<Integer, RIOPacket>();
 			this.lastSeqNumSent = seqNum;
 			this.sessionId = sessionId;
+			
 			while(!this.queuedCommands.isEmpty()){
 				RIOPacket p = this.queuedCommands.poll();
 				this.sendRIOPacket(p.getProtocol(), p.getPayload());

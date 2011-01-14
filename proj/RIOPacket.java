@@ -18,7 +18,7 @@ public class RIOPacket {
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
 	private int protocol;
-	private int sessionId;
+	private int sessionId; //set to -1 if this packet doesn't have one
 	private int seqNum;
 	private byte[] payload;
 

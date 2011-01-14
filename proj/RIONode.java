@@ -26,7 +26,7 @@ public abstract class RIONode extends Node {
 		}else if(protocol == Protocol.EXPIRED_SESSION) {
 			RIOLayer.receiveExpiredSessionError(from, msg);
 		}else if(protocol == Protocol.ACK_SESSION){
-			RIOLayer.receiveSessionAck(from, msg);
+			RIOLayer.receiveAckSession(from, msg);
 		}else if(protocol == Protocol.ESTB_SESSION){
 			RIOLayer.receiveEstablishSession(from);
 		}else{
