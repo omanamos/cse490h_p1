@@ -84,6 +84,7 @@ public class Emulator extends Manager {
 
 		this.timeStep = timeStep;
 		setTime(0);
+		this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
 	}
 
 	/**
@@ -155,6 +156,23 @@ public class Emulator extends Manager {
 		EmulationCommandsParser commandFileParser = new EmulationCommandsParser();
 		sortedEvents = commandFileParser.parseFile(commandFile);
 	}
+
+	/**
+	 * Perform a single emulator time step with a set of events as argument
+	 * 
+	 * @param currentRoundEvents
+	 */
+	private void doTimestep(ArrayList<Event> currentRoundEvents) {
+		// The order we check doesn't really matter
+		checkInTransit(currentRoundEvents);
+
+		checkTimeouts(currentRoundEvents);
+
+		checkCrash(currentRoundEvents);
+
+		executeEvents(currentRoundEvents);
+		
+	}
 	
 	/**
 	 * Starts the emulated node
@@ -191,18 +209,14 @@ public class Emulator extends Manager {
 							}
 						}
 					} while (!advance);
-
-					// The order we check doesn't really matter
-					checkInTransit(currentRoundEvents);
-
-					checkTimeouts(currentRoundEvents);
-
-					checkCrash(currentRoundEvents);
-
-					executeEvents(currentRoundEvents);
+					
+					this.doTimestep(currentRoundEvents);
+					
 				}
 
 				setTime(now() + 1);
+				this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
+				
 				try {
 					// We sleep here to give a chance for messages to travel
 					// over the network
@@ -298,17 +312,12 @@ public class Emulator extends Manager {
 						}
 					} while (!advance);
 
-					// The order we check doesn't really matter
-					checkInTransit(currentRoundEvents);
-
-					checkTimeouts(currentRoundEvents);
-
-					checkCrash(currentRoundEvents);
-
-					executeEvents(currentRoundEvents);
+					this.doTimestep(currentRoundEvents);
+					
 				}
 				
 				setTime(now() + 1);
+				this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
 			}
 		}
 		
@@ -320,7 +329,7 @@ public class Emulator extends Manager {
 		System.out.println(stopString());
 		if (node != null) {
 			System.out.println(node.addr + ": " + node.toString());
-			logEvent(node, "STOPPED");
+			logEventWithNodeField(node, "STOPPED");
 		} else {
 			System.out.println("failed");
 		}
@@ -396,7 +405,7 @@ public class Emulator extends Manager {
 		}
 
 		node.init(this, address);
-		logEvent(node, "START");
+		logEventWithNodeField(node, "START");
 		failed = false;
 
 		try {
@@ -438,7 +447,7 @@ public class Emulator extends Manager {
 			crash = e;
 		}
 
-		logEvent(node, "FAILURE");
+		logEventWithNodeField(node, "FAILURE");
 
 		waitingTOs.clear();
 		node = null;
@@ -489,6 +498,17 @@ public class Emulator extends Manager {
 			}
 		}
 	}
+	
+	@Override
+	protected void storageWriteEvent(Node node, String description) {
+		logEventWithNodeField(node, "WRITE " + description);
+	}
+	
+	@Override
+	protected void storageReadEvent(Node node, String description) {
+		logEventWithNodeField(node, "READ" + description);
+	}
+
 	
 	/**
 	 * Called by the NodeServer to signal that it has finished execution
@@ -560,6 +580,7 @@ public class Emulator extends Manager {
 				double rand = Utility.getRNG().nextDouble();
 				if(rand < dropRate){
 					System.out.println("Randomly dropping: " + p.toString());
+					logEvent(node, "DROP " + p.toSynopticString(node));
 					iter.remove();
 				}
 			}
@@ -577,8 +598,11 @@ public class Emulator extends Manager {
 				
 				if(!input.equals("")){
 					String[] dropList = input.split("\\s+");
+					Packet p;
 					for(String s: dropList){
-						toBeRemoved.add( currentPackets.get(Integer.parseInt(s)) );
+						p = currentPackets.get(Integer.parseInt(s));
+						toBeRemoved.add(p);
+						logEvent(node, "DROP " + p.toSynopticString(node));
 					}
 				}
 				
@@ -598,6 +622,7 @@ public class Emulator extends Manager {
 							Packet p = currentPackets.get(Integer.parseInt(s));
 							inTransitMsgs.add(p);
 							toBeRemoved.add(p);
+							logEvent(node, "DELAY " + p.toSynopticString(node));
 						}
 					}
 					
@@ -622,6 +647,7 @@ public class Emulator extends Manager {
 				double adjustedDelay = delayRate / (1 - dropRate);
 				if(rand < adjustedDelay){
 					System.out.println("Randomly Delaying: " + p.toString());
+					logEvent(node, "DELAY " + p.toSynopticString(node));
 					iter.remove();
 					inTransitMsgs.add(p);
 				}
@@ -795,7 +821,7 @@ public class Emulator extends Manager {
 			deliverPkt(ev.p);
 			break;
 		case TIMEOUT:
-			logEvent(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
+			logEventWithNodeField(ev.to.node, "TIMEOUT fire-time:" + ev.to.fireTime + " " + ev.to.cb.toString());
 						
 			try{
 				ev.to.cb.invoke();
@@ -843,7 +869,7 @@ public class Emulator extends Manager {
 		}
 		
 		Packet newPacket = new Packet(to, fromNode.addr, protocol, payload);
-		logEvent(fromNode, "SEND " + newPacket.toSynopticString());	//XXX: broadcasts are one msg here, whereas simulator they are multiple
+		logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));	//XXX: broadcasts are one msg here, whereas simulator they are multiple
 		sendToRouter(to, newPacket.pack());
 		return;
 	}
@@ -874,7 +900,7 @@ public class Emulator extends Manager {
 			return;
 		}
 		
-		logEvent(node, "RECVD " + pkt.toSynopticString());
+		logEvent(node, "RECVD " + pkt.toSynopticString(node));
 		
 		if(pkt.getDest() == address || pkt.getDest() == Manager.BROADCAST_ADDRESS) {
 			try{
@@ -897,7 +923,7 @@ public class Emulator extends Manager {
 			return;
 		}
 		
-		logEvent(node, "COMMAND" + msg);
+		logEventWithNodeField(node, "COMMAND" + msg);
 		
 		try{
 			node.onCommand(msg);
@@ -905,8 +931,24 @@ public class Emulator extends Manager {
 			failNode();
 		}
 	}
+	
+	/**
+	 * Log the event in the synoptic log using the simulator's global logical ordering with a node field
+	 * 
+	 * @param node node generating the event
+	 * @param eventStr the event string description of the event
+	 */
+	public void logEventWithNodeField(Node node, String eventStr) {
+		// The Simulator implicitly totally orders events (because it is single threaded)
+		// so we also output a globally total order (in addition to the partial order
+		// that is implemented in super).
+		String eventStrNoded = "node:" + node.toSynopticString() + " " + eventStr;
+		this.logEvent(node, eventStrNoded);
+		super.logEvent(node, eventStrNoded);
+	}
 
-	private void logEvent(Node node, String eventStr) {
-		// TODO: Synoptic logging here
+	@Override
+	public void logEvent(Node node, String eventStr) {
+		super.logEvent(node, eventStr);
 	}
 }

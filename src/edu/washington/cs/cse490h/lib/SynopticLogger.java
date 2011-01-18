@@ -59,13 +59,13 @@ public class SynopticLogger {
 	 * @param node
 	 * @param eventString
 	 */
-	public void logEvent(String timeStr, Node node, String eventStr) {
+	public void logEvent(String timeStr, String eventStr) {
 		if (this.writer == null) {
 			return;
 		}
 		
 		try {
-			this.writer.write(timeStr + " " + node.toSynopticString() + " " + eventStr + "\n");
+			this.writer.write(timeStr + " " + eventStr + "\n");
 		} catch (IOException e) {
 			System.out.println("Warning: unable to write to the synoptic log.");
 			e.printStackTrace();

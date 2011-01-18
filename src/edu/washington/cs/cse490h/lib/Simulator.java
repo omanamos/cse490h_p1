@@ -22,10 +22,6 @@ public class Simulator extends Manager {
     
 	private HashMap<Integer, Node> nodes;
 
-	// TODO: migrate to using Node.vtime instead of this once you figure out
-	// how to embed vtime in Packet
-	private HashMap<Integer, VectorTime> vtimes;
-	
 	private HashSet<Integer> crashedNodes;
 	
 	// the global logical time ordering which increments by 1 on each
@@ -56,7 +52,7 @@ public class Simulator extends Manager {
 	public Simulator(Class<? extends Node> nodeImpl, Long seed, String replayOutputFilename, String replayInputFilename)
 			throws IllegalArgumentException, IOException {
 		super(nodeImpl, seed, replayOutputFilename, replayInputFilename);
-
+		
 		setParser(new SimulationCommandsParser());
 
 		if (seed == null) {
@@ -72,6 +68,7 @@ public class Simulator extends Manager {
 		crashedNodes = new HashSet<Integer>();
 
 		setTime(0);
+		this.logSimulatorEvent("TIMESTEP time:" + this.now());
 	}
 
 	/**
@@ -161,17 +158,9 @@ public class Simulator extends Manager {
 						}
 					}
 				} while (!advance);
-
-				// The order we check doesn't matter that much
-				checkInTransit(currentRoundEvents);
-
-				checkTimeouts(currentRoundEvents);
-
-				checkCrash(currentRoundEvents);
-
-				executeEvents(currentRoundEvents);
-
-				setTime(now() + 1);
+				
+				this.doTimestep(currentRoundEvents);
+				
 			}
 		} else if (cmdInputType == InputType.USER) {
 			while (true) {
@@ -211,29 +200,42 @@ public class Simulator extends Manager {
 						}
 					}
 				} while (!advance);
-
-				// The order we check doesn't matter that much
-				checkInTransit(currentRoundEvents);
-
-				checkTimeouts(currentRoundEvents);
-
-				checkCrash(currentRoundEvents);
-
-				executeEvents(currentRoundEvents);
-
-				setTime(now() + 1);
+				
+				this.doTimestep(currentRoundEvents);
+				
 			}
 		}
 
 		stop();
 	}
 	
+	
+	/**
+	 * Perform a single simulator time step with a set of events as argument
+	 *  
+	 * @param currentRoundEvents
+	 */
+	private void doTimestep(ArrayList<Event> currentRoundEvents) {
+		// The order we check doesn't matter that much
+		checkInTransit(currentRoundEvents);
+
+		checkTimeouts(currentRoundEvents);
+
+		checkCrash(currentRoundEvents);
+
+		executeEvents(currentRoundEvents);
+
+		setTime(now() + 1);
+		logSimulatorEvent("TIMESTEP time:" + this.now());
+	}
+	
+	
 	@Override
 	protected void stop(){
 		System.out.println(stopString());
 		for(Integer i: nodes.keySet()){
 			System.out.println(i + ": " + nodes.get(i).toString());
-			logEvent(nodes.get(i), "STOPPED");
+			logEventWithNodeField(nodes.get(i), "STOPPED");
 		}
 		
 		for(Integer i: crashedNodes){
@@ -281,7 +283,7 @@ public class Simulator extends Manager {
 		
 		newNode.init(this, node);
 		vtimes.put(node, new VectorTime(MAX_ADDRESS));
-		logEvent(newNode, "START");
+		logEventWithNodeField(newNode, "START");
 		
 		try{
 			newNode.start();
@@ -311,7 +313,7 @@ public class Simulator extends Manager {
 				crash = e;
 			}
 			
-			logEvent(crashingNode, "FAILURE");
+			logEventWithNodeField(crashingNode, "FAILURE");
 			
 			nodes.remove(node);
 			crashedNodes.add(node);
@@ -353,8 +355,32 @@ public class Simulator extends Manager {
 			}
 		}
 	}
+	
+	@Override
+	protected void storageWriteEvent(Node node, String description) {
+		logEventWithNodeField(node, "WRITE " + description);
+	}
+	
+	@Override
+	protected void storageReadEvent(Node node, String description) {
+		logEventWithNodeField(node, "READ " + description);
+	}
 
 	/****************** Methods to check and handle events ******************/
+	
+	/**
+	 * Logs an in transit event -- a DROP or a DELAY event.
+	 */
+	private void logInTransit(Packet p, String netEvent) {
+		Node destNode = nodes.get(p.getDest());
+		if (destNode == null) {
+			// Node failed while the packet was in transit.
+			// Ignore the transit event.
+			return;
+		}
+		logEvent(destNode, netEvent + " " + p.toSynopticString(destNode));
+	}
+	
 
 	/**
 	 * Goes through all of the in transit messages and decides whether to drop,
@@ -380,6 +406,7 @@ public class Simulator extends Manager {
 				double rand = Utility.getRNG().nextDouble();
 				if(rand < dropRate){
 					System.out.println("Randomly dropping: " + p.toString());
+					this.logInTransit(p, "DROP");
 					iter.remove();
 				}
 			}
@@ -397,8 +424,11 @@ public class Simulator extends Manager {
 				
 				if(!input.equals("")){
 					String[] dropList = input.split("\\s+");
+					Packet p;
 					for(String s: dropList){
-						toBeRemoved.add( currentPackets.get(Integer.parseInt(s)) );
+						p = currentPackets.get(Integer.parseInt(s));
+						toBeRemoved.add(p);
+						this.logInTransit(p, "DROP");
 					}
 				}
 				
@@ -414,10 +444,12 @@ public class Simulator extends Manager {
 					
 					if(!input.equals("")){
 						String[] delayList = input.split("\\s+");
+						Packet p;
 						for(String s: delayList){
-							Packet p = currentPackets.get(Integer.parseInt(s));
+							p = currentPackets.get(Integer.parseInt(s));
 							inTransitMsgs.add(p);
 							toBeRemoved.add(p);
+							this.logInTransit(p, "DELAY");
 						}
 					}
 					
@@ -444,6 +476,7 @@ public class Simulator extends Manager {
 					System.out.println("Randomly Delaying: " + p.toString());
 					iter.remove();
 					inTransitMsgs.add(p);
+					this.logInTransit(p, "DELAY");
 				}
 			}
 		}
@@ -628,7 +661,7 @@ public class Simulator extends Manager {
 				break;
 			}
 			
-			logEvent(ev.to.node, "TIMEOUT at:" + ev.to.fireTime + " target:" + ev.to.cb.toSynopticString());
+			logEventWithNodeField(ev.to.node, "TIMEOUT fire-time:" + ev.to.fireTime + " " + ev.to.cb.toSynopticString());
 						
 			try{
 				ev.to.cb.invoke();
@@ -683,18 +716,18 @@ public class Simulator extends Manager {
 			for(Integer i: nodes.keySet()) {
 				if(i != from){
 					Packet newPacket = new Packet(i, from, protocol, payload);
-					logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+					logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));
 					inTransitMsgs.add(newPacket);
 				}
 			}
 			for(Integer i: crashedNodes) {
 				Packet newPacket = new Packet(i, from, protocol, payload);
-				logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+				logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));
 				inTransitMsgs.add(newPacket);
 			}
 		}else{
 			Packet newPacket = new Packet(to, from, protocol, payload);
-			logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+			logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));
 			inTransitMsgs.add(newPacket);
 		}
 	}
@@ -721,7 +754,7 @@ public class Simulator extends Manager {
 		Node destNode = nodes.get(destAddr);
 		vtimes.get(destAddr).updateTo(vtimes.get(srcAddr));
 				
-		logEvent(destNode, "RECVD " + pkt.toSynopticString());
+		logEvent(destNode, "RECVD " + pkt.toSynopticString(destNode));
 				
 		try{
 			destNode.onReceive(srcAddr, pkt.getProtocol(), pkt.getPayload());
@@ -745,7 +778,7 @@ public class Simulator extends Manager {
 
 		Node n = nodes.get(nodeAddr);
 
-		logEvent(n, "COMMAND " + msg);
+		logEventWithNodeField(n, "COMMAND " + msg);
 
 		try {
 			n.onCommand(msg);
@@ -822,20 +855,46 @@ public class Simulator extends Manager {
 	}
 
 	/**
+	 * Log the event in the synoptic log using the simulator's global logical ordering with a node field
+	 * 
+	 * @param node node generating the event
+	 * @param eventStr the event string description of the event
+	 */
+	public void logEventWithNodeField(Node node, String eventStr) {
+		// The Simulator implicitly totally orders events (because it is single threaded)
+		// so we also output a globally total order (in addition to the partial order
+		// that is implemented in super).
+		String eventStrNoded = "node:" + node.toSynopticString() + " " + eventStr;
+		this.logEvent(node, eventStrNoded);
+		super.logEvent(node, eventStrNoded);
+	}
+	
+	
+	/**
 	 * Log the event in the synoptic log using the simulator's global logical ordering 
 	 * 
 	 * @param node node generating the event
 	 * @param eventStr the event string description of the event
 	 */
-	private void logEvent(Node node, String eventStr) {
-		this.synTotalOrderLogger.logEvent("" + this.globalLogicalTime, node, eventStr);
+	@Override
+	public void logEvent(Node node, String eventStr) {
+		// The Simulator implicitly totally orders events (because it is single threaded)
+		// so we also output a globally total order (in addition to the partial order
+		// that is implemented in super).
+		this.synTotalOrderLogger.logEvent("" + this.globalLogicalTime, eventStr);
 		this.globalLogicalTime += 1;
-		
-		// step() comes before logging because on communication, we've updated 
-		// the destination vtime to be at least the source, but it needs to be
-		// strictly greater than the source.
-		VectorTime vtime = vtimes.get(node.addr);
-		vtime.step(node.addr);
-		this.synPartialOrderLogger.logEvent("" + vtime.toString(), node, eventStr);
+		super.logEvent(node, eventStr);
+	}
+	
+	/**
+	 * Logs a simulator event across _all_ simulated nodes. The TIMESTEP event
+	 * is of this form -- its reported for every node being simulated.
+	 * 
+	 * @param eventStr
+	 */
+	public void logSimulatorEvent(String eventStr) {
+		for(Node node: nodes.values()) {
+			this.logEventWithNodeField(node, eventStr);
+		}
 	}
 }

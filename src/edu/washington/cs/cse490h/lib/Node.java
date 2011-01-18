@@ -9,7 +9,8 @@ import edu.washington.cs.cse490h.lib.Manager;
 
 /**
  * Node -- Class defining the interface and basic functionality of a node. The
- * student should extend this class to provide additional functionality.
+ * student should extend this class to provide additional functionality. The
+ * visibility of each of the methods/variables are on purpose.
  * 
  * This code must be written as a state machine -- each upcall must do its work
  * and return so that other upcalls can be delivered
@@ -49,7 +50,7 @@ public abstract class Node {
 	// 1. be able to deliver messages in the same round that they are sent
 	// 2. include a drift event, which pushes back all subsequent time-based
 	//    events (timers and commands)
-	//protected long drift;
+	long drift;
 
 	/**
 	 * Called by the manager to initialize certain variables. Students should
@@ -65,7 +66,7 @@ public abstract class Node {
 	final void init(Manager manager, int addr){
 		this.manager = manager;
 		this.addr = addr;
-		//this.drift = 0;
+		this.drift = 0;
 		// this.vtime = new VectorTime(Manager.MAX_ADDRESS);
 	}
 
@@ -199,8 +200,8 @@ public abstract class Node {
 	 *             If the file cannot be opened for writing
 	 */
 	public PersistentStorageWriter getWriter(String filename, boolean append) throws IOException{
-		if(!Utility.fileExists(this, filename)){
-			checkWriteCrash("creation of " + filename);
+		if(!Utility.fileExists(this, filename) || !append){
+			handleDiskWriteEvent("creation of " + filename, "create:" + filename);
 		}
 		Utility.mkdirs(addr);
 		File f = new File(Utility.realFilename(addr, filename));
@@ -208,15 +209,44 @@ public abstract class Node {
 	}
 
 	/**
-	 * Called before any modification of persistent storage. Tells the manager
-	 * to check whether we should crash or not.
+	 * Called before any modification of persistent storage. 
+	 * 
+	 * @param description
+	 *            Helpful description of the operation that is being attempted.
+	 *            This is mostly to aid in debugging and user-specified crashes.
+	 * 
+	 * @param synDescription
+	 *			  Synoptic string to use for this event
+	 */
+	void handleDiskWriteEvent(String description, String synDescription) {
+		// Ask the manager to check whether we should crash or not.
+		manager.checkWriteCrash(this, description);
+		// Since we didn't crash, notify manager of this write event.
+		manager.storageWriteEvent(this, synDescription);
+	}
+	
+	/**
+	 * Called before any retrieval of state from persistent storage.
 	 * 
 	 * @param description
 	 *            Helpful description of the operation that is being attempted.
 	 *            This is mostly to aid in debugging and user-specified crashes.
 	 */
-	void checkWriteCrash(String description) {
-		manager.checkWriteCrash(this, description);
+	public void handleDiskReadEvent(String synDescription) {
+		// Notify manager of this read event.
+		manager.storageReadEvent(this, synDescription);
+	}
+	
+	
+	/**
+	 * Returns a string representation of the packet bytes processed by the simulator.
+	 * Used to output simulator-observed payloads to synoptic logs
+	 * 
+	 * @param bytes packet bytes observed by the simulator
+	 * @return string representation of the packet bytes
+	 */
+	public String packetBytesToString(byte[] bytes) {
+		return Utility.byteArrayToString(bytes);
 	}
 	
 	@Override
@@ -233,4 +263,14 @@ public abstract class Node {
 	final public String toSynopticString() {
 		return "" + addr;
 	}
+	
+	/**
+	 * Generates a user-level synoptic event in the synoptic logs
+	 * @param eventStr the string representing this event
+	 */
+	final public void logSynopticEvent(String eventStr) {
+		String eventStrNoded = "node:" + this.toSynopticString() + " USER-EVENT " + eventStr;
+		this.manager.logEvent(this, eventStrNoded);
+	}
+	
 }

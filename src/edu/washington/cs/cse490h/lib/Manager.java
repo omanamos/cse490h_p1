@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Abstract class defining generic routines for running network code under the
@@ -16,14 +17,19 @@ public abstract class Manager {
 	protected static final int BROADCAST_ADDRESS = 255;
 	protected static final int MAX_ADDRESS = 255;
 	
-	protected final Class<? extends Node> nodeImpl;
 	protected final double failureRate;
 	protected final double recoveryRate;
 	protected final double dropRate;
 	protected final double delayRate;
 	
     protected long seed;
+    protected final Class<? extends Node> nodeImpl;
     
+    // TODO: migrate to using Node.vtime instead of this once you figure out
+	// how to embed vtime in Packet
+    // Maps: node addr -> node's current vector time
+	protected HashMap<Integer, VectorTime> vtimes;
+	
 	private int pktsSent;
 	protected ArrayList<Event> sortedEvents;
 	protected ArrayList<Timeout> waitingTOs;
@@ -246,5 +252,41 @@ public abstract class Manager {
 	 */
 	protected void setTime(long time) {
 		this.time = time;
+	}
+
+
+	/**
+	 * Triggered whenever the node attempts to write to the local storage device.
+	 * @param node
+	 * 			The node that is trying to write
+	 * @param description
+	 * 			The description of the write
+	 */
+	protected abstract void storageWriteEvent(Node node, String description);
+
+	
+	/**
+	 * Triggered whenever the node attempts to read from the local storage device.
+	 * @param node
+	 * 			The node that is trying to read
+	 * @param description
+	 * 			The description of the read
+	 */
+	protected abstract void storageReadEvent(Node node, String description);
+
+	
+	/**
+	 * Logs an event string for a node to synoptic partial log without a node field
+	 * 
+	 * @param node Node instance with which to associate the event string (for timing)
+	 * @param eventStr the event string
+	 */
+	protected void logEvent(Node node, String eventStr) {
+		// step() comes before logging because on communication, we've updated 
+		// the destination vtime to be at least the source, but it needs to be
+		// strictly greater than the source.
+		VectorTime vtime = vtimes.get(node.addr);
+		vtime.step(node.addr);
+		this.synPartialOrderLogger.logEvent("" + vtime.toString(), eventStr);
 	}
 }

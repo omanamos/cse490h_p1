@@ -44,7 +44,7 @@ public class MessageLayer {
 	/**
 	 * The current version.
 	 */
-	public static final String versionString = "v0.1";
+	public static final String versionString = "v0.2";
 
 	////////////////////////////////////////////////////
 	/**
