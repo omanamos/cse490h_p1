@@ -32,7 +32,7 @@ public class DistNode extends RIONode {
 					else
 						throw new IOException();
 				} catch (IOException e) {
-					returnError(from, protocol, fileName, Error.ERR_10);
+					this.returnError(from, protocol, fileName, Error.ERR_10);
 				}
 				break;
 			case RPCProtocol.CREATE:
@@ -40,7 +40,7 @@ public class DistNode extends RIONode {
 					if(!fileExists(data))
 						this.getWriter(data, false);
 					else
-						returnError(from, protocol, data, Error.ERR_11);
+						this.returnError(from, protocol, data, Error.ERR_11);
 					
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -53,14 +53,14 @@ public class DistNode extends RIONode {
 					else
 						throw new IOException();
 				}catch(IOException e){
-					returnError(from, protocol, data, Error.ERR_10);
+					this.returnError(from, protocol, data, Error.ERR_10);
 				}
 				break;
 			case RPCProtocol.GET:
 				try {
 					returnFile(from, data);
 				} catch (Exception e) {
-					returnError(from, protocol, data, Error.ERR_10);
+					this.returnError(from, protocol, data, Error.ERR_10);
 				}
 				break;
 			default:
@@ -68,13 +68,30 @@ public class DistNode extends RIONode {
 		}
 	}
 	
+	/**
+	 * Returns a file to the client
+	 * @param r Buffer to return
+	 * @throws IOException 
+	 */
+	private void returnFile(int from, String fileName) throws IOException{
+		PersistentStorageReader r = this.getReader(fileName);
+		String file = "";
+		String line = r.readLine();
+		while(line != null){
+			file += line;
+			line = r.readLine();
+		}
+		
+		byte[] rtn = Utility.stringToByteArray(file);
+		if(rtn.length > RTNPacket.MAX_PAYLOAD_SIZE)
+			this.returnError(from, RPCProtocol.GET, fileName, Error.ERR_30);
+		else
+			this.RIOLayer.returnRIO(from, RTNProtocol.DATA, rtn);
+	}
+	
 	private void returnError(int source, int protocol, String fileName, int errCode){
 		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
 		this.RIOLayer.returnRIO(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
-	}
-	
-	private void returnData(int source, byte[] payload){
-		//TODO
 	}
 	
 	/**
@@ -225,28 +242,6 @@ public class DistNode extends RIONode {
 		this.RIOLayer.sendRIO(server, RPCProtocol.DELETE, Utility.stringToByteArray(filename));
 	}
 	
-	/**
-	 * Returns a file to the client
-	 * @param r Buffer to return
-	 * @throws IOException 
-	 */
-	private void returnFile(int from, String fileName) throws IOException{
-		PersistentStorageReader r = this.getReader(fileName);
-		String file = "";
-		String line = r.readLine();
-		while(line != null){
-			file += line;
-			line = r.readLine();
-		}
-		
-		byte[] rtn = Utility.stringToByteArray(file);
-		if(rtn.length > RIOPacket.MAX_PAYLOAD_SIZE)
-			this.returnError(from, RPCProtocol.GET, fileName, Error.ERR_30);
-		else
-			this.returnData(from, rtn);
-	}
-	
-
 }
 
 

@@ -6,7 +6,6 @@ import java.io.IOException;
 
 public class RPCPacket extends RIOPacket {
 
-	public static final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
 	public static final int HEADER_SIZE = RIOPacket.HEADER_SIZE + 4;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 

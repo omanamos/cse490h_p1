@@ -7,13 +7,10 @@ import java.io.IOException;
 import edu.washington.cs.cse490h.lib.Packet;
 
 
-public class RTNPacket{
+public class RTNPacket extends RIOPacket{
 	public static final int MAX_PACKET_SIZE = Packet.MAX_PAYLOAD_SIZE;
 	public static final int HEADER_SIZE = 4;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
-
-	private int protocol;
-	private byte[] payload;
 
 	/**
 	 * Constructing a new RIO packet.
@@ -23,8 +20,7 @@ public class RTNPacket{
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public RTNPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		this.payload = payload;
-		this.protocol = protocol;
+		super(protocol, -1, payload);
 	}
 	
 	/**

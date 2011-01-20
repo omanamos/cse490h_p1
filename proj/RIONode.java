@@ -22,16 +22,12 @@ public abstract class RIONode extends Node {
 	public void onReceive(Integer from, int protocol, byte[] msg) {
 		if(protocol == Protocol.ACK) {
 			RIOLayer.receiveAck(from, msg);
-		}else if(protocol == Protocol.EXPIRED_SESSION) {
-			RIOLayer.receiveExpiredSessionError(from, msg);
-		}else if(protocol == Protocol.ACK_SESSION){
-			RIOLayer.receiveAckSession(from, msg);
-		}else if(protocol == Protocol.ESTB_SESSION){
-			RIOLayer.receiveEstablishSession(from);
-		}else if(protocol == RPCProtocol.DATA){
+		}else if(protocol == Protocol.SESSION){
+			RIOLayer.receiveSession(from, SessionPacket.unpack(msg));
+		}else if(protocol == Protocol.RTN){
 			RIOLayer.receiveData(msg);
-		}else{
-			RIOLayer.receiveRPC(from, msg);
+		}else if(protocol == Protocol.RPC){
+			RIOLayer.receiveRPC(from, RPCPacket.unpack(msg));
 		}
 	}
 
