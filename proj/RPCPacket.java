@@ -1,69 +1,37 @@
-import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
 import edu.washington.cs.cse490h.lib.Packet;
 
-/**
- * This conveys the header for reliable, in-order message transfer. This is
- * carried in the payload of a Packet, and in turn the data being transferred is
- * carried in the payload of the RIOPacket packet.
- */
-public class RIOPacket {
 
-	public static final int MAX_PACKET_SIZE = Packet.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 8;
-	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
+public class RPCPacket extends RIOPacket {
 
-	protected int protocol;
-	protected int seqNum;
-	protected byte[] payload;
+	public final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
+	public final int HEADER_SIZE = RIOPacket.HEADER_SIZE + 4;
+	public final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
+
+	private int sessionID; //set to -1 if this packet doesn't have one
 
 	/**
 	 * Constructing a new RIO packet.
 	 * @param type The type of packet. Either SYN, ACK, FIN, or DATA
+	 * @param sessionId The sessionId between the sender and receiver
 	 * @param seqNum The sequence number of the packet
 	 * @param payload The payload of the packet.
 	 */
-	public RIOPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		if (!Protocol.isPktProtocolValid(protocol)) {
-			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Invalid protocol");
-		}else if(payload.length > MAX_PAYLOAD_SIZE){
-			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Payload to large");
-		}
-
-		this.protocol = protocol;
-		this.seqNum = seqNum;
-		this.payload = payload;
-	}
-	
-	protected RIOPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		
-	}
-	
-	/**
-	 * @return The protocol number
-	 */
-	public int getProtocol() {
-		return this.protocol;
-	}
-	
-	/**
-	 * @return The sequence number
-	 */
-	public int getSeqNum() {
-		return this.seqNum;
+	public RPCPacket(int protocol, int seqNum, byte[] payload, int sessionID) throws IllegalArgumentException {
+		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE);
+		this.sessionID = sessionID;
 	}
 
-	/**
-	 * @return The payload
-	 */
-	public byte[] getPayload() {
-		return this.payload;
+	public int getSessionID(){
+		return this.sessionID;
 	}
 	
+
 	/**
 	 * Convert the RIOPacket packet object into a byte array for sending over the wire.
 	 * Format:
@@ -77,9 +45,10 @@ public class RIOPacket {
 			ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 			DataOutputStream out = new DataOutputStream(byteStream);
 
-			out.writeByte(protocol);
-			out.writeInt(seqNum);
-
+			out.writeByte(this.protocol);
+			out.writeInt(this.seqNum);
+			out.writeInt(this.sessionID);
+			
 			out.write(payload, 0, payload.length);
 
 			out.flush();
@@ -96,7 +65,7 @@ public class RIOPacket {
 	 * @param packet String representation of the transport packet
 	 * @return RIOPacket object created or null if the byte[] representation was corrupted
 	 */
-	public static RIOPacket unpack(byte[] packet) {
+	public static RPCPacket unpack(byte[] packet) {
 		try {
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
@@ -111,7 +80,7 @@ public class RIOPacket {
 				return null;
 			}
 
-			return new RIOPacket(protocol, seqNum, payload);
+			return new RPCPacket(protocol, sid, seqNum, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

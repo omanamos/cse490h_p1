@@ -81,7 +81,7 @@ public class ReliableInOrderMsgLayer {
 	public void receiveEstablishSession(int from){
 		InChannel in = inConnections.get(from);
 		if(in == null){
-			in = new InChannel(nextSessionId);
+			in = new InChannel(n, from, nextSessionId);
 			inConnections.put(from, in);
 			nextSessionId++;
 		}
@@ -99,17 +99,40 @@ public class ReliableInOrderMsgLayer {
 	 */
 	private void sendExpiredSessionError(int from){
 		this.inConnections.remove(from);
-		InChannel in = new InChannel(nextSessionId);
+		InChannel in = new InChannel(n, from, nextSessionId);
 		nextSessionId++;
 		inConnections.put(from, in);
 		n.send(from, Protocol.EXPIRED_SESSION, Utility.stringToByteArray(in.getSessionId() + ""));
 	}
 	
 	/**
+	 * SERVER METHOD<br>
+	 * @param destAddr source of request
+	 * @param protocol type of return
+	 * @param payload data to send
+	 */
+	public void returnRIO(int destAddr, int protocol, byte[] payload){
+		InChannel in = inConnections.get(destAddr);
+		if(in == null){
+			this.sendExpiredSessionError(destAddr);
+		}
+		
+		in.returnRIOPacket(protocol, payload);
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	/**
+	 * CLIENT METHOD<br>
 	 * Prints out the message returned.
 	 * @param msg payload to print out
 	 */
-	public void receiveDataRtn(byte[] msg){
+	public void receiveData(byte[] msg){
 		System.out.println(Utility.byteArrayToString(msg));
 	}
 	
@@ -158,6 +181,7 @@ public class ReliableInOrderMsgLayer {
 	}
 
 	/**
+	 * CLIENT METHOD<br>
 	 * Send a packet using this reliable, in-order messaging layer. Note that
 	 * this method does not include a reliable, in-order broadcast mechanism.
 	 * 
@@ -209,11 +233,15 @@ public class ReliableInOrderMsgLayer {
  * Stores the client's session information on the server side
  */
 class InChannel {
+	private RIONode n;
+	private int sourceAddr;
 	private int lastSeqNumDelivered;
 	private HashMap<Integer, RIOPacket> outOfOrderMsgs;
 	private int sessionId;
 	
-	InChannel(int nextSessionId){
+	InChannel(RIONode n, int sourceAddr, int nextSessionId){
+		this.n = n;
+		this.sourceAddr = sourceAddr;
 		lastSeqNumDelivered = -1;
 		outOfOrderMsgs = new HashMap<Integer, RIOPacket>();
 		sessionId = nextSessionId;
@@ -266,6 +294,14 @@ class InChannel {
 		return this.sessionId;
 	}
 	
+	public void returnRIOPacket(int protocol, byte[] payload){
+		this.n.send(this.sourceAddr, protocol, payload);
+	}
+	
+	public void returnAck(){
+		
+	}
+	
 	@Override
 	public String toString() {
 		return "last delivered: " + lastSeqNumDelivered + ", outstanding: " + outOfOrderMsgs.size();
@@ -316,15 +352,21 @@ class OutChannel {
 	 *            The payload to be sent
 	 */
 	protected void sendRIOPacket(int protocol, byte[] payload) {
-		RIOPacket newPkt = new RIOPacket(protocol, sessionId, ++lastSeqNumSent, payload);
+		RIOPacket pkt = new RIOPacket(protocol, sessionId, ++lastSeqNumSent, payload);
 		
 		if(establishingSession){			//Connection establishing a session
-			this.queuedCommands.add(newPkt);
+			this.queuedCommands.add(pkt);
 		}else if(this.sessionId == -1){		//Connection needs to establish a session
-			this.queuedCommands.add(newPkt);
+			this.queuedCommands.add(pkt);
 			this.establishSession();
 		}else{								//Session is already set up. Proceed normally.
-			sendRIOPacket(newPkt, true);
+			byte[] packed = pkt.pack();
+			if(packed.length > Protocol.MAX_PROTOCOL){
+				System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, protocol, "", Error.ERR_30));
+			}else{
+				this.createTimeoutListener(pkt);
+				n.send(destAddr, Protocol.RPC, pkt.pack());
+			}
 		}
 	}
 	
@@ -334,24 +376,16 @@ class OutChannel {
 	 * the session is being established.
 	 */
 	public void establishSession(){
-		RIOPacket sessionPkt = new RIOPacket(Protocol.ESTB_SESSION, ++lastSeqNumSent, Utility.stringToByteArray(""));
+		RIOPacket pkt = new RIOPacket(Protocol.ESTB_SESSION, ++lastSeqNumSent, Utility.stringToByteArray(""));
 		this.establishingSession = true;
-		this.sendRIOPacket(sessionPkt, false);
+		this.createTimeoutListener(pkt);
+		n.send(destAddr, Protocol.ESTB_SESSION, pkt.getPayload());
 	}
 	
-	/**
-	 * Sends the given RIOPacket
-	 * @param pkt data to send
-	 * @param pack if true, this will encapsulate the packet inside of another packet and send it using the DATA protocol
-	 */
-	private void sendRIOPacket(RIOPacket pkt, boolean pack){
+	private void createTimeoutListener(RIOPacket pkt){
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", parent, new String[]{ "java.lang.Integer", "java.lang.Integer" });
 			unACKedPackets.put(lastSeqNumSent, pkt);
-			if(pack)
-				n.send(destAddr, Protocol.DATA, pkt.pack());
-			else
-				n.send(destAddr, pkt.getProtocol(), pkt.getPayload());
 			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, lastSeqNumSent }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e){
 			e.printStackTrace();
@@ -420,7 +454,7 @@ class OutChannel {
 			if(riopkt.getProtocol() == Protocol.ESTB_SESSION)
 				n.send(destAddr, Protocol.ESTB_SESSION, riopkt.getPayload());
 			else
-				n.send(destAddr, Protocol.DATA, riopkt.pack());
+				n.send(destAddr, Protocol.RPC, riopkt.pack());
 			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();

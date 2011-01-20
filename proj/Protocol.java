@@ -6,18 +6,11 @@
 public class Protocol {
 	// Protocols for the Reliable in-order message layer
 	// These should be Packet protocols
-	public static final int DATA = 0;
-	public static final int ACK = 1;
-	public static final int CREATE = 2;
-	public static final int GET = 3;
-	public static final int PUT = 4;
-	public static final int APPEND = 5;
-	public static final int DELETE = 6;
-	public static final int ACK_SESSION = 7;
-	public static final int EXPIRED_SESSION = 8;
-	public static final int ESTB_SESSION = 9;
-	public static final int DATA_RTN = 11;
-
+	public static final int RPC = 0;
+	public static final int RTN = 1;
+	public static final int ACK = 2;
+	public static final int SESSION = 3;
+	
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
 	public static final int RIOTEST_PKT = 10;
@@ -32,20 +25,7 @@ public class Protocol {
 	 * @return true if the protocol is valid, false otherwise
 	 */
 	public static boolean isPktProtocolValid(int p) {
-		return (p == DATA || p == ACK || p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE || p == ACK_SESSION || p == EXPIRED_SESSION || p == ESTB_SESSION || p == DATA_RTN);
-	}
-
-	/**
-	 * Tests if the given protocol is valid for a RIOPacket. Note that the
-	 * current implementation of RIOPacket actually uses this to test validity
-	 * of packets.
-	 * 
-	 * @param protocol
-	 *            The protocol to be checked
-	 * @return True if protocol is valid, else false
-	 */
-	public static boolean isRIOProtocolValid(int protocol) {
-		return protocol == RIOTEST_PKT;
+		return (p == RPC || p == ACK || p == RTN || p == SESSION);
 	}
 
 	/**
@@ -59,32 +39,16 @@ public class Protocol {
 	 */
 	public static String protocolToString(int protocol) {
 		switch (protocol) {
-		case DATA:
-			return "RIO Data Packet";
-		case ACK:
-			return "RIO Acknowledgement Packet";
-		case RIOTEST_PKT:
-			return "RIO Testing Packet";
-		case CREATE:
-			return "create";
-		case APPEND:
-			return "append";
-		case GET:
-			return "get";
-		case PUT:
-			return "put";
-		case DELETE:
-			return "delete";
-		case ACK_SESSION:
-			return "RIO Session Acknowledgement Packet";
-		case EXPIRED_SESSION:
-			return "RIO Expired Session Packet";
-		case ESTB_SESSION:
-			return "RIO Establish Session Packet";
-		case DATA_RTN:
-			return "RIO Return Data Packet";
-		default:
-			return "Unknown Protocol";
+			case RPC:
+				return "RIO Remote Procedure Call Packet";
+			case RTN:
+				return "RIO Return Packet";
+			case ACK:
+				return "RIO Acknowledgement Packet";
+			case RIOTEST_PKT:
+				return "RIO Testing Packet";
+			default:
+				return "Unknown Protocol";
 		}
 	}
 }

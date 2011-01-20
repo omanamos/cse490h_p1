@@ -1,7 +1,6 @@
 import edu.washington.cs.cse490h.lib.Node;
 
 /**
- * ABHISHEK WAS HERE
  * Extension to the Node class that adds support for a reliable, in-order
  * messaging layer.
  * 
@@ -29,8 +28,8 @@ public abstract class RIONode extends Node {
 			RIOLayer.receiveAckSession(from, msg);
 		}else if(protocol == Protocol.ESTB_SESSION){
 			RIOLayer.receiveEstablishSession(from);
-		}else if(protocol == Protocol.DATA_RTN){
-			RIOLayer.receiveDataRtn(msg);
+		}else if(protocol == RPCProtocol.DATA){
+			RIOLayer.receiveData(msg);
 		}else{
 			RIOLayer.receiveRPC(from, msg);
 		}

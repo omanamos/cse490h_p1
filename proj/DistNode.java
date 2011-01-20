@@ -13,7 +13,7 @@ public class DistNode extends RIONode {
 		String data = Utility.byteArrayToString(msg);
 		
 		switch(protocol){
-			case Protocol.APPEND: case Protocol.PUT:
+			case RPCProtocol.APPEND: case RPCProtocol.PUT:
 				int indexOfSpace = data.indexOf(' ');
 				String fileName = data.substring(0, indexOfSpace);
 				String content = data.substring(indexOfSpace + 1);
@@ -24,48 +24,57 @@ public class DistNode extends RIONode {
 					//Unescape newline character
 					content = content.replaceAll("\\\\n", "\n");
 					if(fileExists(fileName))
-						if(protocol == Protocol.PUT)
+						if(protocol == RPCProtocol.PUT)
 							putFile(fileName, content);
 						else{
 							this.getWriter(fileName, true).write(content);
 						}
 					else
-						printError(this.addr, from, protocol, fileName, Error.ERR_10);
+						throw new IOException();
 				} catch (IOException e) {
-					printError(this.addr, from, protocol, fileName, Error.ERR_10);
+					returnError(from, protocol, fileName, Error.ERR_10);
 				}
 				break;
-			case Protocol.CREATE:
+			case RPCProtocol.CREATE:
 				try {
 					if(!fileExists(data))
 						this.getWriter(data, false);
 					else
-						printError(this.addr, from, protocol, data, Error.ERR_11);
+						returnError(from, protocol, data, Error.ERR_11);
 					
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
 				break;
-			case Protocol.DELETE:
+			case RPCProtocol.DELETE:
 				try{
 					if(fileExists(data))
 						this.getWriter(data, true).delete();
 					else
 						throw new IOException();
 				}catch(IOException e){
-					printError(this.addr, from, protocol, data, Error.ERR_10);
+					returnError(from, protocol, data, Error.ERR_10);
 				}
 				break;
-			case Protocol.GET:
+			case RPCProtocol.GET:
 				try {
 					returnFile(from, data);
 				} catch (Exception e) {
-					printError(this.addr, from, protocol, data, Error.ERR_10);
+					returnError(from, protocol, data, Error.ERR_10);
 				}
 				break;
 			default:
 				return;
 		}
+	}
+	
+	private void returnError(int source, int protocol, String fileName, int errCode){
+		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
+		this.RIOLayer.returnRIO(source, RPCProtocol.ERROR, Utility.stringToByteArray(error));
+	}
+	
+	private void returnData(int source, byte[] payload){
+		//TODO
 	}
 	
 	/**
@@ -117,15 +126,15 @@ public class DistNode extends RIONode {
 	
 	/**
 	 * Prints out an error in the following form Node #{addr}: Error: #{protocol} on server #{server} and file #{fileName} returned error code #{code}"
-	 * @param addr server node
-	 * @param from client node
+	 * @param dest server node
+	 * @param source client node
 	 * @param protocol protocol used
 	 * @param fileName name of file in command
 	 * @param code error code returned as defined by Error class
 	 */
-	static void printError(int addr, int from, int protocol, String fileName, int code){
-		System.out.println("Node " + from + ": Error: " + Protocol.protocolToString(protocol) + " on server " + 
-							addr + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code]);
+	static String buildErrorString(int dest, int source, int protocol, String fileName, int code){
+		return "Node " + source + ": Error: " + RPCProtocol.protocolToString(protocol) + " on server " + 
+						dest + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
 	}
 	
 	@Override
@@ -191,29 +200,29 @@ public class DistNode extends RIONode {
 	}
 	
 	private void create(int server, String filename){
-		this.RIOLayer.sendRIO(server, Protocol.CREATE, Utility.stringToByteArray(filename));
+		this.RIOLayer.sendRIO(server, RPCProtocol.CREATE, Utility.stringToByteArray(filename));
 	}
 	
 	private void get(int server, String filename){
-		this.RIOLayer.sendRIO(server, Protocol.GET, Utility.stringToByteArray(filename));
+		this.RIOLayer.sendRIO(server, RPCProtocol.GET, Utility.stringToByteArray(filename));
 	}
 	
 	private void put(int server, String filename, String contents){
 		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
 		if(payload.length > RIOPacket.MAX_PAYLOAD_SIZE)
-			printError(this.addr, server, Protocol.PUT, filename, Error.ERR_30);
-		this.RIOLayer.sendRIO(server, Protocol.PUT, payload);
+			System.out.println(buildErrorString(this.addr, server, RPCProtocol.PUT, filename, Error.ERR_30));
+		this.RIOLayer.sendRIO(server, RPCProtocol.PUT, payload);
 	}
 	
 	private void append(int server, String filename, String contents){
 		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
 		if(payload.length > RIOPacket.MAX_PAYLOAD_SIZE)
-			printError(this.addr, server, Protocol.APPEND, filename, Error.ERR_30);
-		this.RIOLayer.sendRIO(server, Protocol.APPEND, payload);
+			System.out.println(buildErrorString(this.addr, server, RPCProtocol.APPEND, filename, Error.ERR_30));
+		this.RIOLayer.sendRIO(server, RPCProtocol.APPEND, payload);
 	}
 	
 	private void delete(int server, String filename){
-		this.RIOLayer.sendRIO(server, Protocol.DELETE, Utility.stringToByteArray(filename));
+		this.RIOLayer.sendRIO(server, RPCProtocol.DELETE, Utility.stringToByteArray(filename));
 	}
 	
 	/**
@@ -232,9 +241,9 @@ public class DistNode extends RIONode {
 		
 		byte[] rtn = Utility.stringToByteArray(file);
 		if(rtn.length > RIOPacket.MAX_PAYLOAD_SIZE)
-			printError(this.addr, from, Protocol.GET, fileName, Error.ERR_30);
+			this.returnError(from, RPCProtocol.GET, fileName, Error.ERR_30);
 		else
-			this.send(from, Protocol.DATA_RTN, rtn);
+			this.returnData(from, rtn);
 	}
 	
 
