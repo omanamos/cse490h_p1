@@ -20,7 +20,11 @@ public class RTNPacket extends RIOPacket{
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public RTNPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		super(protocol, -1, payload);
+		this(protocol, payload, RTNProtocol.isRTNProtocol(protocol));
+	}
+	
+	protected RTNPacket(int protocol, byte[] payload, boolean hasInvalidProtocol) throws IllegalArgumentException {
+		super(protocol, -1, payload, MAX_PACKET_SIZE, hasInvalidProtocol);
 	}
 	
 	/**

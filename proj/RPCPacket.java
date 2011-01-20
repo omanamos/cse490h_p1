@@ -19,7 +19,7 @@ public class RPCPacket extends RIOPacket {
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public RPCPacket(int protocol, int seqNum, byte[] payload, int sessionID) throws IllegalArgumentException {
-		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE);
+		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !RPCProtocol.isRPCProtocol(protocol));
 		this.sessionID = sessionID;
 	}
 

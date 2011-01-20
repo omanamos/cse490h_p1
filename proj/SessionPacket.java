@@ -11,7 +11,7 @@ public class SessionPacket extends RTNPacket {
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public SessionPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		super(protocol, payload);
+		super(protocol, payload, SessionProtocol.isSessionProtocol(protocol));
 	}
 	
 	/**

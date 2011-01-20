@@ -28,14 +28,14 @@ public class RIOPacket {
 	 * @param payload The payload of the packet.
 	 */
 	public RIOPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		this(protocol, seqNum, payload, MAX_PAYLOAD_SIZE);
+		this(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !Protocol.isPktProtocolValid(protocol));
 	}
 	
-	protected RIOPacket(int protocol, int seqNum, byte[] payload, int maxPayloadSize) throws IllegalArgumentException {
-		if (!Protocol.isPktProtocolValid(protocol)) {
-			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Invalid protocol");
+	protected RIOPacket(int protocol, int seqNum, byte[] payload, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
+		if (hasInvalidProtocol) {
+			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol");
 		}else if(payload.length > maxPayloadSize){
-			throw new IllegalArgumentException("Illegal arguments given to RIOPacket: Payload to large");
+			throw new IllegalArgumentException("Illegal arguments given to Packet: Payload to large");
 		}
 
 		this.protocol = protocol;

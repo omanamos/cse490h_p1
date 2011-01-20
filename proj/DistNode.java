@@ -226,14 +226,14 @@ public class DistNode extends RIONode {
 	
 	private void put(int server, String filename, String contents){
 		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
-		if(payload.length > RIOPacket.MAX_PAYLOAD_SIZE)
+		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
 			System.out.println(buildErrorString(this.addr, server, RPCProtocol.PUT, filename, Error.ERR_30));
 		this.RIOLayer.sendRIO(server, RPCProtocol.PUT, payload);
 	}
 	
 	private void append(int server, String filename, String contents){
 		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
-		if(payload.length > RIOPacket.MAX_PAYLOAD_SIZE)
+		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
 			System.out.println(buildErrorString(this.addr, server, RPCProtocol.APPEND, filename, Error.ERR_30));
 		this.RIOLayer.sendRIO(server, RPCProtocol.APPEND, payload);
 	}
