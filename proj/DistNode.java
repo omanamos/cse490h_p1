@@ -70,7 +70,7 @@ public class DistNode extends RIONode {
 	
 	private void returnError(int source, int protocol, String fileName, int errCode){
 		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
-		this.RIOLayer.returnRIO(source, RPCProtocol.ERROR, Utility.stringToByteArray(error));
+		this.RIOLayer.returnRIO(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
 	}
 	
 	private void returnData(int source, byte[] payload){

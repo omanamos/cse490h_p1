@@ -5,6 +5,7 @@
 public class SessionProtocol extends Protocol{
 	public static final int ACK_SESSION = 4;
 	public static final int EXPIRED_SESSION = 5;
+	
 	public static final int ESTB_SESSION = 6;
 	
 	/**

@@ -4,23 +4,20 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import edu.washington.cs.cse490h.lib.Packet;
-
-
 public class RPCPacket extends RIOPacket {
 
-	public final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
-	public final int HEADER_SIZE = RIOPacket.HEADER_SIZE + 4;
-	public final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
+	public static final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
+	public static final int HEADER_SIZE = RIOPacket.HEADER_SIZE + 4;
+	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
 	private int sessionID; //set to -1 if this packet doesn't have one
 
 	/**
 	 * Constructing a new RIO packet.
-	 * @param type The type of packet. Either SYN, ACK, FIN, or DATA
-	 * @param sessionId The sessionId between the sender and receiver
+	 * @param protocol The type of packet
 	 * @param seqNum The sequence number of the packet
 	 * @param payload The payload of the packet.
+	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public RPCPacket(int protocol, int seqNum, byte[] payload, int sessionID) throws IllegalArgumentException {
 		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE);
@@ -30,7 +27,6 @@ public class RPCPacket extends RIOPacket {
 	public int getSessionID(){
 		return this.sessionID;
 	}
-	
 
 	/**
 	 * Convert the RIOPacket packet object into a byte array for sending over the wire.
@@ -80,7 +76,7 @@ public class RPCPacket extends RIOPacket {
 				return null;
 			}
 
-			return new RPCPacket(protocol, sid, seqNum, payload);
+			return new RPCPacket(protocol, seqNum, payload, sid);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

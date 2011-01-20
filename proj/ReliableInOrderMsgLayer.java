@@ -295,7 +295,7 @@ class InChannel {
 	}
 	
 	public void returnRIOPacket(int protocol, byte[] payload){
-		this.n.send(this.sourceAddr, protocol, payload);
+		this.n.send(this.sourceAddr, Protocol.RTN, new RTNPacket(protocol, payload));
 	}
 	
 	public void returnAck(){
@@ -319,7 +319,7 @@ class OutChannel {
 	private RIONode n;
 	
 	private int destAddr;
-	private int sessionId;
+	private int sessionID;
 	
 	private boolean establishingSession; //true if this connection is currently setting up the session.
 	private Queue<RIOPacket> queuedCommands; //fills up with queued commands while the session is being established.
@@ -334,7 +334,7 @@ class OutChannel {
 		
 		this.parent = parent;
 		this.n = n;
-		this.sessionId = sessionId;
+		this.sessionID = sessionId;
 		this.destAddr = destAddr;
 		
 		establishingSession = false;
@@ -352,11 +352,11 @@ class OutChannel {
 	 *            The payload to be sent
 	 */
 	protected void sendRIOPacket(int protocol, byte[] payload) {
-		RIOPacket pkt = new RIOPacket(protocol, sessionId, ++lastSeqNumSent, payload);
+		RIOPacket pkt = new RTNPacket(protocol, ++lastSeqNumSent, payload, sessionID);
 		
 		if(establishingSession){			//Connection establishing a session
 			this.queuedCommands.add(pkt);
-		}else if(this.sessionId == -1){		//Connection needs to establish a session
+		}else if(this.sessionID == -1){		//Connection needs to establish a session
 			this.queuedCommands.add(pkt);
 			this.establishSession();
 		}else{								//Session is already set up. Proceed normally.
