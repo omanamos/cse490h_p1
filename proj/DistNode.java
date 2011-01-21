@@ -216,19 +216,24 @@ public class DistNode extends RIONode {
 		}
 	}
 	
+	//TODO: change this shit to use the CCLayer and not the riolayer
 	private void create(int server, String filename){
-		this.RIOLayer.sendRIO(server, RPCProtocol.CREATE, Utility.stringToByteArray(filename));
+		this.CCLayer.sendCC(server, RPCProtocol.CREATE, Utility.stringToByteArray(filename) );
+		
+		//this.RIOLayer.sendRIO(server, RPCProtocol.CREATE, Utility.stringToByteArray(filename));
 	}
 	
 	private void get(int server, String filename){
-		this.RIOLayer.sendRIO(server, RPCProtocol.GET, Utility.stringToByteArray(filename));
+		this.CCLayer.sendCC(server, RPCProtocol.GET, Utility.stringToByteArray(filename));
+		//this.RIOLayer.sendRIO(server, RPCProtocol.GET, Utility.stringToByteArray(filename));
 	}
 	
 	private void put(int server, String filename, String contents){
 		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
 		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
 			System.out.println(buildErrorString(this.addr, server, RPCProtocol.PUT, filename, Error.ERR_30));
-		this.RIOLayer.sendRIO(server, RPCProtocol.PUT, payload);
+		this.CCLayer.sendCC(server, RPCProtocol.PUT, payload);
+		//this.RIOLayer.sendRIO(server, RPCProtocol.PUT, payload);
 	}
 	
 	private void append(int server, String filename, String contents){

@@ -11,11 +11,13 @@ import edu.washington.cs.cse490h.lib.Node;
  */
 public abstract class RIONode extends Node {
 	protected ReliableInOrderMsgLayer RIOLayer;
+	protected CacheCoherenceLayer CCLayer;
 	
 	public static int NUM_NODES = 10;
 	
 	public RIONode() {
 		RIOLayer = new ReliableInOrderMsgLayer(this);
+		CCLayer = new CacheCoherenceLayer(this);
 	}
 	
 	@Override
