@@ -9,7 +9,7 @@ import edu.washington.cs.cse490h.lib.Packet;
 
 public class RTNPacket extends RIOPacket{
 	public static final int MAX_PACKET_SIZE = Packet.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 4;
+	public static final int HEADER_SIZE = 1;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
 	/**
@@ -20,7 +20,7 @@ public class RTNPacket extends RIOPacket{
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public RTNPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		this(protocol, payload, RTNProtocol.isRTNProtocol(protocol));
+		this(protocol, payload, !RTNProtocol.isRTNProtocol(protocol));
 	}
 	
 	protected RTNPacket(int protocol, byte[] payload, boolean hasInvalidProtocol) throws IllegalArgumentException {
@@ -67,7 +67,7 @@ public class RTNPacket extends RIOPacket{
 	}
 
 	/**
-	 * Unpacks a byte array to create a RIOPacket object
+	 * Unpacks a byte array to create a RTNPacket object
 	 * Assumes the array has been formatted using pack method in RIOPacket
 	 * @param packet String representation of the transport packet
 	 * @return RIOPacket object created or null if the byte[] representation was corrupted
@@ -81,7 +81,7 @@ public class RTNPacket extends RIOPacket{
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
 
-			if (bytesRead != payload.length) {
+			if (bytesRead != payload.length || bytesRead == -1 && payload.length == 0) {
 				return null;
 			}
 

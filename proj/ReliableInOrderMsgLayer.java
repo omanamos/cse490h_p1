@@ -1,4 +1,5 @@
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Queue;
@@ -142,8 +143,8 @@ public class ReliableInOrderMsgLayer {
 	 * Prints out the message returned.
 	 * @param msg payload to print out
 	 */
-	public void receiveData(byte[] msg){
-		System.out.println(Utility.byteArrayToString(msg));
+	public void receiveData(RTNPacket pkt){
+		System.out.println(Utility.byteArrayToString(pkt.getPayload()));
 	}
 	
 	/**
@@ -366,7 +367,7 @@ class OutChannel {
 	 *            The payload to be sent
 	 */
 	protected void sendRPCPacket(int protocol, byte[] payload) {
-		RIOPacket pkt = new RPCPacket(protocol, ++lastSeqNumSent, payload, sessionID);
+		RPCPacket pkt = new RPCPacket(protocol, lastSeqNumSent + 1, payload, sessionID);
 		
 		if(establishingSession){			//Connection establishing a session
 			this.queuedCommands.add(pkt);
@@ -378,6 +379,7 @@ class OutChannel {
 			if(packed.length > Protocol.MAX_PROTOCOL){
 				System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, protocol, "", Error.ERR_30));
 			}else{
+				lastSeqNumSent++;
 				this.createTimeoutListener(pkt);
 				n.send(destAddr, Protocol.RPC, pkt.pack());
 			}
@@ -440,6 +442,7 @@ class OutChannel {
 	 */
 	protected void receiveAckSession(int sessionId, int seqNum) {
 		if(this.sessionID == -1){
+			System.out.println(1);
 			this.establishingSession = false;
 			this.unACKedPackets = new HashMap<Integer, RIOPacket>();
 			this.lastSeqNumSent = seqNum;
@@ -464,15 +467,24 @@ class OutChannel {
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", parent, new String[]{ "java.lang.Integer", "java.lang.Integer" });
 			RIOPacket pkt = unACKedPackets.get(seqNum);
-			
+			System.out.println("Values: " + toS(this.unACKedPackets.values()) + " Keys: " + toS(this.unACKedPackets.keySet()));
+			System.out.println("SeqNum: " + seqNum + " Protocol: " + pkt.getProtocol());
 			if(pkt instanceof SessionPacket)
-				n.send(destAddr, Protocol.SESSION, pkt.pack());
+				n.send(destAddr, Protocol.SESSION, ((SessionPacket)pkt).pack());
 			else
-				n.send(destAddr, Protocol.RPC, pkt.pack());
+				n.send(destAddr, Protocol.RPC, ((RPCPacket)pkt).pack());
 			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();
 		}
+	}
+	
+	private <E> String toS(Collection<E> c){
+		String rtn = "";
+		for(E e : c){
+			rtn += e.toString() + ", ";
+		}
+		return rtn;
 	}
 }
 
