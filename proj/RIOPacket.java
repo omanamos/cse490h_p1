@@ -14,7 +14,7 @@ import edu.washington.cs.cse490h.lib.Packet;
 public class RIOPacket {
 
 	public static final int MAX_PACKET_SIZE = Packet.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 8;
+	public static final int HEADER_SIZE = 5;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
 	protected int protocol;
@@ -106,7 +106,7 @@ public class RIOPacket {
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
 
-			if (bytesRead != payload.length) {
+			if (bytesRead != payload.length || bytesRead == -1 && payload.length == 0) {
 				return null;
 			}
 
