@@ -21,6 +21,7 @@ public class ReliableInOrderMsgLayer {
 	private HashMap<Integer, InChannel> inConnections;
 	private HashMap<Integer, OutChannel> outConnections;
 	private RIONode n;
+	private CacheCoherenceLayer cc;
 	private int nextSessionId = 0;
 
 	/**
@@ -33,9 +34,10 @@ public class ReliableInOrderMsgLayer {
 	 * @param timeSent
 	 *            The time that the ping was sent
 	 */
-	public ReliableInOrderMsgLayer(RIONode n) {
+	public ReliableInOrderMsgLayer(RIONode n, CacheCoherenceLayer cc) {
 		inConnections = new HashMap<Integer, InChannel>();
 		outConnections = new HashMap<Integer, OutChannel>();
+		this.cc = cc;
 		this.n = n;
 	}
 	
@@ -63,7 +65,7 @@ public class ReliableInOrderMsgLayer {
 		for(RIOPacket p: toBeDelivered) {
 			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
 			// deliver in-order the next sequence of packets
-			n.onRIOReceive(from, p.getProtocol(), p.getPayload());
+			cc.onRIOReceive(from, p.getProtocol(), p.getPayload());
 		}
 	}
 	

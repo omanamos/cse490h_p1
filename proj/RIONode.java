@@ -10,26 +10,26 @@ import edu.washington.cs.cse490h.lib.Node;
  * overriding the onReceive() method to include a call to super.onReceive()
  */
 public abstract class RIONode extends Node {
-	protected ReliableInOrderMsgLayer RIOLayer;
+	//protected ReliableInOrderMsgLayer RIOLayer;
 	protected CacheCoherenceLayer CCLayer;
 	
 	public static int NUM_NODES = 10;
 	
 	public RIONode() {
-		RIOLayer = new ReliableInOrderMsgLayer(this);
+		//RIOLayer = new ReliableInOrderMsgLayer(this);
 		CCLayer = new CacheCoherenceLayer(this);
 	}
 	
 	@Override
 	public void onReceive(Integer from, int protocol, byte[] msg) {
 		if(protocol == Protocol.ACK) {
-			RIOLayer.receiveAck(from, msg);
+			CCLayer.receiveAck(from, msg);
 		}else if(protocol == Protocol.SESSION){
-			RIOLayer.receiveSession(from, SessionPacket.unpack(msg));
+			CCLayer.receiveSession(from, SessionPacket.unpack(msg));
 		}else if(protocol == Protocol.RTN){
-			RIOLayer.receiveData(RTNPacket.unpack(msg));
+			CCLayer.receiveData(RTNPacket.unpack(msg));
 		}else if(protocol == Protocol.RPC){
-			RIOLayer.receiveRPC(from, RPCPacket.unpack(msg));
+			CCLayer.receiveRPC(from, RPCPacket.unpack(msg));
 		}
 	}
 
@@ -44,11 +44,11 @@ public abstract class RIONode extends Node {
 	 *            The payload of the message
 	 */
 	public void sendRIO(int destAddr, int protocol, byte[] payload) {
-		RIOLayer.sendRIO(destAddr, protocol, payload);
+		CCLayer.sendCC(destAddr, protocol, payload);
 	}
 
 	/**
-	 * Method that is called by the RIO layer when a message is to be delivered.
+	 * Method that is called by the CC layer when a message is to be delivered.
 	 * 
 	 * @param from
 	 *            The address from which the message was received
@@ -57,10 +57,13 @@ public abstract class RIONode extends Node {
 	 * @param msg
 	 *            The message that was received
 	 */
-	public abstract void onRIOReceive(Integer from, int protocol, byte[] msg);
+	public abstract void onCCReceive(Integer from, int protocol, byte[] msg);
+	
+	
+	
 	
 	@Override
 	public String toString() {
-		return RIOLayer.toString();
+		return CCLayer.toString();
 	}
 }
