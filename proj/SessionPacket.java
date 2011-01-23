@@ -2,7 +2,13 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 
-public class SessionPacket extends RTNPacket {
+import edu.washington.cs.cse490h.lib.Packet;
+
+public class SessionPacket extends RIOPacket {
+	public static final int MAX_PACKET_SIZE = Packet.MAX_PAYLOAD_SIZE;
+	public static final int HEADER_SIZE = 1;
+	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
+	
 	/**
 	 * Constructing a new RIO packet.
 	 * @param protocol The type of packet
@@ -11,7 +17,7 @@ public class SessionPacket extends RTNPacket {
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public SessionPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		super(protocol, payload, !SessionProtocol.isSessionProtocol(protocol));
+		super(protocol, -1, payload, MAX_PACKET_SIZE, !SessionProtocol.isSessionProtocol(protocol));
 	}
 	
 	/**

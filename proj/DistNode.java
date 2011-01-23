@@ -7,7 +7,7 @@ import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
-	private final static int MASTER_NODE = 0;
+	
 	
 	@Override
 	public void onCCReceive(Integer from, int protocol, byte[] msg) {
@@ -24,7 +24,7 @@ public class DistNode extends RIONode {
 				try {
 					//Unescape newline character
 					content = content.replaceAll("\\\\n", "\n");
-					if(fileExists(fileName))
+					if(fileExists(fileName) || true)
 						if(protocol == RPCProtocol.PUT)
 							putFile(fileName, content);
 						else{
@@ -84,15 +84,15 @@ public class DistNode extends RIONode {
 		}
 		
 		byte[] rtn = Utility.stringToByteArray(file);
-		if(rtn.length > RTNPacket.MAX_PAYLOAD_SIZE)
+		if(rtn.length > ACKPacket.MAX_PAYLOAD_SIZE)
 			this.returnError(from, RPCProtocol.GET, fileName, Error.ERR_30);
 		else
-			this.CCLayer.sendCC(from, RTNProtocol.DATA, rtn);
+			this.CCLayer.returnCC(from, ACKProtocol.DATA, rtn);
 	}
 	
-	private void returnError(int source, int protocol, String fileName, int errCode){
+	public void returnError(int source, int protocol, String fileName, int errCode){
 		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
-		this.CCLayer.sendCC(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
+		this.CCLayer.returnCC(source, ACKProtocol.ERROR, Utility.stringToByteArray(error));
 	}
 	
 	/**
@@ -150,7 +150,7 @@ public class DistNode extends RIONode {
 	 * @param fileName name of file in command
 	 * @param code error code returned as defined by Error class
 	 */
-	static String buildErrorString(int dest, int source, int protocol, String fileName, int code){
+	public static String buildErrorString(int dest, int source, int protocol, String fileName, int code){
 		return "Node " + source + ": Error: " + RPCProtocol.protocolToString(protocol) + " on server " + 
 						dest + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
 	}
@@ -203,46 +203,21 @@ public class DistNode extends RIONode {
 		lastSpace = indexOfSpace + 1;
 		
 		if(code.equals("create")){
-			this.create(MASTER_NODE, fileName);
+			this.CCLayer.create(fileName);
 		}else if(code.equals("get")){
-			this.get(MASTER_NODE, fileName);
+			this.CCLayer.get(fileName);
 		}else if(code.equals("put")){
 			String content = command.substring(lastSpace);
-			this.put(MASTER_NODE, fileName, content);
+			this.CCLayer.put( fileName, content);
 		}else if(code.equals("append")){
 			String content = command.substring(lastSpace);
-			this.append(MASTER_NODE, fileName, content);
+			this.CCLayer.append(fileName, content);
 		}else if(code.equals("delete")){
-			this.delete(MASTER_NODE, fileName);
+			this.CCLayer.delete(fileName);
 		}
 	}
 	
-	//TODO: change this shit to use the CCLayer and not the riolayer
-	private void create(int server, String filename){
-		this.CCLayer.sendCC(server, RPCProtocol.CREATE, Utility.stringToByteArray(filename) );
-	}
 	
-	private void get(int server, String filename){
-		this.CCLayer.sendCC(server, RPCProtocol.GET, Utility.stringToByteArray(filename));
-	}
-	
-	private void put(int server, String filename, String contents){
-		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
-		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
-			System.out.println(buildErrorString(this.addr, server, RPCProtocol.PUT, filename, Error.ERR_30));
-		this.CCLayer.sendCC(server, RPCProtocol.PUT, payload);
-	}
-	
-	private void append(int server, String filename, String contents){
-		byte[] payload = Utility.stringToByteArray(filename + " " + contents);
-		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
-			System.out.println(buildErrorString(this.addr, server, RPCProtocol.APPEND, filename, Error.ERR_30));
-		this.CCLayer.sendCC(server, RPCProtocol.APPEND, payload);
-	}
-	
-	private void delete(int server, String filename){
-		this.CCLayer.sendCC(server, RPCProtocol.DELETE, Utility.stringToByteArray(filename));
-	}
 	
 }
 

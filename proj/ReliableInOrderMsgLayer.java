@@ -56,8 +56,6 @@ public class ReliableInOrderMsgLayer {
 		if(in == null) { //Expired Session -> Server has crashed recently
 			sendExpiredSessionError(from);
 			return;
-		}else{ //Normal RPC
-			in.returnAck(Utility.stringToByteArray("" + pkt.getSeqNum()));
 		}
 		
 		LinkedList<RPCPacket> toBeDelivered = in.gotPacket(pkt);
@@ -118,20 +116,6 @@ public class ReliableInOrderMsgLayer {
 		in.returnSessionPacket(SessionProtocol.EXPIRED_SESSION, Utility.stringToByteArray(in.getSessionId() + ""));
 	}
 	
-	/**
-	 * SERVER METHOD<br>
-	 * @param destAddr source of request
-	 * @param protocol type of return
-	 * @param payload data to send
-	 */
-	public void returnRIO(int destAddr, int protocol, byte[] payload){
-		InChannel in = inConnections.get(destAddr);
-		if(in == null){
-			this.sendExpiredSessionError(destAddr);
-		}
-		
-		in.returnRIOPacket(protocol, payload);
-	}
 	
 	
 	
@@ -139,15 +123,6 @@ public class ReliableInOrderMsgLayer {
 	
 	
 	
-	
-	/**
-	 * CLIENT METHOD<br>
-	 * Prints out the message returned.
-	 * @param msg payload to print out
-	 */
-	public void receiveData(RTNPacket pkt){
-		System.out.println(Utility.byteArrayToString(pkt.getPayload()));
-	}
 	
 	/**
 	 * CLIENT METHOD<br>
@@ -188,8 +163,8 @@ public class ReliableInOrderMsgLayer {
 	 * @param pkt
 	 *            The Packet of data
 	 */
-	public void receiveAck(int from, byte[] msg) {
-		int seqNum = Integer.parseInt( Utility.byteArrayToString(msg) );
+	public void receiveAck(int from, ACKPacket pkt) {
+		int seqNum = pkt.getSeqNum();
 		outConnections.get(from).receiveAck(seqNum);
 	}
 
@@ -307,12 +282,8 @@ class InChannel {
 		return this.sessionId;
 	}
 	
-	public void returnRIOPacket(int protocol, byte[] payload){
-		this.n.send(this.sourceAddr, Protocol.RTN, new RTNPacket(protocol, payload).pack());
-	}
-	
-	public void returnAck(byte[] payload){
-		this.n.send(this.sourceAddr, Protocol.ACK, payload);
+	public void returnRIOPacket(int protocol, int seqNum, byte[] payload){
+		this.n.send(this.sourceAddr, Protocol.ACK, new ACKPacket(protocol, seqNum, payload).pack());
 	}
 	
 	public void returnSessionPacket(int protocol, byte[] payload){

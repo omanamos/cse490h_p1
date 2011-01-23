@@ -7,9 +7,8 @@ public class Protocol {
 	// Protocols for the Reliable in-order message layer
 	// These should be Packet protocols
 	public static final int RPC = 0;
-	public static final int RTN = 1;
-	public static final int ACK = 2;
-	public static final int SESSION = 3;
+	public static final int ACK = 1;
+	public static final int SESSION = 2;
 	
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
@@ -25,7 +24,7 @@ public class Protocol {
 	 * @return true if the protocol is valid, false otherwise
 	 */
 	public static boolean isPktProtocolValid(int p) {
-		return (p == RPC || p == ACK || p == RTN || p == SESSION);
+		return (p == RPC || p == ACK ||  p == SESSION);
 	}
 
 	/**
@@ -41,8 +40,6 @@ public class Protocol {
 		switch (protocol) {
 			case RPC:
 				return "RIO Remote Procedure Call Packet";
-			case RTN:
-				return "RIO Return Packet";
 			case ACK:
 				return "RIO Acknowledgement Packet";
 			case RIOTEST_PKT:

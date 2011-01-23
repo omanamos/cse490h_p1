@@ -1,15 +1,58 @@
+import java.util.ArrayList;
 import java.util.HashMap;
 
-
+//Master Files reside on the MASTER_NODE
 public class MasterFile extends File {
 
+	//address, state
 	HashMap<Integer, Integer> filePermissions;
 	
-	public MasterFile(int state, String name) {
-		super(state, name);
+	public MasterFile(String name) {
+		super(-1, name);
 		this.filePermissions = new HashMap<Integer,Integer>();
 	}
+	
+	public boolean hasCopy( int addr ) {
+		return this.filePermissions.containsKey(addr);
+	}
 
+	public void checkout( int addr ) {
+		if( this.hasCopy( addr ) ) {
+			throw new IllegalArgumentException();
+		} else {
+			this.filePermissions.put(addr, File.INV);
+		}
+	}
+	
+	public void changePermissions( int addr, int state ) {
+		this.filePermissions.put(addr, state);
+
+	}
+	
+	public HashMap<Integer, ArrayList<Integer>> getUpdates(int addr, int state){
+		HashMap<Integer, ArrayList<Integer>> returnMap = new HashMap<Integer, ArrayList<Integer>>();
+		
+		if( !isValidState( state ) || state == File.INV) {
+			throw new IllegalArgumentException("Invalid state");
+		} else {
+				for( Integer i : filePermissions.keySet() ) {
+					switch( filePermissions.get(i) ) {
+						case File.RO:
+							if(!returnMap.containsKey(File.RO))
+								returnMap.put(File.RO, new ArrayList<Integer>());
+							returnMap.get(File.RO).add(i);
+							break;
+						case File.RW:
+							returnMap.put(File.RW, new ArrayList<Integer>());
+							returnMap.get(File.RW).add( i );
+							return returnMap;
+					}
+				}
+
+		}
+		return returnMap;
+	}
+	
 	public int getPermissions(int addr){
 		if(!this.filePermissions.containsKey(addr)){
 			return -1;

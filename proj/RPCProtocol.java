@@ -8,6 +8,7 @@ public class RPCProtocol extends Protocol{
 	public static final int PUT = 8;
 	public static final int APPEND = 9;
 	public static final int DELETE = 10;
+	public static final int INV = 11;
 	
 	/**
 	 * Tests if this is a valid protocol for a Packet
@@ -21,7 +22,7 @@ public class RPCProtocol extends Protocol{
 	}
 	
 	public static boolean isRPCProtocol(int p){
-		return p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE;
+		return p == CREATE || p == GET || p == PUT || p == APPEND || p == DELETE || p == INV;
 	}
 
 	/**
@@ -40,6 +41,7 @@ public class RPCProtocol extends Protocol{
 		case PUT: return "put";
 		case APPEND: return "append";
 		case DELETE: return "delete";
+		case INV: return "invalidate";
 		default:
 			return Protocol.protocolToString(protocol);
 		}
