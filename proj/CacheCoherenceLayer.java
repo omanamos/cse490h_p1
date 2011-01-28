@@ -21,17 +21,20 @@ public class CacheCoherenceLayer {
 	public void sendCC( int server, int commandType, byte[] payload) {
 		this.RIOLayer.sendRIO(server, commandType, payload);
 	}
+	
+	public void returnCC( int source, int protocol, byte[] payload){
+		this.RIOLayer.sendRIO(source, protocol, payload);
+	}
 
 	public void receiveSession(Integer from, SessionPacket unpack) {
 		this.RIOLayer.receiveSession(from, unpack);
 	}
 
-
 	public void receiveRPC(Integer from, RPCPacket unpack) {
 		this.RIOLayer.receiveRPC(from, unpack);
 	}
 
-	public void receiveAck(Integer from, ACKPacket msg) {
+	public void receiveAck(Integer from, RTNPacket msg) {
 		this.RIOLayer.receiveAck(from, msg);
 	}
 

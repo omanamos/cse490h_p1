@@ -23,7 +23,7 @@ public abstract class RIONode extends Node {
 	@Override
 	public void onReceive(Integer from, int protocol, byte[] msg) {
 		if(protocol == Protocol.ACK) {
-			CCLayer.receiveAck(from, ACKPacket.unpack(msg));
+			CCLayer.receiveAck(from, RTNPacket.unpack(msg));
 		}else if(protocol == Protocol.SESSION){
 			CCLayer.receiveSession(from, SessionPacket.unpack(msg));
 		}else if(protocol == Protocol.RPC){

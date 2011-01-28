@@ -124,6 +124,12 @@ public class ReliableInOrderMsgLayer {
 	
 	
 	
+	
+	
+	
+	
+	
+	
 	/**
 	 * CLIENT METHOD<br>
 	 * Called when the client receives an EXPIRED_SESSION packet.
@@ -163,7 +169,7 @@ public class ReliableInOrderMsgLayer {
 	 * @param pkt
 	 *            The Packet of data
 	 */
-	public void receiveAck(int from, ACKPacket pkt) {
+	public void receiveAck(int from, RTNPacket pkt) {
 		int seqNum = pkt.getSeqNum();
 		outConnections.get(from).receiveAck(seqNum);
 	}
@@ -283,7 +289,7 @@ class InChannel {
 	}
 	
 	public void returnRIOPacket(int protocol, int seqNum, byte[] payload){
-		this.n.send(this.sourceAddr, Protocol.ACK, new ACKPacket(protocol, seqNum, payload).pack());
+		this.n.send(this.sourceAddr, Protocol.ACK, new RTNPacket(protocol, seqNum, payload).pack());
 	}
 	
 	public void returnSessionPacket(int protocol, byte[] payload){

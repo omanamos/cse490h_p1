@@ -84,15 +84,15 @@ public class DistNode extends RIONode {
 		}
 		
 		byte[] rtn = Utility.stringToByteArray(file);
-		if(rtn.length > ACKPacket.MAX_PAYLOAD_SIZE)
+		if(rtn.length > RTNPacket.MAX_PAYLOAD_SIZE)
 			this.returnError(from, RPCProtocol.GET, fileName, Error.ERR_30);
 		else
-			this.CCLayer.returnCC(from, ACKProtocol.DATA, rtn);
+			this.CCLayer.returnCC(from, RTNProtocol.DATA, rtn);
 	}
 	
 	public void returnError(int source, int protocol, String fileName, int errCode){
 		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
-		this.CCLayer.returnCC(source, ACKProtocol.ERROR, Utility.stringToByteArray(error));
+		this.CCLayer.returnCC(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
 	}
 	
 	/**

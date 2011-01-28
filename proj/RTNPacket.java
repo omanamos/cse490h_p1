@@ -4,10 +4,10 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class ACKPacket extends RIOPacket{
+public class RTNPacket extends RIOPacket{
 	
-	public ACKPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !ACKProtocol.isACKProtocol(protocol));
+	public RTNPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
+		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !RTNProtocol.isACKProtocol(protocol));
 	}
 	
 	/**
@@ -55,7 +55,7 @@ public class ACKPacket extends RIOPacket{
 	 * @param packet String representation of the transport packet
 	 * @return RIOPacket object created or null if the byte[] representation was corrupted
 	 */
-	public static ACKPacket unpack(byte[] packet) {
+	public static RTNPacket unpack(byte[] packet) {
 		try {
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
@@ -69,7 +69,7 @@ public class ACKPacket extends RIOPacket{
 				return null;
 			}
 
-			return new ACKPacket(protocol, seqNum, payload);
+			return new RTNPacket(protocol, seqNum, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

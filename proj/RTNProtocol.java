@@ -2,7 +2,7 @@
 /**
  *	These protocols are sent by servers and received by clients.
  */
-public class ACKProtocol extends Protocol {
+public class RTNProtocol extends Protocol {
 	
 	public static final int DATA = 6;
 	public static final int ERROR = 7;
