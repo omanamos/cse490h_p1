@@ -30,10 +30,6 @@ public class CacheCoherenceLayer {
 		this.RIOLayer.receiveSession(from, unpack);
 	}
 
-	public void receiveRPC(Integer from, RPCPacket unpack) {
-		this.RIOLayer.receiveRPC(from, unpack);
-	}
-
 	public void onRPCReceive(int from, int protocol, byte[] payload) {
 		String filename = Utility.byteArrayToString(payload);
 		File f = this.cache.get(filename);

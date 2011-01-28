@@ -14,24 +14,25 @@ import edu.washington.cs.cse490h.lib.Packet;
 public class RIOPacket {
 
 	public static final int MAX_PACKET_SIZE = Packet.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 5;
+	public static final int HEADER_SIZE = 9;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
 	protected int protocol;
 	protected int seqNum;
+	protected int sessionID;
 	protected byte[] payload;
 
 	/**
 	 * Constructing a new RIO packet.
-	 * @param type The type of packet. Either SYN, ACK, FIN, or DATA
+	 * @param type The type of packet. Either 
 	 * @param seqNum The sequence number of the packet
 	 * @param payload The payload of the packet.
 	 */
-	public RIOPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		this(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !Protocol.isPktProtocolValid(protocol));
+	public RIOPacket(int protocol, int seqNum, byte[] payload, int sessionID) throws IllegalArgumentException {
+		this(protocol, seqNum, payload, sessionID, MAX_PAYLOAD_SIZE, !Protocol.isPktProtocolValid(protocol));
 	}
 	
-	protected RIOPacket(int protocol, int seqNum, byte[] payload, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
+	protected RIOPacket(int protocol, int seqNum, byte[] payload, int sessionID, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
 		if (hasInvalidProtocol) {
 			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol");
 		}else if(payload.length > maxPayloadSize){
@@ -41,6 +42,10 @@ public class RIOPacket {
 		this.protocol = protocol;
 		this.seqNum = seqNum;
 		this.payload = payload;
+	}
+	
+	public int getSessionID(){
+		return this.sessionID;
 	}
 	
 	/**
@@ -102,6 +107,7 @@ public class RIOPacket {
 
 			int protocol = in.readByte();
 			int seqNum = in.readInt();
+			int sid = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
@@ -110,7 +116,7 @@ public class RIOPacket {
 				return null;
 			}
 
-			return new RIOPacket(protocol, seqNum, payload);
+			return new RIOPacket(protocol, seqNum, payload, sid);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

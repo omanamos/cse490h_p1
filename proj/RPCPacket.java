@@ -4,12 +4,15 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class RPCPacket extends RIOPacket {
+public class RPCPacket{
 
-	public static final int HEADER_SIZE = RIOPacket.HEADER_SIZE + 4;
+	public static final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
+	public static final int HEADER_SIZE = 1;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
-	private int sessionID; //set to -1 if this packet doesn't have one
+	protected int protocol;
+	
+	protected byte[] payload;
 
 	/**
 	 * Constructing a new RIO packet.
@@ -18,15 +21,24 @@ public class RPCPacket extends RIOPacket {
 	 * @param payload The payload of the packet.
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
-	public RPCPacket(int protocol, int seqNum, byte[] payload, int sessionID) throws IllegalArgumentException {
-		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !RPCProtocol.isRPCProtocol(protocol));
-		this.sessionID = sessionID;
+	public RPCPacket(int protocol, byte[] payload) throws IllegalArgumentException {
+		this.protocol = protocol;
+		this.payload = payload;
 	}
 
-	public int getSessionID(){
-		return this.sessionID;
+	/**
+	 * @return The protocol number
+	 */
+	public int getProtocol() {
+		return this.protocol;
 	}
-
+	
+	/**
+	 * @return The payload
+	 */
+	public byte[] getPayload() {
+		return this.payload;
+	}
 	/**
 	 * Convert the RIOPacket packet object into a byte array for sending over the wire.
 	 * Format:
@@ -41,8 +53,6 @@ public class RPCPacket extends RIOPacket {
 			DataOutputStream out = new DataOutputStream(byteStream);
 
 			out.writeByte(this.protocol);
-			out.writeInt(this.seqNum);
-			out.writeInt(this.sessionID);
 			
 			out.write(payload, 0, payload.length);
 
@@ -65,8 +75,6 @@ public class RPCPacket extends RIOPacket {
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
 			int protocol = in.readByte();
-			int seqNum = in.readInt();
-			int sid = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
@@ -75,7 +83,7 @@ public class RPCPacket extends RIOPacket {
 				return null;
 			}
 
-			return new RPCPacket(protocol, seqNum, payload, sid);
+			return new RPCPacket(protocol, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

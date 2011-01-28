@@ -60,16 +60,12 @@ public class ReliableInOrderMsgLayer {
 		
 		this.sendAck(from, pkt.getSeqNum());
 		
-		if(pkt instanceof RPCPacket){
-			LinkedList<RPCPacket> toBeDelivered = in.gotPacket((RPCPacket)pkt);
-			
-			for(RIOPacket p: toBeDelivered) {
-				//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
-				// deliver in-order the next sequence of packets
-				cc.onRPCReceive(from, p.getProtocol(), p.getPayload());
-			}
-		}else{
-			
+		LinkedList<RPCPacket> toBeDelivered = in.gotPacket((RPCPacket)pkt);
+		
+		for(RIOPacket p: toBeDelivered) {
+			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
+			// deliver in-order the next sequence of packets
+			cc.onRPCReceive(from, p.getProtocol(), p.getPayload());
 		}
 	}
 	
@@ -302,10 +298,6 @@ class InChannel {
 		return this.sessionId;
 	}
 	
-	public void returnRIOPacket(int protocol, int seqNum, byte[] payload){
-		this.n.send(this.sourceAddr, Protocol.ACK, new RTNPacket(protocol, seqNum, payload).pack());
-	}
-	
 	public void returnSessionPacket(int protocol, byte[] payload){
 		this.n.send(this.sourceAddr, Protocol.SESSION, new SessionPacket(protocol, payload).pack());
 	}
@@ -360,7 +352,8 @@ class OutChannel {
 	 *            The payload to be sent
 	 */
 	protected void sendRIOPacket(int protocol, byte[] payload) {
-		RPCPacket pkt = new RPCPacket(protocol, lastSeqNumSent + 1, payload, sessionID);
+		//TODO:make RIOPacket
+		RIOPacket pkt = new RIOPacket(protocol, lastSeqNumSent + 1, payload, sessionID);
 		
 		if(establishingSession){			//Connection establishing a session
 			this.queuedCommands.add(pkt);

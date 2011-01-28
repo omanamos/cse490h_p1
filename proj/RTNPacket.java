@@ -4,10 +4,10 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class RTNPacket extends RIOPacket{
+public class RTNPacket extends RPCPacket{
 	
-	public RTNPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		super(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !RTNProtocol.isACKProtocol(protocol));
+	public RTNPacket(int protocol, byte[] payload) throws IllegalArgumentException {
+		super(protocol, payload, !RTNProtocol.isACKProtocol(protocol));
 	}
 	
 	/**
