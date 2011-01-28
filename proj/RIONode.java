@@ -10,24 +10,34 @@ import edu.washington.cs.cse490h.lib.Node;
  * overriding the onReceive() method to include a call to super.onReceive()
  */
 public abstract class RIONode extends Node {
-	//protected ReliableInOrderMsgLayer RIOLayer;
+	private ReliableInOrderMsgLayer RIOLayer;
 	protected CacheCoherenceLayer CCLayer;
 	
 	public static int NUM_NODES = 10;
 	
 	public RIONode() {
-		//RIOLayer = new ReliableInOrderMsgLayer(this);
+		RIOLayer = new ReliableInOrderMsgLayer(this);
 		CCLayer = new CacheCoherenceLayer(this);
+	}
+	
+	public ReliableInOrderMsgLayer getRIOLayer(){
+		return this.RIOLayer;
+	}
+	
+	public CacheCoherenceLayer getCCLayer(){
+		return this.CCLayer;
 	}
 	
 	@Override
 	public void onReceive(Integer from, int protocol, byte[] msg) {
 		if(protocol == Protocol.ACK) {
-			CCLayer.receiveAck(from, RTNPacket.unpack(msg));
+			this.RIOLayer.receiveAck(from, msg);
 		}else if(protocol == Protocol.SESSION){
-			CCLayer.receiveSession(from, SessionPacket.unpack(msg));
+			this.RIOLayer.receiveSession(from, SessionPacket.unpack(msg));
 		}else if(protocol == Protocol.RPC){
-			CCLayer.receiveRPC(from, RPCPacket.unpack(msg));
+			this.RIOLayer.receiveRPC(from, RPCPacket.unpack(msg));
+		}else if(protocol == Protocol.RTN){
+			this.RIOLayer.receiveData(from, RTNPacket.unpack(msg));
 		}
 	}
 

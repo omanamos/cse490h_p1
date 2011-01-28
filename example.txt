@@ -12,3 +12,9 @@ propose 0
 
 Deterministic Replay
 ./excecute.pl -s -n TwoGenerals -f 0 -seed=[seed from run to replay]
+
+Transaction rules
+-----------------
+If you can assign virtual times such that these properties hold:
+-reads must be between two writes
+-writes must be between two reads

@@ -14,7 +14,7 @@ public class CacheCoherenceLayer {
 	
 	public CacheCoherenceLayer(RIONode n) {
 		this.n = (DistNode)n;
-		this.RIOLayer = new ReliableInOrderMsgLayer( n, this );
+		this.RIOLayer = n.getRIOLayer();
 		this.cache = new HashMap<String, File>();
 	}
 	
@@ -34,11 +34,7 @@ public class CacheCoherenceLayer {
 		this.RIOLayer.receiveRPC(from, unpack);
 	}
 
-	public void receiveAck(Integer from, RTNPacket msg) {
-		this.RIOLayer.receiveAck(from, msg);
-	}
-
-	public void onRIOReceive(int from, int protocol, byte[] payload) {
+	public void onRPCReceive(int from, int protocol, byte[] payload) {
 		String filename = Utility.byteArrayToString(payload);
 		File f = this.cache.get(filename);
 		switch(protocol){

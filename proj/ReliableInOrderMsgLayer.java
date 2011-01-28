@@ -34,10 +34,10 @@ public class ReliableInOrderMsgLayer {
 	 * @param timeSent
 	 *            The time that the ping was sent
 	 */
-	public ReliableInOrderMsgLayer(RIONode n, CacheCoherenceLayer cc) {
+	public ReliableInOrderMsgLayer(RIONode n) {
 		inConnections = new HashMap<Integer, InChannel>();
 		outConnections = new HashMap<Integer, OutChannel>();
-		this.cc = cc;
+		this.cc = n.getCCLayer();
 		this.n = n;
 	}
 	
@@ -50,21 +50,31 @@ public class ReliableInOrderMsgLayer {
 	 * @param pkt
 	 *            The Packet of data
 	 */
-	public void receiveRPC(int from, RPCPacket pkt) {
-
+	public void receiveRPC(int from, RIOPacket pkt) {
+		
 		InChannel in = inConnections.get(from);
 		if(in == null) { //Expired Session -> Server has crashed recently
 			sendExpiredSessionError(from);
 			return;
 		}
 		
-		LinkedList<RPCPacket> toBeDelivered = in.gotPacket(pkt);
+		this.sendAck(from, pkt.getSeqNum());
 		
-		for(RIOPacket p: toBeDelivered) {
-			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
-			// deliver in-order the next sequence of packets
-			cc.onRIOReceive(from, p.getProtocol(), p.getPayload());
+		if(pkt instanceof RPCPacket){
+			LinkedList<RPCPacket> toBeDelivered = in.gotPacket((RPCPacket)pkt);
+			
+			for(RIOPacket p: toBeDelivered) {
+				//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
+				// deliver in-order the next sequence of packets
+				cc.onRPCReceive(from, p.getProtocol(), p.getPayload());
+			}
+		}else{
+			
 		}
+	}
+	
+	public void receiveData(int from, RTNPacket pkt){
+		
 	}
 	
 	public void receiveSession(int from, SessionPacket pkt){
@@ -114,6 +124,10 @@ public class ReliableInOrderMsgLayer {
 		nextSessionId++;
 		inConnections.put(from, in);
 		in.returnSessionPacket(SessionProtocol.EXPIRED_SESSION, Utility.stringToByteArray(in.getSessionId() + ""));
+	}
+	
+	private void sendAck(int from, int seqNum){
+		this.n.send(from, Protocol.ACK, Utility.stringToByteArray(seqNum + ""));
 	}
 	
 	
@@ -169,8 +183,8 @@ public class ReliableInOrderMsgLayer {
 	 * @param pkt
 	 *            The Packet of data
 	 */
-	public void receiveAck(int from, RTNPacket pkt) {
-		int seqNum = pkt.getSeqNum();
+	public void receiveAck(int from, byte[] msg) {
+		int seqNum = Integer.parseInt(Utility.byteArrayToString(msg));
 		outConnections.get(from).receiveAck(seqNum);
 	}
 
@@ -193,7 +207,7 @@ public class ReliableInOrderMsgLayer {
 			outConnections.put(destAddr, out);
 		}
 		
-		out.sendRPCPacket(protocol, payload);
+		out.sendRIOPacket(protocol, payload);
 	}
 
 	/**
@@ -345,7 +359,7 @@ class OutChannel {
 	 * @param payload
 	 *            The payload to be sent
 	 */
-	protected void sendRPCPacket(int protocol, byte[] payload) {
+	protected void sendRIOPacket(int protocol, byte[] payload) {
 		RPCPacket pkt = new RPCPacket(protocol, lastSeqNumSent + 1, payload, sessionID);
 		
 		if(establishingSession){			//Connection establishing a session
@@ -429,7 +443,7 @@ class OutChannel {
 			
 			while(!this.queuedCommands.isEmpty()){
 				RIOPacket p = this.queuedCommands.poll();
-				this.sendRPCPacket(p.getProtocol(), p.getPayload());
+				this.sendRIOPacket(p.getProtocol(), p.getPayload());
 			}
 		}
 	}
