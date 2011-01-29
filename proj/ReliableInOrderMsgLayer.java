@@ -50,7 +50,7 @@ public class ReliableInOrderMsgLayer {
 	 * @param pkt
 	 *            The Packet of data
 	 */
-	public void receiveRPC(int from, RIOPacket pkt) {
+	public void receiveRIO(int from, RIOPacket pkt) {
 		
 		InChannel in = inConnections.get(from);
 		if(in == null) { //Expired Session -> Server has crashed recently
@@ -60,7 +60,7 @@ public class ReliableInOrderMsgLayer {
 		
 		this.sendAck(from, pkt.getSeqNum());
 		
-		LinkedList<RPCPacket> toBeDelivered = in.gotPacket((RPCPacket)pkt);
+		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(pkt);
 		
 		for(RIOPacket p: toBeDelivered) {
 			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
@@ -240,14 +240,14 @@ class InChannel {
 	private RIONode n;
 	private int sourceAddr;
 	private int lastSeqNumDelivered;
-	private HashMap<Integer, RPCPacket> outOfOrderMsgs;
+	private HashMap<Integer, RIOPacket> outOfOrderMsgs;
 	private int sessionId;
 	
 	InChannel(RIONode n, int sourceAddr, int nextSessionId){
 		this.n = n;
 		this.sourceAddr = sourceAddr;
 		lastSeqNumDelivered = -1;
-		outOfOrderMsgs = new HashMap<Integer, RPCPacket>();
+		outOfOrderMsgs = new HashMap<Integer, RIOPacket>();
 		sessionId = nextSessionId;
 	}
 
@@ -259,8 +259,8 @@ class InChannel {
 	 * @return A list of the packets that we can now deliver due to the receipt
 	 *         of this packet
 	 */
-	public LinkedList<RPCPacket> gotPacket(RPCPacket pkt) {
-		LinkedList<RPCPacket> pktsToBeDelivered = new LinkedList<RPCPacket>();
+	public LinkedList<RIOPacket> gotPacket(RIOPacket pkt) {
+		LinkedList<RIOPacket> pktsToBeDelivered = new LinkedList<RIOPacket>();
 		int seqNum = pkt.getSeqNum();
 		
 		if(seqNum == lastSeqNumDelivered + 1) {
@@ -283,7 +283,7 @@ class InChannel {
 	 * @param pktsToBeDelivered
 	 *            List to append to
 	 */
-	private void deliverSequence(LinkedList<RPCPacket> pktsToBeDelivered) {
+	private void deliverSequence(LinkedList<RIOPacket> pktsToBeDelivered) {
 		while(outOfOrderMsgs.containsKey(lastSeqNumDelivered + 1)) {
 			++lastSeqNumDelivered;
 			pktsToBeDelivered.add(outOfOrderMsgs.remove(lastSeqNumDelivered));
@@ -378,8 +378,9 @@ class OutChannel {
 	 * the session is being established.
 	 */
 	public void establishSession(){
-		SessionPacket pkt = new SessionPacket(SessionProtocol.ESTB_SESSION, new byte[0]);
 		this.establishingSession = true;
+		SessionPacket sPkt = new SessionPacket(SessionProtocol.ESTB_SESSION, new byte[0]);
+		RIOPacket pkt = new RIOPacket(Protocol.SESSION, -1, sPkt.pack(), -1);
 		this.createTimeoutListener(pkt);
 		n.send(destAddr, Protocol.SESSION, pkt.pack());
 	}
@@ -453,19 +454,17 @@ class OutChannel {
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", parent, new String[]{ "java.lang.Integer", "java.lang.Integer" });
 			RIOPacket pkt = unACKedPackets.get(seqNum);
-			System.out.println("Values: " + toS(this.unACKedPackets.values()) + " Keys: " + toS(this.unACKedPackets.keySet()));
-			System.out.println("SeqNum: " + seqNum + " Protocol: " + pkt.getProtocol());
-			if(pkt instanceof SessionPacket)
-				n.send(destAddr, Protocol.SESSION, ((SessionPacket)pkt).pack());
-			else
-				n.send(destAddr, Protocol.RPC, ((RPCPacket)pkt).pack());
+			//System.out.println("Values: " + toS(this.unACKedPackets.values()) + " Keys: " + toS(this.unACKedPackets.keySet()));
+			//System.out.println("SeqNum: " + seqNum + " Protocol: " + pkt.getProtocol());
+			
+			n.send(destAddr, pkt.getProtocol(), pkt.getPayload());
 			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();
 		}
 	}
 	
-	private <E> String toS(Collection<E> c){
+	public static <E> String toS(Collection<E> c){
 		String rtn = "";
 		for(E e : c){
 			rtn += e.toString() + ", ";

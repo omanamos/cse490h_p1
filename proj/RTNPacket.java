@@ -7,23 +7,9 @@ import java.io.IOException;
 public class RTNPacket extends RPCPacket{
 	
 	public RTNPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		super(protocol, payload, !RTNProtocol.isACKProtocol(protocol));
+		super(protocol, payload, MAX_PAYLOAD_SIZE, !RTNProtocol.isRTNProtocol(protocol));
 	}
 	
-	/**
-	 * @return The protocol number
-	 */
-	public int getProtocol() {
-		return this.protocol;
-	}
-	
-	/**
-	 * @return The payload
-	 */
-	public byte[] getPayload() {
-		return this.payload;
-	}
-
 	/**
 	 * Convert the RIOPacket packet object into a byte array for sending over the wire.
 	 * Format:
@@ -60,7 +46,6 @@ public class RTNPacket extends RPCPacket{
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
 			int protocol = in.readByte();
-			int seqNum = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
@@ -69,7 +54,7 @@ public class RTNPacket extends RPCPacket{
 				return null;
 			}
 
-			return new RTNPacket(protocol, seqNum, payload);
+			return new RTNPacket(protocol, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

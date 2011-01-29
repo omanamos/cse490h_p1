@@ -18,10 +18,10 @@ public class RTNProtocol extends Protocol {
 	 * @return true if the protocol is valid, false otherwise
 	 */
 	public static boolean isPktProtocolValid(int p) {
-		return Protocol.isPktProtocolValid(p) || isACKProtocol(p);
+		return Protocol.isPktProtocolValid(p) || isRTNProtocol(p);
 	}
 	
-	public static boolean isACKProtocol(int p){
+	public static boolean isRTNProtocol(int p){
 		return p == DATA || p == ERROR;
 	}
 

@@ -10,7 +10,7 @@ public class DistNode extends RIONode {
 	
 	
 	@Override
-	public void onCCReceive(Integer from, int protocol, byte[] msg) {
+	public void onCCReceive(int from, int protocol, byte[] msg) {
 		String data = Utility.byteArrayToString(msg);
 		
 		switch(protocol){
@@ -24,14 +24,7 @@ public class DistNode extends RIONode {
 				try {
 					//Unescape newline character
 					content = content.replaceAll("\\\\n", "\n");
-					if(fileExists(fileName) || true)
-						if(protocol == RPCProtocol.PUT)
-							putFile(fileName, content);
-						else{
-							this.getWriter(fileName, true).write(content);
-						}
-					else
-						throw new IOException();
+					this.write(fileName, content, protocol == RPCProtocol.APPEND);
 				} catch (IOException e) {
 					this.returnError(from, protocol, fileName, Error.ERR_10);
 				}
@@ -59,7 +52,7 @@ public class DistNode extends RIONode {
 				break;
 			case RPCProtocol.GET:
 				try {
-					returnFile(from, data);
+					returnData(from, data, this.get(data));
 				} catch (Exception e) {
 					this.returnError(from, protocol, data, Error.ERR_10);
 				}
@@ -69,12 +62,7 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	/**
-	 * Returns a file to the client
-	 * @param r Buffer to return
-	 * @throws IOException 
-	 */
-	private void returnFile(int from, String fileName) throws IOException{
+	public String get(String fileName) throws IOException{
 		PersistentStorageReader r = this.getReader(fileName);
 		String file = "";
 		String line = r.readLine();
@@ -82,17 +70,44 @@ public class DistNode extends RIONode {
 			file += line;
 			line = r.readLine();
 		}
-		
-		byte[] rtn = Utility.stringToByteArray(file);
-		if(rtn.length > RTNPacket.MAX_PAYLOAD_SIZE)
-			this.returnError(from, RPCProtocol.GET, fileName, Error.ERR_30);
+		return file;
+	}
+	
+	public void write(String fileName, String content, boolean append) throws IOException{
+		//Unescape newline character
+		if(fileExists(fileName))
+			if(!append)
+				putFile(fileName, content);
+			else
+				this.getWriter(fileName, true).write(content);
 		else
-			this.CCLayer.returnCC(from, RTNProtocol.DATA, rtn);
+			throw new IOException();
+	}
+	
+	/**
+	 * Returns a file to the client
+	 * @param r Buffer to return
+	 * @throws IOException 
+	 */
+	private void returnData(int from, String fileName, String data) throws IOException{
+		byte[] payload = Utility.stringToByteArray(data);
+		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
+			this.returnError(from, RPCProtocol.ACK, fileName, Error.ERR_30);//TODO: MAKE ERROR PROTOCOL
+		else
+			this.CCLayer.returnCC(from, RPCProtocol.PUT, payload);
 	}
 	
 	public void returnError(int source, int protocol, String fileName, int errCode){
 		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
 		this.CCLayer.returnCC(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
+	}
+	
+	public void printError(Command c, int errCode){
+		System.out.println(buildErrorString(c.getDest(), this.addr, c.getType(), c.getFileName(), errCode));
+	}
+	
+	public void printData(String data){
+		System.out.println(data);
 	}
 	
 	/**
@@ -144,15 +159,15 @@ public class DistNode extends RIONode {
 	
 	/**
 	 * Prints out an error in the following form Node #{addr}: Error: #{protocol} on server #{server} and file #{fileName} returned error code #{code}"
-	 * @param dest server node
-	 * @param source client node
+	 * @param server server node
+	 * @param client client node
 	 * @param protocol protocol used
 	 * @param fileName name of file in command
 	 * @param code error code returned as defined by Error class
 	 */
-	public static String buildErrorString(int dest, int source, int protocol, String fileName, int code){
-		return "Node " + source + ": Error: " + RPCProtocol.protocolToString(protocol) + " on server " + 
-						dest + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
+	public static String buildErrorString(int server, int client, int protocol, String fileName, int code){
+		return "Node " + client + ": Error: " + RPCProtocol.protocolToString(protocol) + " on server " + 
+						server + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
 	}
 	
 	@Override

@@ -22,6 +22,15 @@ public class RPCPacket{
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public RPCPacket(int protocol, byte[] payload) throws IllegalArgumentException {
+		this(protocol, payload, MAX_PAYLOAD_SIZE, !RPCProtocol.isRPCProtocol(protocol));
+	}
+	
+	protected RPCPacket(int protocol, byte[] payload, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
+		if (hasInvalidProtocol) {
+			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol");
+		}else if(payload.length > maxPayloadSize){
+			throw new IllegalArgumentException("Illegal arguments given to Packet: Payload to large");
+		}
 		this.protocol = protocol;
 		this.payload = payload;
 	}

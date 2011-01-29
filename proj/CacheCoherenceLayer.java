@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -36,7 +37,7 @@ public class CacheCoherenceLayer {
 		switch(protocol){
 			case RPCProtocol.CREATE:
 				if(f == null) {
-					this.n.onCCReceive(from, RPCProtocol.CREATE, payload);
+					//this.n.onCCReceive(from, RPCProtocol.CREATE, payload);
 					this.cache.put( filename, new MasterFile(filename) );
 					MasterFile mf = (MasterFile) this.cache.get(filename);
 					mf.changePermissions(from, File.RW);
@@ -46,7 +47,7 @@ public class CacheCoherenceLayer {
 				}
 			case RPCProtocol.GET:
 				if(f == null) {
-					this.n.onCCReceive(from, RPCProtocol.CREATE, payload);
+					//this.n.onCCReceive(from, RPCProtocol.CREATE, payload);
 					this.cache.put( filename, new MasterFile(filename) );
 					MasterFile mf = (MasterFile) this.cache.get(filename);
 					HashMap<Integer, ArrayList<Integer>> updates = mf.getUpdates(from, File.RW);
@@ -62,7 +63,7 @@ public class CacheCoherenceLayer {
 
 			case RPCProtocol.PUT:
 				if(f == null){
-					this.n.onCCReceive(from, RPCProtocol.PUT, payload);
+					//this.n.onCCReceive(from, RPCProtocol.PUT, payload);
 					this.cache.put(filename, new File(File.RW, filename));
 				} else if(f instanceof MasterFile){
 					
@@ -71,7 +72,7 @@ public class CacheCoherenceLayer {
 					//I am a slave node
 				}
 		}
-		n.onCCReceive(from, protocol, payload);
+		//n.onCCReceive(from, protocol, payload);
 	}
 	
 	
@@ -79,25 +80,74 @@ public class CacheCoherenceLayer {
 	
 	
 	
-	
+	//CLIENT METHODS FOR INITIATING COMMANDS
 	public void create(String filename){
-		this.sendCC(MASTER_NODE, RPCProtocol.CREATE, Utility.stringToByteArray(filename) );
+		Command c = new Command(MASTER_NODE, Command.CREATE, filename);
+		File f = this.cache.get(filename);
+		
+		if(f == null){
+			f = new File(File.INV, filename);
+			this.cache.put(filename, f);
+		}
+		
+		if(f.execute(c)){
+			if(f.getState() != File.INV){
+				this.sendCC(MASTER_NODE, RPCProtocol.CREATE, Utility.stringToByteArray(filename));
+			}else{
+				f.execute();
+				this.n.printError(c, Error.ERR_11);
+			}
+		}
 	}
 	
 	public void get(String filename){
-		this.sendCC(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(filename));
+		Command c = new Command(MASTER_NODE, Command.GET, filename);
+		File f = this.cache.get(filename);
+		
+		if(f == null){
+			f = new File(File.INV, filename);
+			this.cache.put(filename, f);
+		}
+		
+		if(f.execute(c)){
+			if(f.getState() == File.INV){
+				this.sendCC(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(filename + " " + File.RO));
+			}else{
+				try {
+					f.execute();
+					this.n.printData(this.n.get(filename));
+				} catch (IOException e) {
+					this.n.printError(c, Error.ERR_10);
+				}
+			}
+		}
 	}
 	
-	//doing nothing with contents right now
-	public void put(String filename, String contents){
-		byte[] payload = Utility.stringToByteArray(filename);
-	//	if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
-		//	System.out.println(DistNode.buildErrorString(this.n.addr, MASTER_NODE, RPCProtocol.PUT, filename, Error.ERR_30));
-		this.sendCC(MASTER_NODE, RPCProtocol.GET, payload);
+	public void put(String fileName, String content){
+		Command c = new Command(MASTER_NODE, Command.PUT, fileName, content);
+		File f = this.cache.get(fileName);
+		
+		if(f == null){
+			f = new File(File.INV, fileName);
+			this.cache.put(fileName, f);
+		}
+		
+		if(f.execute(c)){
+			if(f.getState() != File.RW){
+				this.sendCC(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(fileName + " " + File.RW));
+			}else{
+				f.execute();
+				try {
+					this.n.write(fileName, content, false);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
 	}
 	
 	public void append(String filename, String contents){
-		byte[] payload = Utility.stringToByteArray(filename);
+		byte[] payload = Utility.stringToByteArray(filename + " " + File.RW);
 		//if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
 		//	System.out.println(DistNode.buildErrorString(this.n.addr, MASTER_NODE, RPCProtocol.APPEND, filename, Error.ERR_30));
 		this.sendCC(MASTER_NODE, RPCProtocol.GET, payload);

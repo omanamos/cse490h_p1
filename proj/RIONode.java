@@ -35,7 +35,7 @@ public abstract class RIONode extends Node {
 		}else if(protocol == Protocol.SESSION){
 			this.RIOLayer.receiveSession(from, SessionPacket.unpack(msg));
 		}else if(protocol == Protocol.RPC){
-			this.RIOLayer.receiveRPC(from, RPCPacket.unpack(msg));
+			this.RIOLayer.receiveRIO(from, RIOPacket.unpack(msg));
 		}else if(protocol == Protocol.RTN){
 			this.RIOLayer.receiveData(from, RTNPacket.unpack(msg));
 		}
@@ -65,7 +65,7 @@ public abstract class RIONode extends Node {
 	 * @param msg
 	 *            The message that was received
 	 */
-	public abstract void onCCReceive(Integer from, int protocol, byte[] msg);
+	public abstract void onCCReceive(int from, int protocol, byte[] msg);
 	
 	
 	
