@@ -10,7 +10,7 @@ public class MasterFile extends File {
 	HashMap<Integer, Integer> filePermissions;
 	
 	public MasterFile(String name) {
-		super(-1, name);
+		super(File.RW, name);
 		this.filePermissions = new HashMap<Integer,Integer>();
 	}
 	
@@ -23,26 +23,21 @@ public class MasterFile extends File {
 
 	}
 	
-	public Map<Integer, List<Integer>> getUpdates(int addr, int state){
+	public Map<Integer, List<Integer>> getUpdates(int addr){
 		Map<Integer, List<Integer>> returnMap = new HashMap<Integer, List<Integer>>();
 		
-		if( !isValidState( state ) || state == File.INV) {
-			throw new IllegalArgumentException("Invalid state");
-		} else {
-				for( Integer i : filePermissions.keySet() ) {
-					switch( filePermissions.get(i) ) {
-						case File.RO:
-							if(!returnMap.containsKey(File.RO))
-								returnMap.put(File.RO, new ArrayList<Integer>());
-							returnMap.get(File.RO).add(i);
-							break;
-						case File.RW:
-							returnMap.put(File.RW, new ArrayList<Integer>());
-							returnMap.get(File.RW).add( i );
-							return returnMap;
-					}
-				}
-
+		for( Integer i : filePermissions.keySet() ) {
+			switch( filePermissions.get(i) ) {
+				case File.RO:
+					if(!returnMap.containsKey(File.RO))
+						returnMap.put(File.RO, new ArrayList<Integer>());
+					returnMap.get(File.RO).add(i);
+					break;
+				case File.RW:
+					returnMap.put(File.RW, new ArrayList<Integer>());
+					returnMap.get(File.RW).add( i );
+					return returnMap;
+			}
 		}
 		return returnMap;
 	}

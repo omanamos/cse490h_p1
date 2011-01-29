@@ -53,19 +53,6 @@ public abstract class RIONode extends Node {
 		CCLayer.sendCC(destAddr, protocol, payload);
 	}
 
-	/**
-	 * Method that is called by the CC layer when a message is to be delivered.
-	 * 
-	 * @param from
-	 *            The address from which the message was received
-	 * @param protocol
-	 *            The protocol identifier of the message
-	 * @param msg
-	 *            The message that was received
-	 */
-	public abstract void onCCReceive(int from, int protocol, byte[] msg);
-	
-	
 	
 	
 	@Override

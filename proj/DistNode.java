@@ -4,60 +4,8 @@ import java.util.regex.Pattern;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
-import edu.washington.cs.cse490h.lib.Utility;
 
 public class DistNode extends RIONode {
-	
-	
-	@Override
-	public void onCCReceive(int from, int protocol, byte[] msg) {
-		String data = Utility.byteArrayToString(msg);
-		
-		switch(protocol){
-			case RPCProtocol.APPEND: case RPCProtocol.PUT:
-				int indexOfSpace = data.indexOf(' ');
-				String fileName = data.substring(0, indexOfSpace);
-				String content = data.substring(indexOfSpace + 1);
-				if(content.charAt(0) == '"')
-					content = content.substring(1, content.length() - 1);
-				
-				try {
-					//Unescape newline character
-					content = content.replaceAll("\\\\n", "\n");
-					this.write(fileName, content, protocol == RPCProtocol.APPEND, false);
-				} catch (IOException e) {
-					this.returnError(from, protocol, fileName, Error.ERR_10);
-				}
-				break;
-			case RPCProtocol.CREATE:
-				try {
-					if(!fileExists(data))
-						this.getWriter(data, false);
-					else
-						this.returnError(from, protocol, data, Error.ERR_11);
-					
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				break;
-			case RPCProtocol.DELETE:
-				try{
-					this.delete(data);
-				}catch(IOException e){
-					this.returnError(from, protocol, data, Error.ERR_10);
-				}
-				break;
-			case RPCProtocol.GET:
-				try {
-					returnData(from, data, this.get(data));
-				} catch (Exception e) {
-					this.returnError(from, protocol, data, Error.ERR_10);
-				}
-				break;
-			default:
-				return;
-		}
-	}
 	
 	public String get(String fileName) throws IOException{
 		PersistentStorageReader r = this.getReader(fileName);
@@ -80,30 +28,18 @@ public class DistNode extends RIONode {
 			throw new IOException();
 	}
 	
+	public void create(String fileName) throws IOException {
+		if(!fileExists(fileName))
+			this.getWriter(fileName, false);
+		else
+			throw new IOException();
+	}
+	
 	public void delete(String fileName) throws IOException {
 		if(fileExists(fileName))
 			this.getWriter(fileName, true).delete();
 		else
 			throw new IOException();
-	}
-	
-	/**
-	 * Returns a file to the client
-	 * @param r Buffer to return
-	 * @throws IOException 
-	 */
-	//TODO: remove method and onCCReceive
-	private void returnData(int from, String fileName, String data) throws IOException{
-		byte[] payload = Utility.stringToByteArray(data);
-		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
-			this.returnError(from, RPCProtocol.ACK, fileName, Error.ERR_30);//TODO: MAKE ERROR PROTOCOL
-		//TODO else
-			//this.CCLayer.returnCC(from, RPCProtocol.PUT, payload);
-	}
-	
-	public void returnError(int source, int protocol, String fileName, int errCode){
-		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
-		//this.CCLayer.returnCC(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
 	}
 	
 	public void printError(Command c, int errCode){
@@ -112,6 +48,19 @@ public class DistNode extends RIONode {
 	
 	public void printError(String msg){
 		System.out.println(msg);
+	}
+	
+	/**
+	 * Prints out an error in the following form Node #{addr}: Error: #{protocol} on server #{server} and file #{fileName} returned error code #{code}"
+	 * @param server server node
+	 * @param client client node
+	 * @param protocol protocol used
+	 * @param fileName name of file in command
+	 * @param code error code returned as defined by Error class
+	 */
+	public static String buildErrorString(int server, int client, int protocol, String fileName, int code){
+		return "Node " + client + ": Error: " + RPCProtocol.protocolToString(protocol) + " on server " + 
+						server + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
 	}
 	
 	public void printData(String data){
@@ -173,19 +122,6 @@ public class DistNode extends RIONode {
 			line = r.readLine();
 		}
 		w.write(file);
-	}
-	
-	/**
-	 * Prints out an error in the following form Node #{addr}: Error: #{protocol} on server #{server} and file #{fileName} returned error code #{code}"
-	 * @param server server node
-	 * @param client client node
-	 * @param protocol protocol used
-	 * @param fileName name of file in command
-	 * @param code error code returned as defined by Error class
-	 */
-	public static String buildErrorString(int server, int client, int protocol, String fileName, int code){
-		return "Node " + client + ": Error: " + RPCProtocol.protocolToString(protocol) + " on server " + 
-						server + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
 	}
 	
 	@Override

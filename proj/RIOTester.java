@@ -43,7 +43,6 @@ public class RIOTester extends RIONode {
 		return;
 	}
 	
-	@Override
 	public void onCCReceive(int from, int protocol, byte[] msg) {
 		if (protocol != Protocol.RIOTEST_PKT) {
 			logError("unknown protocol: " + protocol);
