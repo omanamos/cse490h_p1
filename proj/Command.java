@@ -1,10 +1,11 @@
 
-public class Command {
+public class Command extends Queueable{
 	public static final int CREATE = 0;
 	public static final int GET = 1;
 	public static final int PUT = 2;
 	public static final int APPEND = 3;
 	public static final int DELETE = 4;
+	private static final String[] toS = {"Create", "Get", "Put", "Append", "Delete"};
 	
 	private int type;
 	private String fileName;
@@ -42,5 +43,9 @@ public class Command {
 	
 	public boolean isValidType(int t){
 		return t == CREATE || t == GET || t == PUT || t == APPEND || t == DELETE;
+	}
+	
+	public String toString(){
+		return toS[this.type];
 	}
 }

@@ -4,7 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class RPCPacket{
+public class RPCPacket extends Queueable{
 
 	public static final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
 	public static final int HEADER_SIZE = 1;

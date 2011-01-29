@@ -6,14 +6,9 @@ public class File {
 	public static final int RO = 1;
 	public static final int RW = 2;
 	
-	public static final int WFN = 0;
-	public static final int WFR = 1;
-	public static final int WFW = 2;
-	
 	private int state;
 	private String name;
-	private int waitState;
-	private Queue<Command> queuedCommands;
+	private Queue<Queueable> queuedCommands;
 	
 	public File(int state, String name){
 		if(!isValidState(state)){
@@ -21,44 +16,35 @@ public class File {
 		}
 		this.state = state;
 		this.name = name;
-		this.waitState = WFN;
-		this.queuedCommands = new LinkedList<Command>();
+		this.queuedCommands = new LinkedList<Queueable>();
 	}
 	
 	public int getState(){
 		return this.state;
 	}
 	
+	public void setState(int state){
+		if(!isValidState(state)){
+			throw new IllegalArgumentException("Not acceptable state.");
+		}
+		this.state = state;
+	}
+	
 	public String getName(){
 		return this.name;
 	}
 	
-	public Command execute(){
-		if(this.queuedCommands.size() == 1)
-			this.waitState = WFN;
-		else
-			if(this.queuedCommands.peek().getType() == Command.GET)
-				this.waitState = WFR;
-			else
-				this.waitState = WFW;
+	public Queueable execute(){
 		return this.queuedCommands.poll();
 	}
 	
-	public boolean execute(Command c){
-		if(this.waitState == WFN){
-			if(c.getType() == Command.GET)
-				this.waitState = WFR;
-			else
-				this.waitState = WFW;
-			return true;
-		}else{
-			this.queuedCommands.add(c);
-			return false;
-		}
+	public Queueable peek(){
+		return this.queuedCommands.peek();
 	}
 	
-	public static boolean isValidWaitState(int s){
-		return s == WFR || s == WFW || s == WFN;
+	public boolean execute(Queueable c){
+		this.queuedCommands.add(c);
+		return this.queuedCommands.size() > 1;
 	}
 	
 	public static boolean isValidState(int s){

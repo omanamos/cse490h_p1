@@ -65,12 +65,8 @@ public class ReliableInOrderMsgLayer {
 		for(RIOPacket p: toBeDelivered) {
 			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
 			// deliver in-order the next sequence of packets
-			cc.onRPCReceive(from, p.getProtocol(), p.getPayload());
+			cc.onRPCReceive(from, p.getPayload());
 		}
-	}
-	
-	public void receiveData(int from, RTNPacket pkt){
-		
 	}
 	
 	public void receiveSession(int from, SessionPacket pkt){
@@ -85,6 +81,20 @@ public class ReliableInOrderMsgLayer {
 				this.receiveExpiredSessionError(from, pkt.getPayload());
 				break;
 		}
+	}
+	
+	/**
+	 * CLIENT METHOD<br>
+	 * Called when the client receives an ACK_SESSION packet.
+	 * Tells the OutChannel that it has established a session with the server.
+	 * @param from
+	 * @param msg
+	 */
+	private void receiveAckSession(int from, byte[] msg){
+		String[] parts = Utility.byteArrayToString(msg).split(" ");
+		int session = Integer.parseInt(parts[0]);
+		int seqNum = Integer.parseInt(parts[1]);
+		outConnections.get(from).receiveAckSession(session, seqNum);
 	}
 	
 	/**
@@ -106,6 +116,35 @@ public class ReliableInOrderMsgLayer {
 		
 		in.returnSessionPacket(SessionProtocol.ACK_SESSION, Utility.stringToByteArray(in.getSessionId() + " " + in.getLastSeqNumDelivered()));
 	}
+	
+	/**
+	 * CLIENT METHOD<br>
+	 * Called when the client receives an EXPIRED_SESSION packet.
+	 * Resets the OutChannel going to the server that sent the EXPIRED_SESSION packet.
+	 * @param from server node packet came from
+	 * @param msg new SessionID from the server
+	 */
+	private void receiveExpiredSessionError(Integer from, byte[] msg) {
+		int newSessionId = Integer.parseInt(Utility.byteArrayToString(msg));
+		
+		this.outConnections.remove(from);
+		this.outConnections.put(from, new OutChannel(this, this.n, from, newSessionId));
+		
+		System.out.println("Node " + this.n.addr + ": Error: Session expired on server " + from);
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	/**
 	 * SERVER METHOD<br>
@@ -139,36 +178,6 @@ public class ReliableInOrderMsgLayer {
 	
 	
 	
-	
-	/**
-	 * CLIENT METHOD<br>
-	 * Called when the client receives an EXPIRED_SESSION packet.
-	 * Resets the OutChannel going to the server that sent the EXPIRED_SESSION packet.
-	 * @param from server node packet came from
-	 * @param msg new SessionID from the server
-	 */
-	private void receiveExpiredSessionError(Integer from, byte[] msg) {
-		int newSessionId = Integer.parseInt(Utility.byteArrayToString(msg));
-		
-		this.outConnections.remove(from);
-		this.outConnections.put(from, new OutChannel(this, this.n, from, newSessionId));
-		
-		System.out.println("Node " + this.n.addr + ": Error: Session expired on server " + from);
-	}
-	
-	/**
-	 * CLIENT METHOD<br>
-	 * Called when the client receives an ACK_SESSION packet.
-	 * Tells the OutChannel that it has established a session with the server.
-	 * @param from
-	 * @param msg
-	 */
-	private void receiveAckSession(int from, byte[] msg){
-		String[] parts = Utility.byteArrayToString(msg).split(" ");
-		int session = Integer.parseInt(parts[0]);
-		int seqNum = Integer.parseInt(parts[1]);
-		outConnections.get(from).receiveAckSession(session, seqNum);
-	}
 	
 	/**
 	 * CLIENT METHOD<br>
@@ -352,7 +361,6 @@ class OutChannel {
 	 *            The payload to be sent
 	 */
 	protected void sendRIOPacket(int protocol, byte[] payload) {
-		//TODO:make RIOPacket
 		RIOPacket pkt = new RIOPacket(protocol, lastSeqNumSent + 1, payload, sessionID);
 		
 		if(establishingSession){			//Connection establishing a session
@@ -362,12 +370,12 @@ class OutChannel {
 			this.establishSession();
 		}else{								//Session is already set up. Proceed normally.
 			byte[] packed = pkt.pack();
-			if(packed.length > Protocol.MAX_PROTOCOL){
+			if(packed.length > RIOPacket.MAX_PACKET_SIZE){
 				System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, protocol, "", Error.ERR_30));
 			}else{
 				lastSeqNumSent++;
 				this.createTimeoutListener(pkt);
-				n.send(destAddr, Protocol.RPC, pkt.pack());
+				n.send(destAddr, Protocol.RPC, packed);
 			}
 		}
 	}

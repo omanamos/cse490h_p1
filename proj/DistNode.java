@@ -24,7 +24,7 @@ public class DistNode extends RIONode {
 				try {
 					//Unescape newline character
 					content = content.replaceAll("\\\\n", "\n");
-					this.write(fileName, content, protocol == RPCProtocol.APPEND);
+					this.write(fileName, content, protocol == RPCProtocol.APPEND, false);
 				} catch (IOException e) {
 					this.returnError(from, protocol, fileName, Error.ERR_10);
 				}
@@ -42,10 +42,7 @@ public class DistNode extends RIONode {
 				break;
 			case RPCProtocol.DELETE:
 				try{
-					if(fileExists(data))
-						this.getWriter(data, true).delete();
-					else
-						throw new IOException();
+					this.delete(data);
 				}catch(IOException e){
 					this.returnError(from, protocol, data, Error.ERR_10);
 				}
@@ -73,13 +70,19 @@ public class DistNode extends RIONode {
 		return file;
 	}
 	
-	public void write(String fileName, String content, boolean append) throws IOException{
-		//Unescape newline character
+	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
 		if(fileExists(fileName))
 			if(!append)
-				putFile(fileName, content);
+				putFile(fileName, content, force);
 			else
 				this.getWriter(fileName, true).write(content);
+		else 
+			throw new IOException();
+	}
+	
+	public void delete(String fileName) throws IOException {
+		if(fileExists(fileName))
+			this.getWriter(fileName, true).delete();
 		else
 			throw new IOException();
 	}
@@ -93,21 +96,29 @@ public class DistNode extends RIONode {
 		byte[] payload = Utility.stringToByteArray(data);
 		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
 			this.returnError(from, RPCProtocol.ACK, fileName, Error.ERR_30);//TODO: MAKE ERROR PROTOCOL
-		else
-			this.CCLayer.returnCC(from, RPCProtocol.PUT, payload);
+		//TODOelse
+			//this.CCLayer.returnCC(from, RPCProtocol.PUT, payload);
 	}
 	
 	public void returnError(int source, int protocol, String fileName, int errCode){
 		String error = buildErrorString(this.addr, source, protocol, fileName, errCode);
-		this.CCLayer.returnCC(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
+		//this.CCLayer.returnCC(source, RTNProtocol.ERROR, Utility.stringToByteArray(error));
 	}
 	
 	public void printError(Command c, int errCode){
 		System.out.println(buildErrorString(c.getDest(), this.addr, c.getType(), c.getFileName(), errCode));
 	}
 	
+	public void printError(String msg){
+		System.out.println(msg);
+	}
+	
 	public void printData(String data){
 		System.out.println(data);
+	}
+	
+	public void printSuccess(Command c){
+		System.out.println("Success: Command - " + c + " executed succesfully on file: " + c.getFileName() );
 	}
 	
 	/**
@@ -116,15 +127,21 @@ public class DistNode extends RIONode {
 	 * @param content The content to replace the file with.
 	 * @throws IOException 
 	 */
-	private void putFile(String fileName, String content) throws IOException{
-		PersistentStorageReader oldFile = this.getReader(fileName);
-		PersistentStorageWriter temp = getWriter(".temp", false);
+	private void putFile(String fileName, String content, boolean force) throws IOException{
+		PersistentStorageWriter temp = null;
+		boolean exists = fileExists(fileName);
+		if(exists){
+			PersistentStorageReader oldFile = this.getReader(fileName);
+			temp = getWriter(".temp", false);
 		
-		copyFile(oldFile, temp, fileName + "\n");
+			copyFile(oldFile, temp, fileName + "\n");
+		}
 		
 		PersistentStorageWriter newFile = getWriter(fileName, false);
 		newFile.write(content);
-		temp.delete();
+		
+		if(exists)
+			temp.delete();
 	}
 	
 	/**
