@@ -1,5 +1,7 @@
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 //Master Files reside on the MASTER_NODE
 public class MasterFile extends File {
@@ -16,21 +18,13 @@ public class MasterFile extends File {
 		return this.filePermissions.containsKey(addr);
 	}
 
-	public void checkout( int addr ) {
-		if( this.hasCopy( addr ) ) {
-			throw new IllegalArgumentException();
-		} else {
-			this.filePermissions.put(addr, File.INV);
-		}
-	}
-	
 	public void changePermissions( int addr, int state ) {
 		this.filePermissions.put(addr, state);
 
 	}
 	
-	public HashMap<Integer, ArrayList<Integer>> getUpdates(int addr, int state){
-		HashMap<Integer, ArrayList<Integer>> returnMap = new HashMap<Integer, ArrayList<Integer>>();
+	public Map<Integer, List<Integer>> getUpdates(int addr, int state){
+		Map<Integer, List<Integer>> returnMap = new HashMap<Integer, List<Integer>>();
 		
 		if( !isValidState( state ) || state == File.INV) {
 			throw new IllegalArgumentException("Invalid state");

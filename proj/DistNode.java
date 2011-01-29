@@ -92,11 +92,12 @@ public class DistNode extends RIONode {
 	 * @param r Buffer to return
 	 * @throws IOException 
 	 */
+	//TODO: remove method and onCCReceive
 	private void returnData(int from, String fileName, String data) throws IOException{
 		byte[] payload = Utility.stringToByteArray(data);
 		if(payload.length > RPCPacket.MAX_PAYLOAD_SIZE)
 			this.returnError(from, RPCProtocol.ACK, fileName, Error.ERR_30);//TODO: MAKE ERROR PROTOCOL
-		//TODOelse
+		//TODO else
 			//this.CCLayer.returnCC(from, RPCProtocol.PUT, payload);
 	}
 	

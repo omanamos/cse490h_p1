@@ -1,5 +1,7 @@
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import edu.washington.cs.cse490h.lib.Utility;
 
@@ -26,45 +28,128 @@ public class CacheCoherenceLayer {
 	public void onRPCReceive(int from, byte[] payload) {
 		RPCPacket packet = RPCPacket.unpack(payload);
 		if(this.n.addr == MASTER_NODE)
-			masterReceive(packet);
+			masterReceive(from, packet);
 		else
 			slaveReceive(packet);
 	}
 	
 	
-	public void masterReceive(RPCPacket packet){
+	public void masterReceive(int from, RPCPacket packet){
 		String fileName;
 		MasterFile f;
 		String data;
 		int permissions;
+		String[] split;
+		Queueable pkt;
 		
 		switch(packet.getProtocol()){
-		case RPCProtocol.GET:
-			break;
-		case RPCProtocol.PUT:
-			data = Utility.byteArrayToString(packet.getPayload());
-			int index = data.indexOf(' ');
-			fileName = data.substring(0, index);
-			index = data.indexOf(' ', fileName.length());
-			permissions = Integer.parseInt(data.substring(fileName.length(), index));
-			String contents = data.substring(index + 1);
-			
-			f = (MasterFile)this.getFileFromCache(fileName);
-			
-			try {
-				this.n.write(fileName, contents, false, true);
-			} catch (IOException e) {
-				this.n.printError("Fatal Error: Couldn't replace file " + fileName);
-			}
-			
-			break;
-		case RPCProtocol.CONF:
-			break;
+			case RPCProtocol.GET: //Payload structure: "[filename] [permissions]"
+				split = Utility.byteArrayToString(packet.getPayload()).split(" ");
+				fileName = split[0];
+				permissions = Integer.parseInt(split[1]);
+				
+				f = (MasterFile)this.getFileFromCache(fileName);
+				
+				if(f.execute(packet)){ //If the file isn't already executing a request
+					if(f.getState() == File.INV){ //The file doesn't exist.
+						String error = DistNode.buildErrorString(MASTER_NODE, from, packet.getProtocol(), fileName, Error.ERR_10);
+						this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(error));
+						return;
+					}
+					
+					Map<Integer, List<Integer>> updates = f.getUpdates(from, permissions);
+					
+					if(updates.containsKey(File.RW)){
+						int ownerAddr = updates.get(File.RW).get(0);
+						byte[] payload = Utility.stringToByteArray(fileName + " " + permissions);
+						
+						this.sendCC(ownerAddr, RPCProtocol.GET, payload); //Send RF to owner and wait for RD back
+						
+					}else if(updates.containsKey(File.RO)){ //There are only RO copies checked out
+						
+						if(permissions == File.RO){	//This is a RQ
+							try{
+								String contents = this.n.get(fileName);
+								byte[] payload = Utility.stringToByteArray(fileName + " " + permissions + " " + contents);
+								this.sendCC(from, RPCProtocol.PUT, payload);
+							}catch(Exception e){
+								this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray("Fatal Error: File: " + fileName + " doesn't exist on master node"));
+							}
+						}else{			//This is a WQ
+							
+							for(Integer addr : updates.get(File.RO)){	//Send invalidates to every client that has a RO copy and wait for ICs back
+								this.sendCC(addr, RPCProtocol.INV, Utility.stringToByteArray(fileName));
+							}
+						}
+					}else{ //No one has a copy checked out
+						try{
+							String contents = this.n.get(fileName);
+							byte[] payload = Utility.stringToByteArray(fileName + " " + permissions + " " + contents);
+							this.sendCC(from, RPCProtocol.PUT, payload);
+						}catch(Exception e){
+							this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray("Fatal Error: File: " + fileName + " doesn't exist on master node"));
+						}
+					}
+				}
+				
+				break;
+			case RPCProtocol.PUT: //Payload structure: "[filename] [permissions] [contents]"
+				data = Utility.byteArrayToString(packet.getPayload());
+				int index = data.indexOf(' ');
+				fileName = data.substring(0, index);
+				index = data.indexOf(' ', fileName.length());
+				permissions = Integer.parseInt(data.substring(fileName.length(), index));
+				String contents = data.substring(index + 1);
+				
+				f = (MasterFile)this.getFileFromCache(fileName);
+				
+				//Update file contents
+				try {
+					this.n.write(fileName, contents, false, true);
+				} catch (IOException e) {
+					this.n.printError("Fatal Error: Couldn't replace file " + fileName);
+				}
+				
+				pkt = f.execute();	//Get the RQ that requested the file & dequeue it
+				f.changePermissions(pkt.getSource(), permissions);
+				f.setState(permissions);
+				
+				//Return the Data to the client that requested it
+				this.sendCC(pkt.getSource(), RPCProtocol.PUT, packet.getPayload());
+				
+				this.executePacketQueue(f);
+				
+				break;
+			case RPCProtocol.CONF:
+				split = Utility.byteArrayToString(packet.getPayload()).split(" ");
+				fileName = split[0];
+				permissions = Integer.parseInt(split[1]);
+				
+				f = (MasterFile)this.getFileFromCache(fileName);
+				if(permissions == File.INV){ //This is a IC
+					f.changePermissions(from, File.INV);
+					Map<Integer, List<Integer>> updates = f.getUpdates(from, permissions);
+					if(updates.containsKey(File.RW)){	//Error in code
+						this.n.printError("Fatal Error: Invalid state, sent INV to owner instead of WF.");
+					}else if(!updates.containsKey(File.RO)){ //There aren't any more RO copies out there
+						pkt = f.execute();
+						
+						//Return the Data to the client that requested it
+						this.sendCC(pkt.getSource(), RPCProtocol.PUT, packet.getPayload());
+						
+						this.executePacketQueue(f);
+					}
+				}
+				break;
+			case RPCProtocol.CREATE:
+				break;//TODO
+			case RPCProtocol.DELETE:
+				break;//TODO
 		}
 	}
 	
 	public void executePacketQueue(MasterFile f){
-		
+		//TODO
 	}
 	
 	public void slaveReceive(RPCPacket packet){
@@ -73,7 +158,7 @@ public class CacheCoherenceLayer {
 		String data;
 		int permissions;
 		switch(packet.getProtocol()){
-			case RPCProtocol.GET:
+			case RPCProtocol.GET: //Payload structure: "[filename] [permissions]"
 				data = Utility.byteArrayToString(packet.getPayload());
 				String[] dataSplit = data.split(" ");
 				
@@ -81,7 +166,7 @@ public class CacheCoherenceLayer {
 				fileName = dataSplit[0];
 				
 				f = this.getFileFromCache(fileName);
-				if(f.getState() != File.INV){
+				if(f.getState() != File.INV){ //This is a RF
 					if(permissions == File.RO){
 						f.setState(File.RO);
 						String payload;
@@ -93,7 +178,7 @@ public class CacheCoherenceLayer {
 							this.n.printError("Fatal Error: Missing File " + fileName);
 						}				
 			
-					} else {
+					} else { //This is a WF
 						f.setState(File.INV);
 						String payload;
 						
@@ -108,7 +193,7 @@ public class CacheCoherenceLayer {
 					sendCC(MASTER_NODE, RPCProtocol.DELETE, Utility.stringToByteArray(fileName));
 				}		
 				break;
-			case RPCProtocol.INV:
+			case RPCProtocol.INV: //Payload structure: "[filename]"
 				 fileName = Utility.byteArrayToString(packet.getPayload());
 				 f = this.getFileFromCache(fileName);
 				 f.setState(File.INV);
@@ -117,7 +202,7 @@ public class CacheCoherenceLayer {
 				 sendCC(MASTER_NODE, RPCProtocol.CONF,  Utility.stringToByteArray(payload));
 				
 				break;
-			case RPCProtocol.PUT:
+			case RPCProtocol.PUT: //Payload structure: "[filename] [permissions] [contents]"
 				data = Utility.byteArrayToString(packet.getPayload());
 				int index = data.indexOf(' ');
 				fileName = data.substring(0, index);
@@ -128,18 +213,19 @@ public class CacheCoherenceLayer {
 				f = this.getFileFromCache(fileName);
 				f.setState(permissions);
 				
-				Command c = (Command)f.execute();
+				Command c = (Command)f.execute(); //Get command that originally requested this Query
 				try {
 					this.n.write(fileName, contents, false, true);
 				} catch (IOException e) {
 					this.n.printError("Fatal Error: Couldn't create file " + fileName);
 				}
-				if(permissions == File.RO){
+				
+				if(permissions == File.RO){	//This was a RQ
 					this.n.printData(contents);
-					sendCC(MASTER_NODE, RPCProtocol.CONF, Utility.stringToByteArray(fileName + " " + File.RO));
-				} else {
+					//FIXME: Don't need to send RC. sendCC(MASTER_NODE, RPCProtocol.CONF, Utility.stringToByteArray(fileName + " " + File.RO));
+				} else {					//This was a WQ
 					this.n.printSuccess(c);
-					sendCC(MASTER_NODE, RPCProtocol.CONF, Utility.stringToByteArray(fileName + " " + File.RW));
+					//FIXME: Don't need to send WC. sendCC(MASTER_NODE, RPCProtocol.CONF, Utility.stringToByteArray(fileName + " " + File.RW));
 				}
 				executeCommandQueue(f);
 				break;
