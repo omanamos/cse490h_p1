@@ -27,7 +27,7 @@ public class RPCPacket extends Queueable{
 	
 	protected RPCPacket(int protocol, byte[] payload, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
 		if (hasInvalidProtocol) {
-			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol");
+			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol: " + protocol);
 		}else if(payload.length > maxPayloadSize){
 			throw new IllegalArgumentException("Illegal arguments given to Packet: Payload to large");
 		}

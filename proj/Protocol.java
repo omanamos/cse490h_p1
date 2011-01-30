@@ -9,7 +9,6 @@ public class Protocol {
 	public static final int RPC = 0;
 	public static final int ACK = 1;
 	public static final int SESSION = 2;
-	public static final int RTN = 3;
 	
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols

@@ -10,7 +10,7 @@ public class MasterFile extends File {
 	HashMap<Integer, Integer> filePermissions;
 	
 	public MasterFile(String name) {
-		super(File.RW, name);
+		super(File.INV, name);
 		this.filePermissions = new HashMap<Integer,Integer>();
 	}
 	

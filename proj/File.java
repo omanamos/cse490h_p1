@@ -44,10 +44,18 @@ public class File {
 	
 	public boolean execute(Queueable c){
 		this.queuedCommands.add(c);
-		return this.queuedCommands.size() > 1;
+		return this.queuedCommands.size() == 1;
 	}
 	
 	public static boolean isValidState(int s){
 		return s == INV || s == RO || s == RW;
+	}
+	
+	public String toString(){
+		String q = "[";
+		for(Queueable t : this.queuedCommands)
+			q += ((Command)t).toString() + ", ";
+		
+		return "Name: " + this.name + " Permissions: " + this.state + " Queued Commands: " + (q.length() == 1 ? "" : q.substring(0, q.length() - 2)) + "]";
 	}
 }

@@ -60,8 +60,8 @@ public class CacheCoherenceLayer {
 				data = Utility.byteArrayToString(packet.getPayload());
 				int index = data.indexOf(' ');
 				fileName = data.substring(0, index);
-				index = data.indexOf(' ', fileName.length());
-				permissions = Integer.parseInt(data.substring(fileName.length(), index));
+				index = data.indexOf(' ', fileName.length() + 1);
+				permissions = Integer.parseInt(data.substring(fileName.length() + 1, index));
 				String contents = data.substring(index + 1);
 				
 				f = (MasterFile)this.getFileFromCache(fileName);
@@ -133,7 +133,7 @@ public class CacheCoherenceLayer {
 	private boolean get(int from, MasterFile f, String fileName, int type){
 		if(f.getState() == File.INV){ //The file doesn't exist.
 			String error = DistNode.buildErrorString(MASTER_NODE, from, RPCProtocol.GET, fileName, Error.ERR_10);
-			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(error));
+			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error));
 			return true;
 		}
 		
@@ -185,11 +185,11 @@ public class CacheCoherenceLayer {
 				this.sendCC(from, RPCProtocol.PUT, Utility.stringToByteArray(returnPayload));
 			} catch(IOException e) { //File already exists
 				String error = DistNode.buildErrorString(this.n.addr, from, RPCProtocol.CREATE, fileName, Error.ERR_11);
-				this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(error) );
+				this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error) );
 			}
 		}else{ //File already exists
 			String error = DistNode.buildErrorString(this.n.addr, from, RPCProtocol.CREATE, fileName, Error.ERR_11);
-			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(error) );
+			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error) );
 		}
 		return true;
 	}
@@ -216,12 +216,12 @@ public class CacheCoherenceLayer {
 				}
 			}catch(IOException e){ //File doesn't exist
 				String error = DistNode.buildErrorString(this.n.addr, from, RPCProtocol.ERROR, fileName, Error.ERR_10);
-				this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(error));
+				this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error));
 				return true;
 			}
 		}else{ //File doesn't exist
 			String error = DistNode.buildErrorString(this.n.addr, from, RPCProtocol.ERROR, fileName, Error.ERR_10);
-			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(error));
+			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error));
 			return true;
 		}
 	}
@@ -315,7 +315,7 @@ public class CacheCoherenceLayer {
 				int index = data.indexOf(' ');
 				fileName = data.substring(0, index);
 
-				index = data.indexOf(' ', fileName.length());
+				index = data.indexOf(' ', fileName.length() + 1);
 				String contents;
 				if( index == -1 ) {
 					permissions = File.RW;
@@ -329,23 +329,28 @@ public class CacheCoherenceLayer {
 				f = this.getFileFromCache(fileName);
 				f.setState(permissions);
 				
+
 				Command c = (Command)f.execute(); //Get command that originally requested this Query
 				try {
 					this.n.write(fileName, contents, false, true);
+					if(permissions == File.RO){	//This was a RQ
+						this.n.printData(contents);
+					} else {					//This was a WQ
+						this.n.printSuccess(c);
+					}
 				} catch (IOException e) {
 					this.n.printError("Fatal Error: Couldn't create file " + fileName);
 				}
 				
-				if(permissions == File.RO){	//This was a RQ
-					this.n.printData(contents);
-				} else {					//This was a WQ
-					this.n.printSuccess(c);
-				}
 				executeCommandQueue(f);
 			
 				break;
 			case RPCProtocol.ERROR:
-				this.n.printError(Utility.byteArrayToString(packet.getPayload()));
+				data = Utility.byteArrayToString(packet.getPayload());
+				index = data.indexOf(' ');
+				f = this.getFileFromCache(data.substring(0, index));
+				f.execute();
+				this.n.printError(data.substring(index + 1));
 				break;
 		}
 		
@@ -450,6 +455,7 @@ public class CacheCoherenceLayer {
 			f.execute();
 			try {
 				this.n.write(f.getName(), c.getContents(), false, false);
+				this.n.printSuccess(c);
 			} catch (IOException e) {
 				this.n.printError(c, Error.ERR_10);
 			}
@@ -477,6 +483,7 @@ public class CacheCoherenceLayer {
 			f.execute();
 			try {
 				this.n.write(f.getName(), c.getContents(), true, false);
+				this.n.printSuccess(c);
 			} catch (IOException e) {
 				this.n.printError(c, Error.ERR_10);
 			}
@@ -504,6 +511,7 @@ public class CacheCoherenceLayer {
 			f.execute();
 			try {
 				this.n.delete(f.getName());
+				this.n.printSuccess(c);
 			} catch (IOException e) {
 				this.n.printError(c, Error.ERR_10);
 			}
@@ -523,5 +531,11 @@ public class CacheCoherenceLayer {
 		return f;
 	}
 	
+	public void printCache(){
+		for(String fileName : this.cache.keySet()){
+			File f = this.cache.get(fileName);
+			System.out.println(f);
+		}
+	}
 
 }

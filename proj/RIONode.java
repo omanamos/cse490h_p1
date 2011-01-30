@@ -18,6 +18,7 @@ public abstract class RIONode extends Node {
 	public RIONode() {
 		RIOLayer = new ReliableInOrderMsgLayer(this);
 		CCLayer = new CacheCoherenceLayer(this);
+		this.RIOLayer.setCCLayer(this.CCLayer);
 	}
 	
 	public ReliableInOrderMsgLayer getRIOLayer(){
@@ -33,7 +34,7 @@ public abstract class RIONode extends Node {
 		if(protocol == Protocol.ACK) {
 			this.RIOLayer.receiveAck(from, msg);
 		}else if(protocol == Protocol.SESSION){
-			this.RIOLayer.receiveSession(from, SessionPacket.unpack(msg));
+			this.RIOLayer.receiveSession(from, RIOPacket.unpack(msg));
 		}else if(protocol == Protocol.RPC){
 			this.RIOLayer.receiveRIO(from, RIOPacket.unpack(msg));
 		}

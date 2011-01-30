@@ -41,6 +41,10 @@ public class ReliableInOrderMsgLayer {
 		this.n = n;
 	}
 	
+	public void setCCLayer(CacheCoherenceLayer cc){
+		this.cc = cc;
+	}
+	
 	/**
 	 * SERVER METHOD<br>
 	 * Receive a data packet.
@@ -69,7 +73,8 @@ public class ReliableInOrderMsgLayer {
 		}
 	}
 	
-	public void receiveSession(int from, SessionPacket pkt){
+	public void receiveSession(int from, RIOPacket wrapper){
+		SessionPacket pkt = SessionPacket.unpack(wrapper.getPayload());
 		switch(pkt.getProtocol()){
 			case SessionProtocol.ACK_SESSION:
 				this.receiveAckSession(from, pkt.getPayload());
@@ -308,7 +313,8 @@ class InChannel {
 	}
 	
 	public void returnSessionPacket(int protocol, byte[] payload){
-		this.n.send(this.sourceAddr, Protocol.SESSION, new SessionPacket(protocol, payload).pack());
+		RIOPacket pkt = new RIOPacket(Protocol.SESSION, -1, new SessionPacket(protocol, payload).pack(), -1);
+		this.n.send(this.sourceAddr, Protocol.SESSION, pkt.pack());
 	}
 	
 	@Override
@@ -437,7 +443,6 @@ class OutChannel {
 	 */
 	protected void receiveAckSession(int sessionId, int seqNum) {
 		if(this.sessionID == -1){
-			System.out.println(1);
 			this.establishingSession = false;
 			this.unACKedPackets = new HashMap<Integer, RIOPacket>();
 			this.lastSeqNumSent = seqNum;

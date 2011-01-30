@@ -30,15 +30,19 @@ public class SessionPacket extends RPCPacket {
 			int bytesRead = in.read(payload, 0, payload.length);
 			
 			if (bytesRead != payload.length && !(bytesRead == -1 && payload.length == 0)) {
+				//System.out.println(bytesRead + " " + payload.length);
 				return null;
 			}
 
 			return new SessionPacket(protocol, payload);
 		} catch (IllegalArgumentException e) {
+			//e.printStackTrace();
 			// will return null
 		} catch(IOException e) {
+			//e.printStackTrace();
 			// will return null
 		}
+		System.out.println("Error");
 		return null;
 	}
 }

@@ -34,13 +34,14 @@ public class RIOPacket {
 	
 	protected RIOPacket(int protocol, int seqNum, byte[] payload, int sessionID, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
 		if (hasInvalidProtocol) {
-			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol");
+			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol: "  + protocol);
 		}else if(payload.length > maxPayloadSize){
 			throw new IllegalArgumentException("Illegal arguments given to Packet: Payload to large");
 		}
 
 		this.protocol = protocol;
 		this.seqNum = seqNum;
+		this.sessionID = sessionID;
 		this.payload = payload;
 	}
 	
@@ -84,6 +85,7 @@ public class RIOPacket {
 
 			out.writeByte(protocol);
 			out.writeInt(seqNum);
+			out.writeInt(sessionID);
 
 			out.write(payload, 0, payload.length);
 
@@ -113,13 +115,16 @@ public class RIOPacket {
 			int bytesRead = in.read(payload, 0, payload.length);
 
 			if (bytesRead != payload.length || bytesRead == -1 && payload.length == 0) {
+				//System.out.println("Error");
 				return null;
 			}
 
 			return new RIOPacket(protocol, seqNum, payload, sid);
 		} catch (IllegalArgumentException e) {
+			///e.printStackTrace();
 			// will return null
 		} catch(IOException e) {
+			//e.printStackTrace();
 			// will return null
 		}
 		return null;

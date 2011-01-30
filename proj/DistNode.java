@@ -12,14 +12,14 @@ public class DistNode extends RIONode {
 		String file = "";
 		String line = r.readLine();
 		while(line != null){
-			file += line;
+			file += line + "\n";
 			line = r.readLine();
 		}
 		return file;
 	}
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
-		if(fileExists(fileName))
+		if(fileExists(fileName) || force)
 			if(!append)
 				putFile(fileName, content, force);
 			else
@@ -155,20 +155,18 @@ public class DistNode extends RIONode {
 		if(!Pattern.matches("^((create|get|delete) [^ ]+|(put|append) [^ ]+ (\\\".+\\\"|[^ ]+))$", command)){
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
 			return;
+		}else if(command.equals("pc")){
+			this.CCLayer.printCache();
 		}
 		
 		int indexOfSpace = command.indexOf(' ');
 		int lastSpace = indexOfSpace + 1;
-		String code = command.substring(0, indexOfSpace);
-		
-		//indexOfSpace = command.indexOf(' ', lastSpace);
-		//int server = 0;//Integer.parseInt(command.substring(lastSpace, indexOfSpace));
-		//lastSpace = indexOfSpace + 1;
+		String code = command.substring(0, indexOfSpace).trim();
 		
 		indexOfSpace = command.indexOf(' ', lastSpace);
 		if(indexOfSpace < 0)
 			indexOfSpace = command.length();
-		String fileName = command.substring(lastSpace, indexOfSpace);
+		String fileName = command.substring(lastSpace, indexOfSpace).trim();
 		lastSpace = indexOfSpace + 1;
 		
 		if(code.equals("create")){

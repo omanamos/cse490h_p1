@@ -20,8 +20,14 @@ public class Command extends Queueable{
 		if(!this.isValidType(type)){
 			throw new IllegalArgumentException("Invalid Command Type: " + type);
 		}
+		this.type = type;
 		this.fileName = fileName;
 		this.dest = dest;
+		if(contents != null){
+			if(contents.charAt(0) == '"' && contents.charAt(contents.length() - 1) == '"')
+				contents = contents.substring(1, contents.length() - 1);
+			contents = contents.replaceAll("\\\\n", "\n");
+		}
 		this.contents = contents;
 	}
 	
