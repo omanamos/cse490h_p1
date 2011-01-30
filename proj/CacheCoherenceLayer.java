@@ -322,7 +322,7 @@ public class CacheCoherenceLayer {
 					contents = "";
 					
 				} else {
-					permissions = Integer.parseInt(data.substring(fileName.length(), index));
+					permissions = Integer.parseInt(data.substring(fileName.length(), index).trim());
 					contents = data.substring(index + 1);
 				}
 				
