@@ -99,14 +99,20 @@ public class CacheCoherenceLayer {
 				if(updates.containsKey(File.RW)){	//Error
 					f.execute();
 					this.n.printError("FATAL ERROR: File permissions inconsistent");
-					this.executeCommandQueue(f);
+					this.executePacketQueue(f);
 				}else if(!updates.containsKey(File.RO)){ //There aren't any more RO copies out there
 					f.execute();
 					if(f.getState() == File.INV){ //The requested operation was a delete
 						this.sendCC(pkt.getSource(), RPCProtocol.DELETE, Utility.stringToByteArray(fileName));
 					}else{ //The requested opertion was a write
 						//Return the Data to the client that requested it
-						this.sendCC(pkt.getSource(), RPCProtocol.PUT, packet.getPayload());
+						try{
+							contents = this.n.get(fileName);
+							this.sendCC(pkt.getSource(), RPCProtocol.PUT, Utility.stringToByteArray(fileName + " " + File.RW + " " + contents));
+						}catch(IOException e){
+							f.execute();
+							this.n.printError("FATAL ERROR: File: " + fileName + " does not exist on server.");
+						}
 					}
 					
 					this.executePacketQueue(f);
@@ -159,6 +165,7 @@ public class CacheCoherenceLayer {
 				}catch(Exception e){
 					this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray("Fatal Error: File: " + fileName + " doesn't exist on master node"));
 				}
+				f.changePermissions(from, File.RO);
 				f.execute();
 				return true;
 			}else{					//This is a WQ
@@ -332,7 +339,7 @@ public class CacheCoherenceLayer {
 					contents = "";
 					
 				} else {
-					permissions = Integer.parseInt(data.substring(fileName.length(), index).trim());
+					permissions = Integer.parseInt(data.substring(fileName.length() + 1, index).trim());
 					contents = data.substring(index + 1);
 				}
 				
@@ -346,6 +353,7 @@ public class CacheCoherenceLayer {
 					if(permissions == File.RO){	//This was a RQ
 						this.n.printData(contents);
 					} else {					//This was a WQ
+						this.n.write(fileName, c.getContents(), c.getType() == Command.APPEND, false);
 						this.n.printSuccess(c);
 					}
 				} catch (IOException e) {
@@ -395,7 +403,7 @@ public class CacheCoherenceLayer {
 	//CLIENT METHODS FOR INITIATING COMMANDS
 	public boolean create(String filename){
 		boolean rtn = false;
-		Command c = new Command(MASTER_NODE, Command.CREATE, filename);
+		Command c = new Command(MASTER_NODE, Command.CREATE, filename, "");
 		
 		File f = getFileFromCache( filename );
 		

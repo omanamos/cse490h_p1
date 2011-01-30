@@ -23,7 +23,7 @@ public class Command extends Queueable{
 		this.type = type;
 		this.fileName = fileName;
 		this.dest = dest;
-		if(contents != null){
+		if(contents != null && contents.length() > 1){
 			if(contents.charAt(0) == '"' && contents.charAt(contents.length() - 1) == '"')
 				contents = contents.substring(1, contents.length() - 1);
 			contents = contents.replaceAll("\\\\n", "\n");
