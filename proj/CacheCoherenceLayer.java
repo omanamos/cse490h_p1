@@ -50,7 +50,7 @@ public class CacheCoherenceLayer {
 				permissions = Integer.parseInt(split[1]);
 				
 				f = (MasterFile)this.getFileFromCache(fileName);
-				
+				packet.setSource(from);
 				if(f.execute(packet)){ //If the file isn't already executing a request
 					this.get(from, f, fileName, permissions);
 				}
@@ -115,6 +115,7 @@ public class CacheCoherenceLayer {
 				fileName = Utility.byteArrayToString(packet.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
+				packet.setSource(from);
 				if(f.execute(packet)){ //If the file isn't already executing a request
 					this.create(from, f, fileName);
 				}
@@ -123,6 +124,7 @@ public class CacheCoherenceLayer {
 				fileName = Utility.byteArrayToString(packet.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
+				packet.setSource(from);
 				if(f.execute(packet)){ //If the file isn't already executing a request
 					this.delete(from, f, fileName);
 				}
@@ -180,6 +182,7 @@ public class CacheCoherenceLayer {
 			try {
 				this.n.create(fileName);
 				f.setState(File.RW);
+				f.changePermissions(from, File.RW);
 				
 				String returnPayload = fileName + " " + File.RW;
 				this.sendCC(from, RPCProtocol.PUT, Utility.stringToByteArray(returnPayload));
