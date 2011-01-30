@@ -137,6 +137,7 @@ public class CacheCoherenceLayer {
 		if(f.getState() == File.INV){ //The file doesn't exist.
 			String error = DistNode.buildErrorString(MASTER_NODE, from, RPCProtocol.GET, fileName, Error.ERR_10);
 			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error));
+			f.execute();
 			return true;
 		}
 		
@@ -158,6 +159,7 @@ public class CacheCoherenceLayer {
 				}catch(Exception e){
 					this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray("Fatal Error: File: " + fileName + " doesn't exist on master node"));
 				}
+				f.execute();
 				return true;
 			}else{					//This is a WQ
 				for(Integer addr : updates.get(File.RO)){	//Send invalidates to every client that has a RO copy and wait for ICs back
@@ -173,6 +175,7 @@ public class CacheCoherenceLayer {
 			}catch(Exception e){
 				this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray("Fatal Error: File: " + fileName + " doesn't exist on master node"));
 			}
+			f.execute();
 			return true;
 		}
 	}
@@ -216,16 +219,19 @@ public class CacheCoherenceLayer {
 					return false;
 				}else{ //No one has a copy checked out
 					this.sendCC(from, RPCProtocol.DELETE, Utility.stringToByteArray(fileName));
+					f.execute();
 					return true;
 				}
 			}catch(IOException e){ //File doesn't exist
 				String error = DistNode.buildErrorString(this.n.addr, from, RPCProtocol.ERROR, fileName, Error.ERR_10);
 				this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error));
+				f.execute();
 				return true;
 			}
 		}else{ //File doesn't exist
 			String error = DistNode.buildErrorString(this.n.addr, from, RPCProtocol.ERROR, fileName, Error.ERR_10);
 			this.sendCC(from, RPCProtocol.ERROR, Utility.stringToByteArray(fileName + " " + error));
+			f.execute();
 			return true;
 		}
 	}
