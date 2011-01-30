@@ -74,6 +74,7 @@ public class CacheCoherenceLayer {
 				}
 				
 				pkt = f.execute();	//Get the RQ that requested the file & dequeue it
+				f.changePermissions(from, permissions == File.RW ? File.INV : File.RO);
 				f.changePermissions(pkt.getSource(), permissions);
 				f.setState(permissions);
 				
@@ -277,8 +278,8 @@ public class CacheCoherenceLayer {
 				fileName = dataSplit[0];
 				
 				f = this.getFileFromCache(fileName);
-				if(f.getState() != File.INV){ //This is a RF
-					if(permissions == File.RO){
+				if(f.getState() != File.INV){ 
+					if(permissions == File.RO){//This is a RF
 						f.setState(File.RO);
 						String payload;
 						
