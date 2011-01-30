@@ -15,7 +15,7 @@ public class DistNode extends RIONode {
 			file += line + "\n";
 			line = r.readLine();
 		}
-		return file.substring(0, file.length() - 1);
+		return file.length() == 0 ? "" : file.substring(0, file.length() - 1);
 	}
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{

@@ -370,6 +370,15 @@ public class CacheCoherenceLayer {
 				f.execute();
 				this.n.printError(data.substring(index + 1));
 				break;
+			case RPCProtocol.DELETE:
+				fileName = Utility.byteArrayToString(packet.getPayload());
+				try{
+					f = this.getFileFromCache(fileName);
+					f.execute();
+					this.n.delete(fileName);
+				} catch (IOException e) {
+					this.n.printError("Fatal Error: Couldn't delete file " + fileName);
+				}
 		}
 		
 	}
@@ -523,7 +532,7 @@ public class CacheCoherenceLayer {
 	
 	private boolean delete(Command c, File f){
 		if(f.getState() != File.RW) {
-			this.sendCC(MASTER_NODE, RPCProtocol.DELETE, Utility.stringToByteArray(f.getName() + " " + File.RW));
+			this.sendCC(MASTER_NODE, RPCProtocol.DELETE, Utility.stringToByteArray(f.getName()));
 			return false;//WQ
 		} else {
 			f.execute();
