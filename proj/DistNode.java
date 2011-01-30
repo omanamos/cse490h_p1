@@ -29,10 +29,10 @@ public class DistNode extends RIONode {
 	}
 	
 	public void create(String fileName) throws IOException {
-		if(!fileExists(fileName))
-			this.getWriter(fileName, false);
-		else
-			throw new IOException();
+		//if(!fileExists(fileName))
+			this.getWriter(fileName, false).write("");
+		//else
+			//throw new IOException();
 	}
 	
 	public void delete(String fileName) throws IOException {
