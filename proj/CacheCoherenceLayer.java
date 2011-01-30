@@ -176,7 +176,7 @@ public class CacheCoherenceLayer {
 	
 	private boolean create(int from, MasterFile f, String fileName){
 		f.execute();
-		if(f.getState() != File.INV){
+		if(f.getState() == File.INV){
 			try {
 				this.n.create(fileName);
 				f.setState(File.RW);
