@@ -18,58 +18,49 @@ import java.io.Writer;
  * Note that ANY modification can cause a crash with equal probability, so
  * write('a'); write('b'); write('c'); newLine(); has a higher chance of causing
  * a crash than write("abc\n");
- * 
  */
-//TODO: byte stream rather than character stream
 public class PersistentStorageWriter extends BufferedWriter {
-	private File f;
-	private Node n;
+	private final File f;
+	private final Node n;
 
-	PersistentStorageWriter(Node n, File f, boolean append) throws IOException{
+	PersistentStorageWriter(Node n, File f, boolean append) throws IOException {
 		super(new FileWriter(f, append));
 		this.n = n;
 		this.f = f;
-	}
-	
-	private String logEscape(String s) {
-		s = s.replace(" ", "_");
-		s = s.replace("\n", "|");
-		return "'" + "'";
 	}
 
 	// methods for the file writer
 	@Override
 	public void write(int c) throws IOException {
 		n.handleDiskWriteEvent("write(" + c + ")",
-				"buf:" + logEscape("" + c));
-		
+				"buf:" + Utility.logEscape("" + c));
+
 		super.write(c);
 		super.flush();
 	}
 
 	@Override
 	public void write(char[] cbuf, int off, int len) throws IOException {
-		n.handleDiskWriteEvent("write(cbuf, " + off +  ", " + len + ")",
-				"buf:" + logEscape(new String(cbuf)) + " offset:" + off + " len:" + len);
-		
+		n.handleDiskWriteEvent("write(cbuf, " + off + ", " + len + ")",
+				"buf:" + Utility.logEscape(new String(cbuf)) + " offset:" + off + " len:" + len);
+
 		super.write(cbuf, off, len);
 		super.flush();
 	}
 
 	@Override
 	public void write(String s, int off, int len) throws IOException {
-		n.handleDiskWriteEvent("write(s, " + off +  ", " + len + ")",
-				"buf:" + logEscape(s) + " offset:" + off + " len:" + len);
-		
+		n.handleDiskWriteEvent("write(s, " + off + ", " + len + ")",
+				"buf:" + Utility.logEscape(s) + " offset:" + off + " len:" + len);
+
 		super.write(s, off, len);
 		super.flush();
 	}
 
 	@Override
 	public void newLine() throws IOException {
-		n.handleDiskWriteEvent("newLine()",
-				"newline");
-		
+		n.handleDiskWriteEvent("newLine()", "newline");
+
 		super.newLine();
 		super.flush();
 	}
@@ -77,8 +68,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 	@Override
 	public void write(char[] cbuf) throws IOException {
 		n.handleDiskWriteEvent("write(cbuf)",
-				"buf:" + logEscape(new String(cbuf)));
-		
+				"buf:" + Utility.logEscape(new String(cbuf)));
+
 		super.write(cbuf);
 		super.flush();
 	}
@@ -86,11 +77,11 @@ public class PersistentStorageWriter extends BufferedWriter {
 	@Override
 	public Writer append(CharSequence csq) throws IOException {
 		n.handleDiskWriteEvent("append(csq)",
-				"append buf:" + logEscape("" + csq));
-		
+				"append buf:" + Utility.logEscape("" + csq));
+
 		Writer ret = super.append(csq);
 		super.flush();
-		
+
 		return ret;
 	}
 
@@ -98,39 +89,38 @@ public class PersistentStorageWriter extends BufferedWriter {
 	public Writer append(CharSequence csq, int start, int end)
 			throws IOException {
 		n.handleDiskWriteEvent("append(csq, " + start + ", " + end + ")",
-				"append buf:" + logEscape("" + csq) + " start:" + start + " end:" + end);
-		
+				"append buf:" + Utility.logEscape("" + csq) + " start:" + start + " end:" + end);
+
 		Writer ret = super.append(csq, start, end);
 		super.flush();
-		
+
 		return ret;
 	}
 
 	@Override
-	public Writer append(char c) throws IOException{
+	public Writer append(char c) throws IOException {
 		n.handleDiskWriteEvent("append(" + c + ")",
-				"append buf:" + logEscape(String.valueOf(c)));
-		
+				"append buf:" + Utility.logEscape(String.valueOf(c)));
+
 		Writer ret = super.append(c);
 		super.flush();
-		
+
 		return ret;
 	}
 
 	@Override
-	public void write(String str) throws IOException{
-		n.handleDiskWriteEvent("write(str)",
-				"buf:" + logEscape(str));
-		
+	public void write(String str) throws IOException {
+		n.handleDiskWriteEvent("write(str)", "buf:" + Utility.logEscape(str));
+
 		super.write(str);
 		super.flush();
 	}
 
-	public boolean delete() throws IOException{
+	public boolean delete() throws IOException {
 		n.handleDiskWriteEvent("delete of" + f.getName(),
 				"delete:" + f.getName());
-		
-		this.close();
+
+		close();
 		return f.delete();
 	}
 }

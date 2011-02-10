@@ -16,29 +16,28 @@ import java.util.HashMap;
 public abstract class Manager {
 	protected static final int BROADCAST_ADDRESS = 255;
 	protected static final int MAX_ADDRESS = 255;
-	
+
 	protected final double failureRate;
 	protected final double recoveryRate;
 	protected final double dropRate;
 	protected final double delayRate;
-	
+
     protected long seed;
     protected final Class<? extends Node> nodeImpl;
-    
+
     // TODO: migrate to using Node.vtime instead of this once you figure out
 	// how to embed vtime in Packet
     // Maps: node addr -> node's current vector time
 	protected HashMap<Integer, VectorTime> vtimes;
-	
+
 	private int pktsSent;
 	protected ArrayList<Event> sortedEvents;
 	protected ArrayList<Timeout> waitingTOs;
 	protected ArrayList<Packet> inTransitMsgs;
 	protected CommandsParser parser;   // parser for commands file
-	
-	protected SynopticLogger synTotalOrderLogger = new SynopticLogger();
+
 	protected SynopticLogger synPartialOrderLogger = new SynopticLogger();
-	
+
 	protected FailureLvl userControl;
 	protected enum FailureLvl{
 		NOTHING,		// Everything is handled by the random number generator
@@ -49,7 +48,7 @@ public abstract class Manager {
 	}
 	protected InputType cmdInputType;
 	protected enum InputType{ USER, FILE }
-	
+
 	/**
 	 * Class representing a timeout
 	 */
@@ -57,24 +56,24 @@ public abstract class Manager {
 		protected Node node;
 		protected long fireTime;
 		protected Callback cb;
-		
+
 		protected Timeout(Node node, long fireTime, Callback cb) {
 			this.node = node;
 			this.fireTime = fireTime;
 			this.cb = cb;
 		}
-		
+
 		public String toString() {
 			return node.addr + ": " + cb + " at " + fireTime;
 		}
 	}
-	
+
 	private long time;
 
 	/**
 	 * Initialize Manager. Grabs all the relevant information from the students
 	 * Node class, generates the seed, and initializes replay.
-	 * 
+	 *
 	 * @param nodeImpl
 	 *            The Class object for the student's node implementation
 	 * @param seed
@@ -96,7 +95,7 @@ public abstract class Manager {
 		waitingTOs = new ArrayList<Timeout>();
 		inTransitMsgs = new ArrayList<Packet>();
 		parser = null;
-		
+
 		this.nodeImpl = nodeImpl;
 		try{
 			// this block is not actually needed when the failure generator is
@@ -112,9 +111,9 @@ public abstract class Manager {
 		}catch(NoSuchMethodException e){
 			throw new IllegalArgumentException("Error while finding get*rate functions: " + e);
 		}catch(Exception e){
-			throw new IllegalArgumentException("Error while executing get*rate functions: " + e); 
+			throw new IllegalArgumentException("Error while executing get*rate functions: " + e);
 		}
-		
+
 		Replay.parent = this;
 
 		if(!replayOutputFilename.equals("")) {
@@ -140,7 +139,7 @@ public abstract class Manager {
 				this.seed = seed;
 			}
 		}
-		
+
 		if(Replay.replayOut != null) {
 			Replay.replayOut.writeLong(this.seed);
 		}
@@ -153,7 +152,7 @@ public abstract class Manager {
 
 	/**
 	 * Helpful stats about the manager that is exiting.
-	 * 
+	 *
 	 * @return The string that contains the helpful stats
 	 */
 	protected String stopString(){
@@ -163,7 +162,7 @@ public abstract class Manager {
 		}
 		return s;
 	}
-	
+
 	/**
 	 * Stops MessageLayer. This method should not return
 	 */
@@ -176,7 +175,7 @@ public abstract class Manager {
 	 * Create a packet and put it on the channel. Crashes in the middle of a
 	 * broadcast can be modeled by a post-send crash, plus a sequence of dropped
 	 * messages
-	 * 
+	 *
 	 * @param fromNode
 	 *            The node that is sending the packet
 	 * @param to
@@ -201,7 +200,7 @@ public abstract class Manager {
 
 	/**
 	 * Sets the command parser that should be used.
-	 * 
+	 *
 	 * @param parser
 	 *            The command parser instance to use
 	 */
@@ -211,7 +210,7 @@ public abstract class Manager {
 
 	/**
 	 * Add a timer interrupt that will execute in a particular timestep.
-	 * 
+	 *
 	 * @param node
 	 *            The node that added the the interrupt
 	 * @param timeout
@@ -222,10 +221,10 @@ public abstract class Manager {
 	protected void addTimeout(Node node, long timeout, Callback cb) {
 		waitingTOs.add(new Timeout(node, now() + timeout, cb));
 	}
-	
+
 	/**
 	 * Gets the current time step of the execution.
-	 * 
+	 *
 	 * @return	The time step
 	 */
 	public long now(){
@@ -234,7 +233,7 @@ public abstract class Manager {
 
 	/**
 	 * Check if we should crash before a write.
-	 * 
+	 *
 	 * @param n
 	 *            The node that is trying to write to the disc.
 	 * @param description
@@ -246,7 +245,7 @@ public abstract class Manager {
 	/**
 	 * Set the current time. This should be used at the beginning, and after
 	 * each time step.
-	 * 
+	 *
 	 * @param time
 	 *            The time to set
 	 */
@@ -264,7 +263,7 @@ public abstract class Manager {
 	 */
 	protected abstract void storageWriteEvent(Node node, String description);
 
-	
+
 	/**
 	 * Triggered whenever the node attempts to read from the local storage device.
 	 * @param node
@@ -274,19 +273,22 @@ public abstract class Manager {
 	 */
 	protected abstract void storageReadEvent(Node node, String description);
 
-	
 	/**
-	 * Logs an event string for a node to synoptic partial log without a node field
-	 * 
-	 * @param node Node instance with which to associate the event string (for timing)
-	 * @param eventStr the event string
+	 * Logs an event string for a node to synoptic partial log without a node
+	 * field
+	 *
+	 * @param nodeAddr
+	 *            Address of a node instance with which to associate the event
+	 *            string (for timing)
+	 * @param eventStr
+	 *            the event string
 	 */
-	protected void logEvent(Node node, String eventStr) {
-		// step() comes before logging because on communication, we've updated 
+	protected void logEvent(int nodeAddr, String eventStr) {
+		// step() comes before logging because on communication, we've updated
 		// the destination vtime to be at least the source, but it needs to be
 		// strictly greater than the source.
-		VectorTime vtime = vtimes.get(node.addr);
-		vtime.step(node.addr);
+		VectorTime vtime = vtimes.get(nodeAddr);
+		vtime.step(nodeAddr);
 		this.synPartialOrderLogger.logEvent("" + vtime.toString(), eventStr);
 	}
 }

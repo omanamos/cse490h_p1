@@ -11,32 +11,34 @@ import java.io.IOException;
  * classes to access the disc.
  */
 public class PersistentStorageReader extends BufferedReader {
-	private Node n;
-	
+	private final Node n;
+
 	PersistentStorageReader(Node n, String filename)
 			throws FileNotFoundException {
 		super(new FileReader(Utility.realFilename(n.addr, filename)));
 		this.n = n;
 	}
-	
+
 	@Override
 	public int read() throws IOException {
-		n.handleDiskReadEvent("");
-		
-		return super.read();
+		int ret = super.read();
+		char[] chars = new char[] { (char) ret };
+		n.handleDiskReadEvent("cbuf:" + Utility.logEscape(new String(chars)));
+		return ret;
 	}
-	
+
 	@Override
 	public int read(char[] cbuf, int off, int len) throws IOException {
-		n.handleDiskReadEvent("cbuf:" + new String(cbuf) + " offset:"+ off + " len:" + len);
-		
-		return super.read(cbuf, off, len);
+		int ret = super.read(cbuf, off, len);
+		n.handleDiskReadEvent("cbuf:" + Utility.logEscape(new String(cbuf))
+				+ " offset:" + off + " len:" + len);
+		return ret;
 	}
-	
+
 	@Override
 	public String readLine() throws IOException {
-		n.handleDiskReadEvent("readline");
-		
-		return super.readLine();
+		String ret = super.readLine();
+		n.handleDiskReadEvent("readline: " + Utility.logEscape(ret));
+		return ret;
 	}
 }

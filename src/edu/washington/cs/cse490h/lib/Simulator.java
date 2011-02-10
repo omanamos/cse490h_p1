@@ -19,22 +19,24 @@ import edu.washington.cs.cse490h.lib.Node.NodeCrashException;
 public class Simulator extends Manager {
 
 	public static final int MAX_NODES_TO_SIMULATE = Manager.MAX_ADDRESS - 1;
-    
+
 	private HashMap<Integer, Node> nodes;
 
 	private HashSet<Integer> crashedNodes;
-	
+
 	// the global logical time ordering which increments by 1 on each
 	// event in the simulated system.
 	private int globalLogicalTime = 0;
-	
+
+	private SynopticLogger synTotalOrderLogger = new SynopticLogger();
+
 	private HashSet<Timeout> canceledTimeouts;
 
 	/**
 	 * Base constructor for the Simulator. Does most of the work, but the
 	 * command input method and failure level should be set before calling this
 	 * constructor.
-	 * 
+	 *
 	 * @param nodeImpl
 	 *            The Class object for the student's node implementation
 	 * @param seed
@@ -52,7 +54,7 @@ public class Simulator extends Manager {
 	public Simulator(Class<? extends Node> nodeImpl, Long seed, String replayOutputFilename, String replayInputFilename)
 			throws IllegalArgumentException, IOException {
 		super(nodeImpl, seed, replayOutputFilename, replayInputFilename);
-		
+
 		setParser(new SimulationCommandsParser());
 
 		if (seed == null) {
@@ -68,12 +70,13 @@ public class Simulator extends Manager {
 		crashedNodes = new HashSet<Integer>();
 
 		setTime(0);
-		this.logSimulatorEvent("TIMESTEP time:" + this.now());
+		// NOTE: cannot produce a TIMESTEP event here as the nodes haven't
+		// been created yet and we must associate TIMESTEP events with nodes
 	}
 
 	/**
 	 * Constructor for a simulator that takes commands from a file.
-	 * 
+	 *
 	 * @param nodeImpl
 	 *            The Class object for the student's node implementation
 	 * @param failureGen
@@ -99,14 +102,14 @@ public class Simulator extends Manager {
 
 		cmdInputType = InputType.FILE;
 		userControl = failureGen;
-		
+
 		SimulationCommandsParser commandFileParser = new SimulationCommandsParser();
 		sortedEvents = commandFileParser.parseFile(commandFile);
 	}
 
 	/**
 	 * Constructor for a simulator that takes commands from the user.
-	 * 
+	 *
 	 * @param nodeImpl
 	 *            The Class object for the student's node implementation
 	 * @param failureGen
@@ -125,7 +128,7 @@ public class Simulator extends Manager {
 	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, Long seed, String replayOutputFilename, String replayInputFilename)
 			throws IllegalArgumentException , IOException{
 		this(nodeImpl, seed, replayOutputFilename, replayInputFilename);
-		
+
 		cmdInputType = InputType.USER;
 		userControl = failureGen;
 	}
@@ -158,9 +161,9 @@ public class Simulator extends Manager {
 						}
 					}
 				} while (!advance);
-				
+
 				this.doTimestep(currentRoundEvents);
-				
+
 			}
 		} else if (cmdInputType == InputType.USER) {
 			while (true) {
@@ -200,19 +203,19 @@ public class Simulator extends Manager {
 						}
 					}
 				} while (!advance);
-				
+
 				this.doTimestep(currentRoundEvents);
-				
+
 			}
 		}
 
 		stop();
 	}
-	
-	
+
+
 	/**
 	 * Perform a single simulator time step with a set of events as argument
-	 *  
+	 *
 	 * @param currentRoundEvents
 	 */
 	private void doTimestep(ArrayList<Event> currentRoundEvents) {
@@ -228,8 +231,8 @@ public class Simulator extends Manager {
 		setTime(now() + 1);
 		logSimulatorEvent("TIMESTEP time:" + this.now());
 	}
-	
-	
+
+
 	@Override
 	protected void stop(){
 		System.out.println(stopString());
@@ -237,11 +240,11 @@ public class Simulator extends Manager {
 			System.out.println(i + ": " + nodes.get(i).toString());
 			logEventWithNodeField(nodes.get(i), "STOPPED");
 		}
-		
+
 		for(Integer i: crashedNodes){
 			System.out.println(i + ": failed");
 		}
-		
+
 		// stop the synoptic logger
 		this.synTotalOrderLogger.stop();
 		this.synPartialOrderLogger.stop();
@@ -253,7 +256,7 @@ public class Simulator extends Manager {
 	/**
 	 * Start up a node, crashed or brand new. If the node is alive, this method
 	 * will crash it first.
-	 * 
+	 *
 	 * @param node
 	 *            The address at which to start the node
 	 */
@@ -262,11 +265,11 @@ public class Simulator extends Manager {
 			System.err.println("Invalid new node address: " + node);
 			return;
 		}
-		
+
 		if(nodes.containsKey(node)){
 			failNode(node);
 		}
-		
+
 		Node newNode;
 		try{
 			newNode = nodeImpl.newInstance();
@@ -280,11 +283,11 @@ public class Simulator extends Manager {
 			crashedNodes.remove(node);
 		}
 		nodes.put(node, newNode);
-		
+
 		newNode.init(this, node);
 		vtimes.put(node, new VectorTime(MAX_ADDRESS));
 		logEventWithNodeField(newNode, "START");
-		
+
 		try{
 			newNode.start();
 		}catch(NodeCrashException e) {
@@ -295,7 +298,7 @@ public class Simulator extends Manager {
 	/**
 	 * Fail a node. This method updates data structures, removes the failed
 	 * nodes's timeouts and calls its fail() method
-	 * 
+	 *
 	 * @param node
 	 *            The node address to fail
 	 * @return The exception thrown after calling the fail() method. This is so,
@@ -312,12 +315,12 @@ public class Simulator extends Manager {
 			}catch(NodeCrashException e) {
 				crash = e;
 			}
-			
+
 			logEventWithNodeField(crashingNode, "FAILURE");
-			
+
 			nodes.remove(node);
 			crashedNodes.add(node);
-			
+
 			Iterator<Timeout> iter = waitingTOs.iterator();
 			while(iter.hasNext()){
 				Timeout to = iter.next();
@@ -326,10 +329,10 @@ public class Simulator extends Manager {
 				}
 			}
 		}
-		
+
 		return crash;
 	}
-	
+
 	@Override
 	protected void checkWriteCrash(Node n, String description) {
 		if(userControl.compareTo(FailureLvl.CRASH) < 0){
@@ -355,19 +358,19 @@ public class Simulator extends Manager {
 			}
 		}
 	}
-	
+
 	@Override
 	protected void storageWriteEvent(Node node, String description) {
 		logEventWithNodeField(node, "WRITE " + description);
 	}
-	
+
 	@Override
 	protected void storageReadEvent(Node node, String description) {
 		logEventWithNodeField(node, "READ " + description);
 	}
 
 	/****************** Methods to check and handle events ******************/
-	
+
 	/**
 	 * Logs an in transit event -- a DROP or a DELAY event.
 	 */
@@ -380,12 +383,12 @@ public class Simulator extends Manager {
 		}
 		logEvent(destNode, netEvent + " " + p.toSynopticString(destNode));
 	}
-	
+
 
 	/**
 	 * Goes through all of the in transit messages and decides whether to drop,
 	 * delay, or deliver.
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
@@ -393,11 +396,11 @@ public class Simulator extends Manager {
 		if(inTransitMsgs.isEmpty()){
 			return;
 		}
-		
+
 		// See what we should do with all the in-transit messages
 		ArrayList<Packet> currentPackets = inTransitMsgs;
 		inTransitMsgs = new ArrayList<Packet>();
-		
+
 		if(userControl.compareTo(FailureLvl.DROP) < 0){		// userControl < DROP
 			// Figure out if we need to drop the packet.
 			Iterator<Packet> iter = currentPackets.iterator();
@@ -421,7 +424,7 @@ public class Simulator extends Manager {
 				String input = Replay.getLine().trim();
 				// hash set so we don't have to deal with duplicates
 				HashSet<Packet> toBeRemoved = new HashSet<Packet>();
-				
+
 				if(!input.equals("")){
 					String[] dropList = input.split("\\s+");
 					Packet p;
@@ -431,17 +434,17 @@ public class Simulator extends Manager {
 						this.logInTransit(p, "DROP");
 					}
 				}
-				
+
 				if(toBeRemoved.size() == currentPackets.size()){
 					return;
 				}
-				
+
 				// If user drops and delays the same packet, result is undefined
 				//   In current implementation, delay takes precedence
 				if(userControl.compareTo(FailureLvl.DELAY) >= 0){		// userControl >= DELAY
 					System.out.println("Which should be delayed? (space delimited list or just press enter to delay none)");
 					input = Replay.getLine().trim();
-					
+
 					if(!input.equals("")){
 						String[] delayList = input.split("\\s+");
 						Packet p;
@@ -452,18 +455,18 @@ public class Simulator extends Manager {
 							this.logInTransit(p, "DELAY");
 						}
 					}
-					
+
 					if(toBeRemoved.size() == currentPackets.size()){
 						return;
 					}
 				}
-				
+
 				currentPackets.removeAll(toBeRemoved);
 			}catch(IOException e){
 				e.printStackTrace();
 			}
 		}
-		
+
 		if (userControl.compareTo(FailureLvl.DELAY) < 0) { // userControl < DELAY
 			Iterator<Packet> iter = currentPackets.iterator();
 			while (iter.hasNext()) {
@@ -480,7 +483,7 @@ public class Simulator extends Manager {
 				}
 			}
 		}
-		
+
 		for(Packet p: currentPackets) {
 			currentRoundEvents.add(Event.getDelivery(p));
 		}
@@ -488,7 +491,7 @@ public class Simulator extends Manager {
 
 	/**
 	 * Checks whether to crash any live node or restart any failed node
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
@@ -527,7 +530,7 @@ public class Simulator extends Manager {
 						}
 					}
 				}
-				
+
 				// The user could also just use the start command, but not if the input method is file
 				if(!crashedNodes.isEmpty()){
 					System.out.println("Restart which nodes? (space-delimited list of addresses or just press enter)");
@@ -548,7 +551,7 @@ public class Simulator extends Manager {
 	/**
 	 * Check to see if any timeouts are supposed to fire during the current time
 	 * step
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
@@ -562,13 +565,13 @@ public class Simulator extends Manager {
 			}
 		}
 	}
-	
+
 	/**
 	 * Reorders and executes all the events for the current round.
-	 * 
+	 *
 	 * Note that commands can be executed in a different order than they appear
 	 * in the command file!
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
@@ -597,13 +600,13 @@ public class Simulator extends Manager {
 						for(String s: order){
 							dupeMissCheck.add(currentRoundEvents.get(Integer.parseInt(s)));
 						}
-						
+
 						if(dupeMissCheck.size() != currentRoundEvents.size()) {
 							System.out.println("Not all of the events were specified!");
 							doAgain = true;
 							continue;
 						}
-						
+
 						for(String s: order){
 							Event ev = currentRoundEvents.get(Integer.parseInt(s));
 							handleEvent(ev);
@@ -622,13 +625,13 @@ public class Simulator extends Manager {
 				handleEvent(ev);
 			}
 		}
-		
+
 		waitingTOs.removeAll(canceledTimeouts);
 	}
 
 	/**
 	 * Process an event.
-	 * 
+	 *
 	 * @param ev
 	 *            The event that should be processed
 	 */
@@ -660,9 +663,9 @@ public class Simulator extends Manager {
 			if(canceledTimeouts.contains(ev.to)) {
 				break;
 			}
-			
+
 			logEventWithNodeField(ev.to.node, "TIMEOUT fire-time:" + ev.to.fireTime + " " + ev.to.cb.toSynopticString());
-						
+
 			try{
 				ev.to.cb.invoke();
 			}catch(InvocationTargetException e) {
@@ -687,7 +690,7 @@ public class Simulator extends Manager {
 	 * Create a packet and put it on the channel. Crashes in the middle of a
 	 * broadcast can be modeled by a post-send crash, plus a sequence of dropped
 	 * messages
-	 * 
+	 *
 	 * @param fromNode
 	 *            The node that is sending the packet
 	 * @param to
@@ -703,11 +706,11 @@ public class Simulator extends Manager {
 	protected void sendPkt(Node fromNode, int to, int protocol, byte[] payload) throws IllegalArgumentException {
 		int from = fromNode.addr;
 		super.sendPkt(fromNode, to, protocol, payload);  // check arguments
-		
+
 		if(!isNodeValid(from)) {
 			return;
 		}
-		
+
 		if(to == Manager.BROADCAST_ADDRESS) {
 			// We create a new packet for each msg in the broadcast since
 			// delivery in the simulator is based on the destination address of
@@ -731,10 +734,10 @@ public class Simulator extends Manager {
 			inTransitMsgs.add(newPacket);
 		}
 	}
-	
+
 	/**
 	 * Actually deliver an in transit packet to its intended destination.
-	 * 
+	 *
 	 * @param destAddr
 	 *            The address of the recipient
 	 * @param destNode
@@ -753,9 +756,9 @@ public class Simulator extends Manager {
 
 		Node destNode = nodes.get(destAddr);
 		vtimes.get(destAddr).updateTo(vtimes.get(srcAddr));
-				
+
 		logEvent(destNode, "RECVD " + pkt.toSynopticString(destNode));
-				
+
 		try{
 			destNode.onReceive(srcAddr, pkt.getProtocol(), pkt.getPayload());
 		}catch(NodeCrashException e) {
@@ -765,7 +768,7 @@ public class Simulator extends Manager {
 
 	/**
 	 * Sends command to the specified node
-	 * 
+	 *
 	 * @param nodeAddr
 	 *            Address of the node to whom the message should be sent
 	 * @param msg
@@ -789,7 +792,7 @@ public class Simulator extends Manager {
 
 	/**
 	 * Check if the address is valid
-	 * 
+	 *
 	 * @param addr
 	 *            The address to check
 	 * @return true if the address is valid, false otherwise
@@ -802,7 +805,7 @@ public class Simulator extends Manager {
 	 * Check whether a given node is live and therefore valid to give msgs/cmds.
 	 * Additionally, an error message will print out if the address itself is
 	 * invalid.
-	 * 
+	 *
 	 * @param nodeAddr
 	 *            The node for which we want to check validity
 	 * @return true If the node is alive, false if not.
@@ -855,10 +858,13 @@ public class Simulator extends Manager {
 	}
 
 	/**
-	 * Log the event in the synoptic log using the simulator's global logical ordering with a node field
-	 * 
-	 * @param node node generating the event
-	 * @param eventStr the event string description of the event
+	 * Log the event in the synoptic log using the simulator's global logical
+	 * ordering with a node field.
+	 *
+	 * @param node
+	 *            node generating the event
+	 * @param eventStr
+	 *            the event string description of the event
 	 */
 	public void logEventWithNodeField(Node node, String eventStr) {
 		// The Simulator implicitly totally orders events (because it is single threaded)
@@ -866,31 +872,33 @@ public class Simulator extends Manager {
 		// that is implemented in super).
 		String eventStrNoded = "node:" + node.toSynopticString() + " " + eventStr;
 		this.logEvent(node, eventStrNoded);
-		super.logEvent(node, eventStrNoded);
 	}
-	
-	
+
 	/**
-	 * Log the event in the synoptic log using the simulator's global logical ordering 
-	 * 
-	 * @param node node generating the event
-	 * @param eventStr the event string description of the event
+	 * Log the event in the synoptic log using the simulator's global logical
+	 * ordering, and call super.logEvent to log the event using the implicit
+	 * partial ordering.
+	 *
+	 * @param node
+	 *            node generating the event
+	 * @param eventStr
+	 *            the event string description of the event
 	 */
-	@Override
 	public void logEvent(Node node, String eventStr) {
 		// The Simulator implicitly totally orders events (because it is single threaded)
 		// so we also output a globally total order (in addition to the partial order
 		// that is implemented in super).
 		this.synTotalOrderLogger.logEvent("" + this.globalLogicalTime, eventStr);
 		this.globalLogicalTime += 1;
-		super.logEvent(node, eventStr);
+		super.logEvent(node.addr, eventStr);
 	}
-	
+
 	/**
-	 * Logs a simulator event across _all_ simulated nodes. The TIMESTEP event
-	 * is of this form -- its reported for every node being simulated.
-	 * 
+	 * Logs a simulator event across ALL the simulated nodes. The TIMESTEP event
+	 * is of this form -- its reported for every node that is simulated.
+	 *
 	 * @param eventStr
+	 *            the event string description of the event
 	 */
 	public void logSimulatorEvent(String eventStr) {
 		for(Node node: nodes.values()) {

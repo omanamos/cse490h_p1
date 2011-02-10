@@ -6,6 +6,7 @@ import java.lang.Integer;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
@@ -22,7 +23,7 @@ public class Emulator extends Manager {
 	private NodeServer server;
 	private int address;
 	private long timeStep;
-	
+
 	private String routerName;
 	private int routerPort;
 
@@ -34,7 +35,7 @@ public class Emulator extends Manager {
 	 * Base constructor for the Emulator. Does most of the work, but the command
 	 * input method and failure level should be set before calling this
 	 * constructor.
-	 * 
+	 *
 	 * @param nodeImpl
 	 *            The Class object for the student's node implementation
 	 * @param routerName
@@ -76,20 +77,22 @@ public class Emulator extends Manager {
 		}
 		System.out.println("with seed: " + this.seed);
 		Utility.randNumGen = new Random(this.seed);
-		
+
 		this.routerName = routerName;
 		this.routerPort = routerPort;
+
+		// We'll store just a single nodeAddr->vtime mapping here.
+		vtimes = new HashMap<Integer, VectorTime>();
 
 		failed = false;
 
 		this.timeStep = timeStep;
 		setTime(0);
-		this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
 	}
 
 	/**
 	 * Create a new emulator that takes commands through user input
-	 * 
+	 *
 	 * @param nodeImpl
 	 *            The Class object for the student's node implementation
 	 * @param routerName
@@ -101,7 +104,7 @@ public class Emulator extends Manager {
 	 * @param seed
 	 *            Seed for the RNG. This can be null if the failure generator is
 	 *            not a RNG
-	 * 
+	 *
 	 * @throws UnknownHostException
 	 *             If the router's name cannot be resolved
 	 * @throws IOException
@@ -118,10 +121,10 @@ public class Emulator extends Manager {
 		cmdInputType = InputType.USER;
 		userControl = failureGen;
 	}
-	
+
 	/**
 	 * Create a new emulator that takes commands through a file
-	 * 
+	 *
 	 * @param nodeImpl
 	 *            The Class object for the student's node implementation
 	 * @param routerName
@@ -135,7 +138,7 @@ public class Emulator extends Manager {
 	 * @param seed
 	 *            Seed for the RNG. This can be null if the failure generator is
 	 *            not a RNG
-	 * 
+	 *
 	 * @throws UnknownHostException
 	 *             If the router's name cannot be resolved
 	 * @throws IOException
@@ -159,7 +162,7 @@ public class Emulator extends Manager {
 
 	/**
 	 * Perform a single emulator time step with a set of events as argument
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 */
 	private void doTimestep(ArrayList<Event> currentRoundEvents) {
@@ -171,14 +174,17 @@ public class Emulator extends Manager {
 		checkCrash(currentRoundEvents);
 
 		executeEvents(currentRoundEvents);
-		
+
 	}
-	
+
 	/**
 	 * Starts the emulated node
 	 */
 	@Override
 	protected void start() {
+		// start the synoptic partial-ordered logger
+		this.synPartialOrderLogger.start(MessageLayer.synopticPartialOrderLogFilename);
+
 		startNode();
 
 		if (cmdInputType == InputType.FILE) {
@@ -209,14 +215,14 @@ public class Emulator extends Manager {
 							}
 						}
 					} while (!advance);
-					
+
 					this.doTimestep(currentRoundEvents);
-					
+
 				}
 
 				setTime(now() + 1);
 				this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
-				
+
 				try {
 					// We sleep here to give a chance for messages to travel
 					// over the network
@@ -236,7 +242,7 @@ public class Emulator extends Manager {
 
 				if (node == null) {
 					checkRecover();
-					
+
 					if (userControl.compareTo(FailureLvl.CRASH) < 0) {
 						try {
 							// We sleep here to give a chance for messages to travel
@@ -245,7 +251,7 @@ public class Emulator extends Manager {
 						} catch (InterruptedException e) {
 						}
 					}
-					
+
 					//FIXME: automatic recoveries = no user input at the time
 					/*
 					do{
@@ -313,17 +319,19 @@ public class Emulator extends Manager {
 					} while (!advance);
 
 					this.doTimestep(currentRoundEvents);
-					
+
 				}
-				
+
 				setTime(now() + 1);
-				this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
+				if (node != null) {
+					this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
+				}
 			}
 		}
-		
+
 		stop();
 	}
-	
+
 	@Override
 	protected void stop() {
 		System.out.println(stopString());
@@ -334,7 +342,6 @@ public class Emulator extends Manager {
 			System.out.println("failed");
 		}
 
-		this.synTotalOrderLogger.stop();
 		this.synPartialOrderLogger.stop();
 		System.exit(0);
 	}
@@ -358,7 +365,7 @@ public class Emulator extends Manager {
 			// grab the address from the replay input file
 			try {
 				Packet addrPkt = Replay.getPacket();
-				
+
 				if (Replay.isAddrPacket(addrPkt)) {
 					address = addrPkt.getDest();
 				} else {
@@ -370,7 +377,7 @@ public class Emulator extends Manager {
 		} else {
 			// start up the server and get an address from it
 			try {
-				server = new NodeServer(routerName, routerPort, this);			
+				server = new NodeServer(routerName, routerPort, this);
 			} catch (IOException e) {
 				System.err.println("Error while constructing server");
 				e.printStackTrace();
@@ -405,6 +412,7 @@ public class Emulator extends Manager {
 		}
 
 		node.init(this, address);
+		vtimes.put(node.addr, new VectorTime(MAX_ADDRESS));
 		logEventWithNodeField(node, "START");
 		failed = false;
 
@@ -418,7 +426,7 @@ public class Emulator extends Manager {
 	/**
 	 * Fail the node. This attempts to kill both the node/its saved state, and
 	 * the server.
-	 * 
+	 *
 	 * @return The exception thrown after calling the fail() method. This is so,
 	 *         if the stack includes methods in Node, we can rethrow the
 	 *         Exception as necessary
@@ -430,7 +438,7 @@ public class Emulator extends Manager {
 
 	/**
 	 * Kill the node and its associated data structures.
-	 * 
+	 *
 	 * @return The exception thrown after calling the fail() method. See
 	 *         failNode() for why this happens
 	 */
@@ -438,9 +446,9 @@ public class Emulator extends Manager {
 		if (node == null) {
 			return null;
 		}
-		
+
 		NodeCrashException crash = null;
-		
+
 		try {
 			node.fail();
 		} catch (NodeCrashException e) {
@@ -452,7 +460,7 @@ public class Emulator extends Manager {
 		waitingTOs.clear();
 		node = null;
 		failed = true;
-		
+
 		return crash;
 	}
 
@@ -463,7 +471,7 @@ public class Emulator extends Manager {
 		if (server == null) {
 			return;
 		}
-		
+
 		if (!IOFinished) {
 			server.close();
 			IOFinished = true;
@@ -498,18 +506,18 @@ public class Emulator extends Manager {
 			}
 		}
 	}
-	
+
 	@Override
 	protected void storageWriteEvent(Node node, String description) {
 		logEventWithNodeField(node, "WRITE " + description);
 	}
-	
+
 	@Override
 	protected void storageReadEvent(Node node, String description) {
 		logEventWithNodeField(node, "READ" + description);
 	}
 
-	
+
 	/**
 	 * Called by the NodeServer to signal that it has finished execution
 	 */
@@ -522,7 +530,7 @@ public class Emulator extends Manager {
 	/**
 	 * Goes through all of the in transit messages and decides whether to drop,
 	 * delay, or deliver.
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
@@ -555,7 +563,7 @@ public class Emulator extends Manager {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+
 		if (Replay.replayOut != null) {
 			try {
 				Replay.replayOut.write(Replay.getNullPacket().pack());
@@ -563,15 +571,15 @@ public class Emulator extends Manager {
 				e.printStackTrace();
 			}
 		}
-		
+
 		if(inTransitMsgs.isEmpty()){
 			return;
 		}
-		
+
 		// See what we should do with all the in-transit messages
 		ArrayList<Packet> currentPackets = inTransitMsgs;
 		inTransitMsgs = new ArrayList<Packet>();
-		
+
 		if(userControl.compareTo(FailureLvl.DROP) < 0){		// userControl < DROP
 			// Figure out if we need to drop the packet.
 			Iterator<Packet> iter = currentPackets.iterator();
@@ -595,7 +603,7 @@ public class Emulator extends Manager {
 				String input = Replay.getLine().trim();
 				// hash set so we don't have to deal with duplicates
 				HashSet<Packet> toBeRemoved = new HashSet<Packet>();
-				
+
 				if(!input.equals("")){
 					String[] dropList = input.split("\\s+");
 					Packet p;
@@ -605,17 +613,17 @@ public class Emulator extends Manager {
 						logEvent(node, "DROP " + p.toSynopticString(node));
 					}
 				}
-				
+
 				if(toBeRemoved.size() == currentPackets.size()){
 					return;
 				}
-				
+
 				// If user drops and delays the same packet, result is undefined
 				//   In current implementation, delay takes precedence
 				if(userControl.compareTo(FailureLvl.DELAY) >= 0){		// userControl >= DELAY
 					System.out.println("Which should be delayed? (space delimited list or just press enter to delay none)");
 					input = Replay.getLine().trim();
-					
+
 					if(!input.equals("")){
 						String[] delayList = input.split("\\s+");
 						for(String s: delayList){
@@ -625,18 +633,18 @@ public class Emulator extends Manager {
 							logEvent(node, "DELAY " + p.toSynopticString(node));
 						}
 					}
-					
+
 					if(toBeRemoved.size() == currentPackets.size()){
 						return;
 					}
 				}
-				
+
 				currentPackets.removeAll(toBeRemoved);
 			}catch(IOException e){
 				e.printStackTrace();
 			}
 		}
-		
+
 		if(userControl.compareTo(FailureLvl.DELAY) < 0){		// userControl < DELAY
 			Iterator<Packet> iter = currentPackets.iterator();
 			while(iter.hasNext()) {
@@ -661,7 +669,7 @@ public class Emulator extends Manager {
 
 	/**
 	 * Checks whether to crash a live node
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
@@ -715,14 +723,14 @@ public class Emulator extends Manager {
 	/**
 	 * Check to see if any timeouts are supposed to fire during the current time
 	 * step
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
 	private void checkTimeouts(ArrayList<Event> currentRoundEvents) {
 		ArrayList<Timeout> currentTOs = waitingTOs;
 		waitingTOs = new ArrayList<Timeout>();
-		
+
 		Iterator<Timeout> iter = currentTOs.iterator();
 		while(iter.hasNext()) {
 			Timeout to = iter.next();
@@ -731,16 +739,16 @@ public class Emulator extends Manager {
 				currentRoundEvents.add(Event.getTimeout(to));
 			}
 		}
-		
+
 		waitingTOs.addAll(currentTOs);
 	}
-	
+
 	/**
 	 * Reorders and executes all the events for the current round.
-	 * 
+	 *
 	 * Note that commands can be executed in a different order than they appear
 	 * in the command file!
-	 * 
+	 *
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
 	 */
@@ -767,13 +775,13 @@ public class Emulator extends Manager {
 						for(String s: order){
 							dupeMissCheck.add(currentRoundEvents.get(Integer.parseInt(s)));
 						}
-						
+
 						if(dupeMissCheck.size() != currentRoundEvents.size()) {
 							System.out.println("Not all of the events were specified!");
 							doAgain = true;
 							continue;
 						}
-						
+
 						for(String s: order){
 							Event ev = currentRoundEvents.get(Integer.parseInt(s));
 							handleEvent(ev);
@@ -796,7 +804,7 @@ public class Emulator extends Manager {
 
 	/**
 	 * Process an event.
-	 * 
+	 *
 	 * @param ev
 	 *            The event that should be processed
 	 */
@@ -822,7 +830,7 @@ public class Emulator extends Manager {
 			break;
 		case TIMEOUT:
 			logEventWithNodeField(ev.to.node, "TIMEOUT fire-time:" + ev.to.fireTime + " " + ev.to.cb.toString());
-						
+
 			try{
 				ev.to.cb.invoke();
 			}catch(InvocationTargetException e) {
@@ -847,7 +855,7 @@ public class Emulator extends Manager {
 	 * Create a packet and put it on the channel. Crashes in the middle of a
 	 * broadcast can be modeled by a post-send crash, plus a sequence of dropped
 	 * messages
-	 * 
+	 *
 	 * @param fromNode
 	 *            The node that is sending the packet
 	 * @param to
@@ -862,12 +870,12 @@ public class Emulator extends Manager {
 	@Override
 	protected void sendPkt(Node fromNode, int to, int protocol, byte[] payload) throws IllegalArgumentException {
 		super.sendPkt(fromNode, to, protocol, payload);  // check arguments
-		
+
 		if(node == null) {
 			//shouldn't ever happen
 			return;
 		}
-		
+
 		Packet newPacket = new Packet(to, fromNode.addr, protocol, payload);
 		logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));	//XXX: broadcasts are one msg here, whereas simulator they are multiple
 		sendToRouter(to, newPacket.pack());
@@ -876,7 +884,7 @@ public class Emulator extends Manager {
 
 	/**
 	 * Send a packet off to the router.
-	 * 
+	 *
 	 * @param destAddr
 	 *            The virtual address of the destination
 	 * @param pkt
@@ -891,7 +899,7 @@ public class Emulator extends Manager {
 
 	/**
 	 * Actually deliver an in transit packet.
-	 * 
+	 *
 	 * @param pkt
 	 *            The packet that should be delivered
 	 */
@@ -899,9 +907,9 @@ public class Emulator extends Manager {
 		if(node == null) {
 			return;
 		}
-		
+
 		logEvent(node, "RECVD " + pkt.toSynopticString(node));
-		
+
 		if(pkt.getDest() == address || pkt.getDest() == Manager.BROADCAST_ADDRESS) {
 			try{
 				node.onReceive(pkt.getSrc(), pkt.getProtocol(), pkt.getPayload());
@@ -914,7 +922,7 @@ public class Emulator extends Manager {
 
 	/**
 	 * Sends command to the node
-	 * 
+	 *
 	 * @param msg
 	 *            The msg to send to the node
 	 */
@@ -922,33 +930,38 @@ public class Emulator extends Manager {
 		if(node == null) {
 			return;
 		}
-		
+
 		logEventWithNodeField(node, "COMMAND" + msg);
-		
+
 		try{
 			node.onCommand(msg);
 		} catch (NodeCrashException e) {
 			failNode();
 		}
 	}
-	
+
 	/**
-	 * Log the event in the synoptic log using the simulator's global logical ordering with a node field
-	 * 
-	 * @param node node generating the event
-	 * @param eventStr the event string description of the event
+	 * Log the event in the synoptic log using the simulator's global logical
+	 * ordering with a node field
+	 *
+	 * @param node
+	 *            node generating the event
+	 * @param eventStr
+	 *            the event string description of the event
 	 */
 	public void logEventWithNodeField(Node node, String eventStr) {
-		// The Simulator implicitly totally orders events (because it is single threaded)
-		// so we also output a globally total order (in addition to the partial order
-		// that is implemented in super).
 		String eventStrNoded = "node:" + node.toSynopticString() + " " + eventStr;
 		this.logEvent(node, eventStrNoded);
-		super.logEvent(node, eventStrNoded);
 	}
 
-	@Override
 	public void logEvent(Node node, String eventStr) {
-		super.logEvent(node, eventStr);
+		super.logEvent(node.addr, eventStr);
 	}
 }
+
+
+
+
+
+
+

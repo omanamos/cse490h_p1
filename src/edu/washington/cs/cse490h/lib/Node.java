@@ -5,8 +5,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 
-import edu.washington.cs.cse490h.lib.Manager;
-
 /**
  * Node -- Class defining the interface and basic functionality of a node. The
  * student should extend this class to provide additional functionality. The
@@ -21,11 +19,11 @@ public abstract class Node {
 	 * The student may hide these by implementing static methods with the same
 	 * signature in their own node class. 0<=p<=1.
 	 */
-	public static double getFailureRate() {	return 5/100.0; }
-	public static double getRecoveryRate(){ return 10/100.0; }
-	public static double getDropRate(){ return 10/100.0; }
-	public static double getDelayRate(){ return 25/100.0; }
-	
+	public static double getFailureRate() { return 5 / 100.0; }
+	public static double getRecoveryRate() { return 10 / 100.0; }
+	public static double getDropRate() { return 10 / 100.0; }
+	public static double getDelayRate() { return 25 / 100.0; }
+
 	/**
 	 * Special error that is thrown when fail() is called. It is an unchecked
 	 * exception, which allows us to interrupt execution of the node opaquely.
@@ -37,14 +35,14 @@ public abstract class Node {
 	class NodeCrashException extends Error {
 		private static final long serialVersionUID = 1418673528976798283L;
 	}
-	
-	// TODO: migrate to this once you figure out how to embedd vtime in Packet 
+
+	// TODO: migrate to this once you figure out how to embedd vtime in Packet
 	// A node's local vector clock -- one per node.
 	// public VectorTime vtime = null;
 
 	private Manager manager;
 	public int addr;
-	
+
 	// TODO: timeout, deliver caused by to, timeout
 	// There are two ways to handle this corner case:
 	// 1. be able to deliver messages in the same round that they are sent
@@ -63,10 +61,10 @@ public abstract class Node {
 	 * @param addr
 	 *            Address of the new node
 	 */
-	final void init(Manager manager, int addr){
+	final void init(Manager manager, int addr) {
 		this.manager = manager;
 		this.addr = addr;
-		this.drift = 0;
+		drift = 0;
 		// this.vtime = new VectorTime(Manager.MAX_ADDRESS);
 	}
 
@@ -100,8 +98,8 @@ public abstract class Node {
 	public abstract void onReceive(Integer from, int protocol, byte[] msg);
 
 	/**
-	 * Called by the manager when there is a command for this node from the
-	 * user or a file.
+	 * Called by the manager when there is a command for this node from the user
+	 * or a file.
 	 * 
 	 * @param command
 	 *            The command for this node
@@ -117,20 +115,21 @@ public abstract class Node {
 	 *            The serialized form of the packet
 	 */
 	public void send(int destAddr, int protocol, byte[] payload) {
-		if(destAddr == Manager.BROADCAST_ADDRESS) {
+		if (destAddr == Manager.BROADCAST_ADDRESS) {
 			System.err.println("Use the broadcast() method if you would like to broadcast a packet");
 			return;
 		}
-		
+
 		try {
 			manager.sendPkt(this, destAddr, protocol, payload);
-		}catch(IllegalArgumentException e) {
+		} catch (IllegalArgumentException e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
-	 * This method should be the one called to broadcast a message to all nodes in the network.
+	 * This method should be the one called to broadcast a message to all nodes
+	 * in the network.
 	 * 
 	 * @param destAddr
 	 *            The address of the destination
@@ -140,11 +139,11 @@ public abstract class Node {
 	public void broadcast(int protocol, byte[] payload) {
 		try {
 			manager.sendPkt(this, Manager.BROADCAST_ADDRESS, protocol, payload);
-		}catch(IllegalArgumentException e) {
+		} catch (IllegalArgumentException e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * Adds a timer interrupt for the current node. If timeout is 0, it just
 	 * invokes the method
@@ -153,15 +152,16 @@ public abstract class Node {
 	 *            The callback object that should be invoked when the interrupt
 	 *            fires
 	 */
-	public void addTimeout(Callback cb, int timer){
-		if(timer <= 0) {
-			// if the timeout is less than or equal to 0, just invoke the callback
+	public void addTimeout(Callback cb, int timer) {
+		if (timer <= 0) {
+			// if the timeout is less than or equal to 0, just invoke the
+			// callback
 			// TODO: synoptic logging here
-			try{
+			try {
 				cb.invoke();
-			}catch(InvocationTargetException e) {
+			} catch (InvocationTargetException e) {
 				Throwable t = e.getCause();
-				if(t == null) {
+				if (t == null) {
 					e.printStackTrace(System.err);
 				} else {
 					t.printStackTrace(System.err);
@@ -173,7 +173,7 @@ public abstract class Node {
 			manager.addTimeout(this, timer, cb);
 		}
 	}
-	
+
 	/**
 	 * Gets a PersistentStorageReader object for the filename specified.
 	 * 
@@ -183,10 +183,25 @@ public abstract class Node {
 	 * @throws FileNotFoundException
 	 *             If the file does not exist or can't be opened for reading
 	 */
-	public PersistentStorageReader getReader(String filename) throws FileNotFoundException{
+	public PersistentStorageReader getReader(String filename)
+			throws FileNotFoundException {
 		return new PersistentStorageReader(this, filename);
 	}
-	
+
+	/**
+	 * Gets a PersistentStorageRInputStream object for the filename specified.
+	 * 
+	 * @param filename
+	 *            The file to open for reading
+	 * @return A PersistentStorageInputStream that can read the filename
+	 * @throws FileNotFoundException
+	 *             If the file does not exist or can't be opened for reading
+	 */
+	public PersistentStorageInputStream getInputStream(String filename)
+			throws FileNotFoundException {
+		return new PersistentStorageInputStream(this, filename);
+	}
+
 	/**
 	 * Gets a persistentStorageWriter object for the filename specified
 	 * 
@@ -199,8 +214,9 @@ public abstract class Node {
 	 * @throws IOException
 	 *             If the file cannot be opened for writing
 	 */
-	public PersistentStorageWriter getWriter(String filename, boolean append) throws IOException{
-		if(!Utility.fileExists(this, filename) || !append){
+	public PersistentStorageWriter getWriter(String filename, boolean append)
+			throws IOException {
+		if (!Utility.fileExists(this, filename) || !append) {
 			handleDiskWriteEvent("creation of " + filename, "create:" + filename);
 		}
 		Utility.mkdirs(addr);
@@ -209,14 +225,35 @@ public abstract class Node {
 	}
 
 	/**
-	 * Called before any modification of persistent storage. 
+	 * Gets a persistentStorageWriter object for the filename specified
+	 * 
+	 * @param filename
+	 *            The file to open for writing
+	 * @param append
+	 *            Whether to append to the end of the file, or start at the
+	 *            beginning
+	 * @return A PersistentStorageWriter that can write to the file
+	 * @throws IOException
+	 *             If the file cannot be opened for writing
+	 */
+	public PersistentStorageOutputStream getOutputStream(String filename,
+			boolean append) throws IOException {
+		if (!Utility.fileExists(this, filename) || !append) {
+			handleDiskWriteEvent("creation of " + filename, "create:" + filename);
+		}
+		Utility.mkdirs(addr);
+		File f = new File(Utility.realFilename(addr, filename));
+		return new PersistentStorageOutputStream(this, f, append);
+	}
+
+	/**
+	 * Called before any modification of persistent storage.
 	 * 
 	 * @param description
 	 *            Helpful description of the operation that is being attempted.
 	 *            This is mostly to aid in debugging and user-specified crashes.
-	 * 
 	 * @param synDescription
-	 *			  Synoptic string to use for this event
+	 *            Synoptic string to use for this event
 	 */
 	void handleDiskWriteEvent(String description, String synDescription) {
 		// Ask the manager to check whether we should crash or not.
@@ -224,7 +261,7 @@ public abstract class Node {
 		// Since we didn't crash, notify manager of this write event.
 		manager.storageWriteEvent(this, synDescription);
 	}
-	
+
 	/**
 	 * Called before any retrieval of state from persistent storage.
 	 * 
@@ -236,41 +273,56 @@ public abstract class Node {
 		// Notify manager of this read event.
 		manager.storageReadEvent(this, synDescription);
 	}
-	
-	
+
 	/**
-	 * Returns a string representation of the packet bytes processed by the simulator.
-	 * Used to output simulator-observed payloads to synoptic logs
+	 * Returns a string representation of the packet bytes processed by the
+	 * simulator. Used to output simulator-observed payloads to synoptic logs
 	 * 
-	 * @param bytes packet bytes observed by the simulator
+	 * @param bytes
+	 *            packet bytes observed by the simulator
 	 * @return string representation of the packet bytes
 	 */
 	public String packetBytesToString(byte[] bytes) {
 		return Utility.byteArrayToString(bytes);
 	}
-	
+
+	/**
+	 * Returns a string representation of the bytes written or read from
+	 * persistent storage. Used to output simulator-observed storage byte arrays
+	 * to synoptic logs
+	 * 
+	 * @param bytes
+	 *            storage bytes observed by the simulator
+	 * @return string representation of the storage bytes
+	 */
+	public String storageBytesToString(byte[] bytes) {
+		return Utility.byteArrayToString(bytes);
+	}
+
 	@Override
-	public String toString(){
+	public String toString() {
 		return "addr: " + addr;
 	}
-	
+
 	/**
-	 * Returns a unique string identifier for this node that can be used
-	 * in synoptic log files.
+	 * Returns a unique string identifier for this node that can be used in
+	 * synoptic log files.
 	 * 
 	 * @return unique string identifying this node
 	 */
 	final public String toSynopticString() {
 		return "" + addr;
 	}
-	
+
 	/**
 	 * Generates a user-level synoptic event in the synoptic logs
-	 * @param eventStr the string representing this event
+	 * 
+	 * @param eventStr
+	 *            the string representing this event
 	 */
 	final public void logSynopticEvent(String eventStr) {
-		String eventStrNoded = "node:" + this.toSynopticString() + " USER-EVENT " + eventStr;
-		this.manager.logEvent(this, eventStrNoded);
+		String eventStrNoded = "node:" + toSynopticString() + " USER-EVENT " + eventStr;
+		manager.logEvent(addr, eventStrNoded);
 	}
-	
+
 }

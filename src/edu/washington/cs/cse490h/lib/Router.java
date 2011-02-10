@@ -17,21 +17,21 @@ import plume.Options;
 
 /**
  * <pre>
- * 
+ *
  * Simply routes packets in the network and stores queued packets to failed
  * nodes. It works by listening for new TCP connections. The Router sends the
  * address that the emulated node should use and forks off a new thread to deal
  * with the connection.
- * 
+ *
  * Usage: java Router [options]
- * 
+ *
  * General Options:
  *   -h --help=<boolean>    - Print usage message [default false]
  *   -v --version=<boolean> - Print program version [default false]
- * 
+ *
  * Execution Options:
  *   -p --localPort=<int>   - Local UDP port [default -1]
- *   
+ *
  * </pre>
  */
 public class Router {
@@ -42,7 +42,7 @@ public class Router {
 
 	/**
 	 * Construct a new Router
-	 * 
+	 *
 	 * @param port
 	 *            The port to listen on. This must be a valid port (>1024)
 	 * @throws IOException
@@ -59,7 +59,7 @@ public class Router {
 	 */
 	protected void start() {
 		System.out.println("Router awaiting nodes...");
-		
+
 		while(true) {
 			try {
 				Socket nodeSocket = socket.accept();
@@ -77,7 +77,7 @@ public class Router {
 					if (old != null) {
 						old.quit(null);
 					}
-					
+
 					// find a virtual address to assign to the new node
 					int address = freeAddr();
 
@@ -85,7 +85,7 @@ public class Router {
 						System.err.println("Router: out of addresses");
 						nodeSocket.getOutputStream().write(Manager.BROADCAST_ADDRESS);
 						nodeSocket.getOutputStream().flush();
-						nodeSocket.close();		    
+						nodeSocket.close();
 					} else {
 						//Disable Nagle
 						nodeSocket.setTcpNoDelay(true);
@@ -101,7 +101,7 @@ public class Router {
 			}catch(IOException e) {
 				e.printStackTrace();
 			}
-		}	    
+		}
 	}
 
 	/**
@@ -114,7 +114,7 @@ public class Router {
 
 	/**
 	 * Called by an emulated node to signal that it is quitting
-	 * 
+	 *
 	 * @param address
 	 *            The virtual address of the node that is quitting
 	 * @param queue
@@ -127,7 +127,7 @@ public class Router {
 
 	/**
 	 * Called by the start thread to create a new emulated node
-	 * 
+	 *
 	 * @param address
 	 *            The virtual address of the new node
 	 * @param newNode
@@ -143,11 +143,11 @@ public class Router {
 
 	/**
 	 * Gets the next available address.
-	 * 
+	 *
 	 * Even without locking, this guarantees the address is free since joins are
 	 * only handled in this thread. The returned address is not guaranteed to be
 	 * the lowest free address however
-	 * 
+	 *
 	 * @return The next available address, or -1 if there are no more free
 	 *         addresses
 	 */
@@ -162,7 +162,7 @@ public class Router {
 
 	/**
 	 * Check if there is already a node using a specific IP and port.
-	 * 
+	 *
 	 * @param ipAddress
 	 *            The IP address of the machine on which the node is running
 	 * @param port
@@ -219,7 +219,7 @@ public class Router {
 
 	/**
 	 * Prints out an warning message
-	 * 
+	 *
 	 * @param msg
 	 *            warning msg string
 	 */
@@ -229,7 +229,7 @@ public class Router {
 
 	/**
 	 * Prints out an error message
-	 * 
+	 *
 	 * @param msg
 	 *            error msg string
 	 */
@@ -243,7 +243,7 @@ public class Router {
 	public static void main(String[] args) {
 		// this directly sets the static member options of the Main class
 		Options options = new Options (usage_string, Router.class);
-		
+
 		@SuppressWarnings("unused")
 		String[] cmdLineArgs = options.parse_or_usage(args);
 
@@ -261,12 +261,12 @@ public class Router {
 			System.out.println("you must specify a port with -p.");
 			return;
 		}
-		
+
 		try {
 			router = new Router(localPort);
 			router.start();
 		}catch(IOException e) {
-			System.err.println("Invalid port given to Router. Exception: " + e);	
+			System.err.println("Invalid port given to Router. Exception: " + e);
 		}catch(Exception e) {
 			System.err.println("Exception occured in Router!! Exception: " + e);
 		}
@@ -281,48 +281,48 @@ class NodeContainer {
 	private boolean up;
 	private EmulatedNode node;
 	private List<Packet> downQueue;
-	
+
 	NodeContainer(EmulatedNode node) {
 		up = true;
 		this.node = node;
 		downQueue = new LinkedList<Packet>();
 	}
-	
+
 	synchronized void quit(LinkedList<Packet> queue) {
 		if(node != null) {
 			node.finish();
 		}
 		up = false;
 		node = null;
-		
+
 		if(queue != null) {
 			downQueue.addAll(queue);
 		}
 	}
-	
+
 	synchronized void restart(EmulatedNode node) {
 		if(this.node != null) {
 			this.node.finish();
 		}
 		up = true;
 		this.node = node;
-		
+
 		for (Packet pkt : downQueue) {
 			send(pkt);
 		}
 	}
-	
+
 	synchronized boolean isUp() {
 		return up;
 	}
-	
+
 	synchronized boolean hasConflict(InetAddress ipAddress, int port) {
 		if (up == false) {
 			return false;
 		}
 		return ipAddress.equals(node.getIPAddress()) && port == node.getPort();
 	}
-	
+
 	synchronized void send(Packet p) {
 		if (up) {
 			System.out.println("Sending: " + p);
