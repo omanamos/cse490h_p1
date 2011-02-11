@@ -8,20 +8,20 @@ public class Command extends Queueable{
 	private static final String[] toS = {"Create", "Get", "Put", "Append", "Delete"};
 	
 	private int type;
-	private String fileName;
+	private File f;
 	private int dest;
 	private String contents;
 	
-	public Command(int dest, int type, String fileName) throws IllegalArgumentException{
-		this(dest, type, fileName, null);
+	public Command(int dest, int type, File f) throws IllegalArgumentException{
+		this(dest, type, f, null);
 	}
 	
-	public Command(int dest, int type, String fileName, String contents) throws IllegalArgumentException{
+	public Command(int dest, int type, File f, String contents) throws IllegalArgumentException{
 		if(!this.isValidType(type)){
 			throw new IllegalArgumentException("Invalid Command Type: " + type);
 		}
 		this.type = type;
-		this.fileName = fileName;
+		this.f = f;
 		this.dest = dest;
 		if(contents != null && contents.length() > 1){
 			if(contents.charAt(0) == '"' && contents.charAt(contents.length() - 1) == '"')
@@ -36,7 +36,11 @@ public class Command extends Queueable{
 	}
 	
 	public String getFileName(){
-		return this.fileName;
+		return this.f.getName();
+	}
+	
+	public File getFile(){
+		return this.f;
 	}
 	
 	public int getDest(){
@@ -49,6 +53,12 @@ public class Command extends Queueable{
 	
 	public boolean isValidType(int t){
 		return t == CREATE || t == GET || t == PUT || t == APPEND || t == DELETE;
+	}
+	
+	public byte[] buildCommit(){
+		byte[] rtn = new byte[0];
+		//TODO: encode type and filename
+		return rtn;
 	}
 	
 	public String toString(){

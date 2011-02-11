@@ -139,6 +139,7 @@ public class CacheCoherenceLayer {
 		}
 	}
 	
+	//SERVER METHODS FOR EXECUTING OPERATIONS
 	private boolean get(int from, MasterFile f, String fileName, int type){
 		if(f.getState() == File.INV){ //The file doesn't exist.
 			String error = DistNode.buildErrorString(MASTER_NODE, from, RPCProtocol.GET, fileName, Error.ERR_10);
@@ -412,9 +413,8 @@ public class CacheCoherenceLayer {
 	//CLIENT METHODS FOR INITIATING COMMANDS
 	public boolean create(String filename){
 		boolean rtn = false;
-		Command c = new Command(MASTER_NODE, Command.CREATE, filename, "");
-		
 		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.CREATE, f, "");
 		
 		if(f.execute(c)){
 			return create(c, f);
@@ -435,9 +435,8 @@ public class CacheCoherenceLayer {
 	}
 	
 	public boolean get(String filename){
-		Command c = new Command(MASTER_NODE, Command.GET, filename);
-		
 		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.GET, f);
 		
 		if(f.execute(c)){
 			return get(c, f);
@@ -463,9 +462,8 @@ public class CacheCoherenceLayer {
 	}
 	
 	public boolean put(String filename, String content){
-		Command c = new Command(MASTER_NODE, Command.PUT, filename, content);
-		
 		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.PUT, f, content);
 		
 		if(f.execute(c)){
 			return put(c, f);
@@ -492,9 +490,8 @@ public class CacheCoherenceLayer {
 	}
 	
 	public boolean append(String filename, String content){
-		Command c = new Command(MASTER_NODE, Command.APPEND, filename, content);
-		
 		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.APPEND, f, content);
 		
 		if(f.execute(c)) {
 			return append(c, f);
@@ -520,10 +517,9 @@ public class CacheCoherenceLayer {
 	}
 	
 	public boolean delete(String filename){
-		Command c = new Command(MASTER_NODE, Command.DELETE, filename);
-	
 		File f = getFileFromCache( filename );
-		
+		Command c = new Command(MASTER_NODE, Command.DELETE, f);
+	
 		if(f.execute(c)) {
 			return delete(c, f);
 		}

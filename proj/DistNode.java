@@ -29,10 +29,7 @@ public class DistNode extends RIONode {
 	}
 	
 	public void create(String fileName) throws IOException {
-		//if(!fileExists(fileName))
-			this.getWriter(fileName, false).write("");
-		//else
-			//throw new IOException();
+		this.getWriter(fileName, false).write("");
 	}
 	
 	public void delete(String fileName) throws IOException {
@@ -152,35 +149,40 @@ public class DistNode extends RIONode {
 	 */
 	public void onCommand(String command) {
 		command = command.trim();
-		if(!Pattern.matches("^((create|get|delete) [^ ]+|(put|append) [^ ]+ (\\\".+\\\"|[^ ]+))$", command)){
+		if(Pattern.matches("^((create|get|delete) [^ ]+|(put|append) [^ ]+ (\\\".+\\\"|[^ ]+))$", command)){
+			int indexOfSpace = command.indexOf(' ');
+			int lastSpace = indexOfSpace + 1;
+			String code = command.substring(0, indexOfSpace).trim();
+			
+			indexOfSpace = command.indexOf(' ', lastSpace);
+			if(indexOfSpace < 0)
+				indexOfSpace = command.length();
+			String fileName = command.substring(lastSpace, indexOfSpace).trim();
+			lastSpace = indexOfSpace + 1;
+			
+			if(code.equals("create")){
+				this.TXNLayer.create(fileName);
+			}else if(code.equals("get")){
+				this.TXNLayer.get(fileName);
+			}else if(code.equals("put")){
+				String content = command.substring(lastSpace);
+				this.TXNLayer.put( fileName, content);
+			}else if(code.equals("append")){
+				String content = command.substring(lastSpace);
+				this.TXNLayer.append(fileName, content);
+			}else if(code.equals("delete")){
+				this.TXNLayer.delete(fileName);
+			}
+		}else if(Pattern.matches("^(txstart|txcommit|txabort)$", command)){
+			if(command.equals("txstart"))
+				this.TXNLayer.start();
+			else if(command.equals("txcommit"))
+				this.TXNLayer.commit();
+			else
+				this.TXNLayer.abort(false);
+		}else{
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
 			return;
-		}else if(command.equals("pc")){
-			this.CCLayer.printCache();
-		}
-		
-		int indexOfSpace = command.indexOf(' ');
-		int lastSpace = indexOfSpace + 1;
-		String code = command.substring(0, indexOfSpace).trim();
-		
-		indexOfSpace = command.indexOf(' ', lastSpace);
-		if(indexOfSpace < 0)
-			indexOfSpace = command.length();
-		String fileName = command.substring(lastSpace, indexOfSpace).trim();
-		lastSpace = indexOfSpace + 1;
-		
-		if(code.equals("create")){
-			this.CCLayer.create(fileName);
-		}else if(code.equals("get")){
-			this.CCLayer.get(fileName);
-		}else if(code.equals("put")){
-			String content = command.substring(lastSpace);
-			this.CCLayer.put( fileName, content);
-		}else if(code.equals("append")){
-			String content = command.substring(lastSpace);
-			this.CCLayer.append(fileName, content);
-		}else if(code.equals("delete")){
-			this.CCLayer.delete(fileName);
 		}
 	}
 	

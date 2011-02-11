@@ -21,7 +21,7 @@ public class ReliableInOrderMsgLayer {
 	private HashMap<Integer, InChannel> inConnections;
 	private HashMap<Integer, OutChannel> outConnections;
 	private RIONode n;
-	private CacheCoherenceLayer cc;
+	private TransactionLayer TXNLayer;
 	private int nextSessionId = 0;
 
 	/**
@@ -37,12 +37,11 @@ public class ReliableInOrderMsgLayer {
 	public ReliableInOrderMsgLayer(RIONode n) {
 		inConnections = new HashMap<Integer, InChannel>();
 		outConnections = new HashMap<Integer, OutChannel>();
-		this.cc = n.getCCLayer();
 		this.n = n;
 	}
 	
-	public void setCCLayer(CacheCoherenceLayer cc){
-		this.cc = cc;
+	public void setTXNLayer(TransactionLayer TXNLayer){
+		this.TXNLayer = TXNLayer;
 	}
 	
 	/**
@@ -69,7 +68,7 @@ public class ReliableInOrderMsgLayer {
 		for(RIOPacket p: toBeDelivered) {
 			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
 			// deliver in-order the next sequence of packets
-			cc.onRPCReceive(from, p.getPayload());
+			TXNLayer.onRPCReceive(from, p.getPayload());
 		}
 	}
 	

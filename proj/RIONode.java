@@ -11,22 +11,23 @@ import edu.washington.cs.cse490h.lib.Node;
  */
 public abstract class RIONode extends Node {
 	private ReliableInOrderMsgLayer RIOLayer;
-	protected CacheCoherenceLayer CCLayer;
+	//protected CacheCoherenceLayer CCLayer;
+	protected TransactionLayer TXNLayer;
 	
 	public static int NUM_NODES = 10;
 	
 	public RIONode() {
-		RIOLayer = new ReliableInOrderMsgLayer(this);
-		CCLayer = new CacheCoherenceLayer(this);
-		this.RIOLayer.setCCLayer(this.CCLayer);
+		this.RIOLayer = new ReliableInOrderMsgLayer(this);
+		this.TXNLayer = new TransactionLayer(this, this.RIOLayer);
+		this.RIOLayer.setTXNLayer(this.TXNLayer);
 	}
 	
 	public ReliableInOrderMsgLayer getRIOLayer(){
 		return this.RIOLayer;
 	}
 	
-	public CacheCoherenceLayer getCCLayer(){
-		return this.CCLayer;
+	public TransactionLayer getTXNLayer(){
+		return this.TXNLayer;
 	}
 	
 	@Override
@@ -51,13 +52,13 @@ public abstract class RIONode extends Node {
 	 *            The payload of the message
 	 */
 	public void sendRIO(int destAddr, int protocol, byte[] payload) {
-		CCLayer.sendCC(destAddr, protocol, payload);
+		TXNLayer.send(destAddr, protocol, payload);
 	}
 
 	
 	
 	@Override
 	public String toString() {
-		return CCLayer.toString();
+		return TXNLayer.toString();
 	}
 }

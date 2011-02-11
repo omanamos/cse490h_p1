@@ -9,6 +9,7 @@ public class File {
 	private int state;
 	private String name;
 	private Queue<Queueable> queuedCommands;
+	private int version;
 	
 	public File(int state, String name){
 		if(!isValidState(state)){
@@ -17,10 +18,15 @@ public class File {
 		this.state = state;
 		this.name = name;
 		this.queuedCommands = new LinkedList<Queueable>();
+		this.version = 0;
 	}
 	
 	public int getState(){
 		return this.state;
+	}
+	
+	public int getVersion(){
+		return this.version;
 	}
 	
 	public void setState(int state){
@@ -49,6 +55,10 @@ public class File {
 	
 	public static boolean isValidState(int s){
 		return s == INV || s == RO || s == RW;
+	}
+	
+	public int hashCode(){
+		return this.name.hashCode();
 	}
 	
 	public String toString(){
