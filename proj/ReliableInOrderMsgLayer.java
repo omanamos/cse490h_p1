@@ -16,7 +16,8 @@ import edu.washington.cs.cse490h.lib.Utility;
  * reliable, in-order message delivery, even in the presence of node failures.
  */
 public class ReliableInOrderMsgLayer {
-	public static int TIMEOUT = 3;
+	public final static int TIMEOUT = 3;
+	public final static int MAX_RETRY = 5;
 	
 	private HashMap<Integer, InChannel> inConnections;
 	private HashMap<Integer, OutChannel> outConnections;
@@ -117,7 +118,7 @@ public class ReliableInOrderMsgLayer {
 			inConnections.put(from, in);
 			nextSessionId++;
 		}
-		
+		in.restart();
 		in.returnSessionPacket(SessionProtocol.ACK_SESSION, Utility.stringToByteArray(in.getSessionId() + " " + in.getLastSeqNumDelivered()));
 	}
 	
@@ -303,6 +304,11 @@ class InChannel {
 		}
 	}
 	
+	public void restart() {
+		outOfOrderMsgs = new HashMap<Integer, RIOPacket>();
+		lastSeqNumDelivered = -1;
+	}
+	
 	public int getLastSeqNumDelivered(){
 		return this.lastSeqNumDelivered;
 	}
@@ -328,6 +334,8 @@ class InChannel {
  */
 class OutChannel {
 	private HashMap<Integer, RIOPacket> unACKedPackets;
+	private HashMap<Integer, Integer> pktRetries;
+	
 	private int lastSeqNumSent;
 	private ReliableInOrderMsgLayer parent;
 	private RIONode n;
@@ -345,6 +353,7 @@ class OutChannel {
 	OutChannel(ReliableInOrderMsgLayer parent, RIONode n, int destAddr, int sessionId){
 		lastSeqNumSent = -1;
 		unACKedPackets = new HashMap<Integer, RIOPacket>();
+		pktRetries = new HashMap<Integer, Integer>();
 		
 		this.parent = parent;
 		this.n = n;
@@ -398,7 +407,7 @@ class OutChannel {
 		n.send(destAddr, Protocol.SESSION, pkt.pack());
 	}
 	
-	private void createTimeoutListener(RIOPacket pkt){
+	private void createTimeoutListener(RIOPacket pkt) {
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", parent, new String[]{ "java.lang.Integer", "java.lang.Integer" });
 			unACKedPackets.put(lastSeqNumSent, pkt);
@@ -417,8 +426,15 @@ class OutChannel {
 	 *            The sequence number of the unACKed packet
 	 */
 	public void onTimeout(RIONode n, Integer seqNum) {
-		if(unACKedPackets.containsKey(seqNum)) {
+		Integer numRetries = pktRetries.get( seqNum );
+		if(unACKedPackets.containsKey(seqNum) && ( numRetries == null || numRetries <= ReliableInOrderMsgLayer.MAX_RETRY ) ) {
+			numRetries = numRetries == null ? 0 : numRetries;
+			pktRetries.put( seqNum, numRetries + 1 );
 			resendRIOPacket(n, seqNum);
+		} else {
+			unACKedPackets.remove(seqNum);
+			pktRetries.remove(seqNum);
+			System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, 0, "", Error.ERR_20));
 		}
 	}
 	
