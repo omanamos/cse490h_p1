@@ -47,4 +47,15 @@ public class Transaction implements Iterable<Command> {
 		return rtn;
 	}
 	
+	public String getVersion(String contents){
+		for(Command c : log){
+			if(c.getType() == Command.APPEND){
+				contents += c.getContents();
+			}else if(c.getType() == Command.PUT){
+				contents = c.getContents();
+			}
+		}
+		return contents;
+	}
+	
 }
