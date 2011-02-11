@@ -432,9 +432,11 @@ class OutChannel {
 			pktRetries.put( seqNum, numRetries + 1 );
 			resendRIOPacket(n, seqNum);
 		} else {
+			RIOPacket pkt = unACKedPackets.get(seqNum);
 			unACKedPackets.remove(seqNum);
 			pktRetries.remove(seqNum);
 			System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, 0, "", Error.ERR_20));
+			n.TXNLayer.onTimeout(n.addr, pkt.getPayload());
 		}
 	}
 	
