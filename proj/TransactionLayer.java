@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.swing.text.Utilities;
+
 import edu.washington.cs.cse490h.lib.Utility;
 
 
@@ -100,7 +102,7 @@ public class TransactionLayer {
 				executeCommandQueue(f);
 				break;
 			case TXNProtocol.ABORT:
-				this.abort(false);
+				this.abort();
 				break;
 		}
 	}
@@ -133,26 +135,6 @@ public class TransactionLayer {
 
 	
 
-	private boolean put(Command c, File f) {
-		return false;
-	}
-	
-	
-	private boolean delete(Command c, File f) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	private boolean create(Command c, File f) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	private boolean append(Command c, File f) {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
 	/*=====================================================
 	 * Methods DistNode uses to talk to TXNLayer
 	 *=====================================================*/
@@ -176,7 +158,8 @@ public class TransactionLayer {
 
 			try {
 				f.execute();
-				this.n.printData(this.n.get(f.getName()));
+				this.n.printData(this.txn.getVersion( this.n.get(f.getName()) ));
+				this.txn.add( c );
 			} catch (IOException e) {
 				this.n.printError(c, Error.ERR_10);
 			}
@@ -184,38 +167,126 @@ public class TransactionLayer {
 		}	
 	}
 
-	public void create(String fileName) {
-		// TODO Auto-generated method stub
+	//TODO: Decide what to do for creates/deletes and transactions
+	public boolean create(String filename){
+		boolean rtn = false;
+		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.CREATE, f, "");
+		
+		if(f.execute(c)){
+			return create(c, f);
+		}
+		
+		return rtn;
+	}
+	
+	private boolean create(Command c, File f){
+		if(f.getState() == File.INV){
+			this.send(MASTER_NODE, RPCProtocol.CREATE, Utility.stringToByteArray(f.getName()));
+			return false;
+		}else{
+			f.execute();
+			this.n.printError(c, Error.ERR_11);
+			return true;
+		}
+	}
+
+	public boolean put(String filename, String content){
+		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.PUT, f, content);
+		
+		if(f.execute(c)){
+			return put(c, f);
+		}
+		
+		return false;
+	}
+	
+	private boolean put(Command c, File f){
+		if(f.getState() == File.INV){
+			this.send(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
+			return false;
+		}else{
+			f.execute();
+			this.txn.add( c );
+			this.n.printSuccess(c);
+
+			return true;
+		}
+	}
+
+	public boolean append(String filename, String content){
+		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.APPEND, f, content);
+		
+		if(f.execute(c)) {
+			return append(c, f);
+		}
+		return false;
+	}
+	
+	private boolean append(Command c, File f){
+		if(f.getState() != File.RW) {
+			this.send(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
+			return false;
+		}else{
+			f.execute();
+			this.txn.add(c);
+			this.n.printSuccess(c);
+			return true;
+		}
 		
 	}
 
-	public void put(String fileName, String content) {
-		// TODO Auto-generated method stub
-		
+	//TODO: Decide what to do for creates/deletes and transactions
+	public boolean delete(String filename){
+		File f = getFileFromCache( filename );
+		Command c = new Command(MASTER_NODE, Command.DELETE, f);
+	
+		if(f.execute(c)) {
+			return delete(c, f);
+		}
+		return false;
+	}
+	
+	private boolean delete(Command c, File f){
+		if(f.getState() != File.RW) {
+			this.send(MASTER_NODE, RPCProtocol.DELETE, Utility.stringToByteArray(f.getName()));
+			return false;//WQ
+		} else {
+			f.execute();
+			try {
+				this.n.delete(f.getName());
+				this.n.printSuccess(c);
+			} catch (IOException e) {
+				this.n.printError(c, Error.ERR_10);
+			}
+			return true;
+			
+		}
 	}
 
-	public void append(String fileName, String content) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	public void delete(String fileName) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	public void abort(boolean retry) {
-		// TODO Auto-generated method stub
-		
+	public void abort() {
+		this.txn = null;
 	}
 
 	public void commit() {
-		// TODO Auto-generated method stub
-		
+		//Send all of our commands to the master node
+		for( Command c : this.txn ) {
+			String payload = c.getType() + " " + c.getFileName();
+			if( c.getType() == Command.PUT || c.getType() == Command.APPEND ) {
+				payload += " " + c.getContents();
+			}
+			this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
+		}
+		//Send the final commit message
+		this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(this.txn.id + "") );
 	}
 
 	public void start() {
 		int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
+		
+		//start a new transaction by creating a new transaction object
 		this.txn = new Transaction( newTXNnum );
 	}
 	
