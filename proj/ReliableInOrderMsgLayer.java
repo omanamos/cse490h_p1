@@ -389,7 +389,7 @@ class OutChannel {
 			}else{
 				lastSeqNumSent++;
 				this.createTimeoutListener(pkt);
-				n.send(destAddr, Protocol.RPC, packed);
+				n.send(destAddr, Protocol.TXN, packed);
 			}
 		}
 	}

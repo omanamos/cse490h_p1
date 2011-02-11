@@ -22,7 +22,7 @@ public class CacheCoherenceLayer {
 	
 	public void sendCC( int server, int protocol, byte[] payload) {
 		RPCPacket pkt = new RPCPacket(protocol, payload);
-		this.RIOLayer.sendRIO(server, Protocol.RPC, pkt.pack());
+		this.RIOLayer.sendRIO(server, Protocol.TXN, pkt.pack());
 	}
 	
 	public void onRPCReceive(int from, byte[] payload) {

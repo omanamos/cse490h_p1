@@ -36,7 +36,7 @@ public abstract class RIONode extends Node {
 			this.RIOLayer.receiveAck(from, msg);
 		}else if(protocol == Protocol.SESSION){
 			this.RIOLayer.receiveSession(from, RIOPacket.unpack(msg));
-		}else if(protocol == Protocol.RPC){
+		}else if(protocol == Protocol.TXN){
 			this.RIOLayer.receiveRIO(from, RIOPacket.unpack(msg));
 		}
 	}
