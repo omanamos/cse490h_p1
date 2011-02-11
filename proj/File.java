@@ -3,8 +3,7 @@ import java.util.Queue;
 
 public class File {
 	public static final int INV = 0;
-	public static final int RO = 1;
-	public static final int RW = 2;
+	public static final int RW = 1;
 	
 	private int state;
 	private String name;
@@ -27,6 +26,10 @@ public class File {
 	
 	public int getVersion(){
 		return this.version;
+	}
+	
+	public void setVersion(int version){
+		this.version = version;
 	}
 	
 	public void setState(int state){
@@ -54,7 +57,7 @@ public class File {
 	}
 	
 	public static boolean isValidState(int s){
-		return s == INV || s == RO || s == RW;
+		return s == INV || s == RW;
 	}
 	
 	public int hashCode(){

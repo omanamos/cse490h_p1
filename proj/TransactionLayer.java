@@ -40,8 +40,27 @@ public class TransactionLayer {
 	}
 	
 	private void masterReceive(int from, TXNPacket pkt){
-
+		MasterFile f;
 		
+		switch(pkt.getProtocol()){
+			case TXNProtocol.WQ:
+				f = (MasterFile)this.getFileFromCache(Utility.byteArrayToString(pkt.getPayload()));
+				
+				for(Integer client : f){
+					f.changePermissions(client, MasterFile.WF);
+					this.send(client, TXNProtocol.WF, Utility.stringToByteArray(f.getName()));
+				}
+				
+				break;
+			case TXNProtocol.ERROR:
+				break;
+			case TXNProtocol.WD:
+				break;
+			case TXNProtocol.COMMIT_DATA:
+				break;
+			case TXNProtocol.COMMIT:
+				break;
+		}
 	}
 	
 	//TODO: execute command queue somewhere in here	
@@ -67,10 +86,21 @@ public class TransactionLayer {
 				contents = contents.substring(i + 1);
 				
 				File f = this.getFileFromCache(fileName);
+				Command c = (Command)f.execute(); //Get command that originally requested this Query
+				try {
+					this.n.write(fileName, contents, false, true);
+					f.setState(File.RW);
+					f.setVersion(version);
+					this.txn.add(c);
+					this.n.printSuccess(c);
+				} catch (IOException e) {
+					this.n.printError("Fatal Error: Couldn't update file: " + fileName + " to version: " + version);
+				}
 				
+				executeCommandQueue(f);
 				break;
 			case TXNProtocol.ABORT:
-				this.abort(true);
+				this.abort(false);
 				break;
 		}
 	}
