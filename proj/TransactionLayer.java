@@ -1,5 +1,8 @@
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+
+import edu.washington.cs.cse490h.lib.Utility;
 
 
 public class TransactionLayer {
@@ -9,11 +12,14 @@ public class TransactionLayer {
 	private RIONode n;
 	private ReliableInOrderMsgLayer RIOLayer;
 	private Map<String, File> cache;
-	
+	private int lastTXNnum;
+	private Transaction curTXN;
+
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
 		this.cache = new HashMap<String, File>();
 		this.n = n;
 		this.RIOLayer = RIOLayer;
+		this.lastTXNnum = n.addr;
 	}
 
 	public void send(int server, int protocol, byte[] payload) {
@@ -37,6 +43,7 @@ public class TransactionLayer {
 		
 	}
 	
+	//TODO: execute command queue somewhere in here
 	private void slaveReceive(TXNPacket pkt){
 		switch(pkt.getProtocol()){
 		case TXNProtocol.WF:
@@ -58,9 +65,31 @@ public class TransactionLayer {
 	/*=====================================================
 	 * Methods DistNode uses to talk to TXNLayer
 	 *=====================================================*/
-	public void get(String fileName) {
-		// TODO Auto-generated method stub
+	
+	public boolean get(String filename){
+		File f = this.cache.get( filename );
+		Command c = new Command(MASTER_NODE, Command.GET, f);
 		
+		if(f.execute(c)){
+			return get(c, f);
+		}
+		
+		return false;
+	}
+	
+	private boolean get(Command c, File f){
+		if(f.getState() == File.INV){
+			this.send(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(f.getName())			return false;
+		}else{
+
+			try {
+				f.execute();
+				this.n.printData(this.n.get(f.getName()));
+			} catch (IOException e) {
+				this.n.printError(c, Error.ERR_10);
+			}
+			return true;
+		}	
 	}
 
 	public void create(String fileName) {
@@ -94,8 +123,9 @@ public class TransactionLayer {
 	}
 
 	public void start() {
-		// TODO Auto-generated method stub
-		
+		int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
+		this.curTXN = new Transaction( newTXNnum );
 	}
-
+	
+	
 }
