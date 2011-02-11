@@ -486,7 +486,6 @@ public class CacheCoherenceLayer {
 			}
 			return true;
 		}
-		
 	}
 	
 	public boolean append(String filename, String content){
