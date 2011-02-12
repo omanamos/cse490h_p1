@@ -20,6 +20,14 @@ public class MasterFile extends File implements Iterable<Integer>{
 		return this.isWaiting;
 	}
 	
+	public void toggleIsWaiting(){
+		this.isWaiting = !this.isWaiting;
+	}
+	
+	public boolean isCheckedOut(){
+		return this.filePermissions.size() != 0;
+	}
+	
 	public boolean hasCopy( int addr ) {
 		return this.filePermissions.containsKey(addr);
 	}

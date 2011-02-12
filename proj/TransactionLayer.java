@@ -47,12 +47,19 @@ public class TransactionLayer {
 		switch(pkt.getProtocol()){
 			case TXNProtocol.WQ:
 				f = (MasterFile)this.getFileFromCache(Utility.byteArrayToString(pkt.getPayload()));
-				
-				for(Integer client : f){
-					f.changePermissions(client, MasterFile.WF);
-					this.send(client, TXNProtocol.WF, Utility.stringToByteArray(f.getName()));
+				if(f.isCheckedOut()){
+					try{
+						byte[] payload = this.buildWDPayload(f);
+						this.send(from, TXNProtocol.WD, payload);
+					}catch(IOException e){
+						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray("Fatal Error: couldn't find file: " + f.getName() + " on server."));
+					}
+				}else{
+					for(Integer client : f){
+						f.changePermissions(client, MasterFile.WF);
+						this.send(client, TXNProtocol.WF, Utility.stringToByteArray(f.getName()));
+					}
 				}
-				
 				break;
 			case TXNProtocol.ERROR:
 				break;
@@ -63,6 +70,21 @@ public class TransactionLayer {
 			case TXNProtocol.COMMIT:
 				break;
 		}
+	}
+	
+	private byte[] buildWDPayload(File f) throws IOException{
+		int version = f.getVersion();
+		String contents = this.n.get(f.getName());
+		for(Command c : this.txn.getCommands(f)){
+			if(c.getType() == Command.APPEND){
+				version++;
+				contents += c.getContents();
+			}else if(c.getType() == Command.PUT){
+				version++;
+				contents = c.getContents();
+			}
+		}
+		return Utility.stringToByteArray(f.getName() + " " + version + " " + contents);
 	}
 	
 	//TODO: execute command queue somewhere in here	
