@@ -5,6 +5,7 @@ public class Command extends Queueable{
 	public static final int PUT = 2;
 	public static final int APPEND = 3;
 	public static final int DELETE = 4;
+	public static final int UPDATE = 5;
 	private static final String[] toS = {"Create", "Get", "Put", "Append", "Delete"};
 	
 	private int type;
@@ -52,7 +53,7 @@ public class Command extends Queueable{
 	}
 	
 	public boolean isValidType(int t){
-		return t == CREATE || t == GET || t == PUT || t == APPEND || t == DELETE;
+		return t == CREATE || t == GET || t == PUT || t == APPEND || t == DELETE || t == UPDATE;
 	}
 	
 	public byte[] buildCommit(){

@@ -1,5 +1,7 @@
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import edu.washington.cs.cse490h.lib.Utility;
@@ -14,13 +16,14 @@ public class TransactionLayer {
 	private Map<String, File> cache;
 	private int lastTXNnum;
 	private Transaction txn;
+	private Map<Integer, List<Command>> commitQueue;
 	
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
 		this.cache = new HashMap<String, File>();
 		this.n = (DistNode)n;
 		this.RIOLayer = RIOLayer;
 		this.lastTXNnum = n.addr;
-		this.txn = this.n.addr == MASTER_NODE ? new Transaction( -1 ) : null;
+		this.commitQueue = this.n.addr == MASTER_NODE ? new HashMap<Integer, List<Command>>() : null;
 	}
 
 	public void send(int server, int protocol, byte[] payload) {
@@ -42,20 +45,22 @@ public class TransactionLayer {
 	
 	private void masterReceive(int from, TXNPacket pkt){
 		MasterFile f;
-		String contents;
-		String fileName;
+		String contents, fileName;
+		int i, lastSpace;
 		
 		switch(pkt.getProtocol()){
 			case TXNProtocol.WQ:
 				f = (MasterFile)this.getFileFromCache(Utility.byteArrayToString(pkt.getPayload()));
-				if(f.isCheckedOut()){
+				if(!f.isCheckedOut()){
 					try{
 						byte[] payload = this.txn.getVersion(f, this.n.get(f.getName()));
+						f.addDep(from, MASTER_NODE);
 						this.send(from, TXNProtocol.WD, payload);
 					}catch(IOException e){
 						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray("Fatal Error: couldn't find file: " + f.getName() + " on server."));
 					}
 				}else{
+					f.requestor = from;
 					for(Integer client : f){
 						f.changePermissions(client, MasterFile.WF);
 						this.send(client, TXNProtocol.WF, Utility.stringToByteArray(f.getName()));
@@ -64,25 +69,70 @@ public class TransactionLayer {
 				break;
 			case TXNProtocol.WD:
 				contents = Utility.byteArrayToString(pkt.getPayload());
-				int i = contents.indexOf(' ');
+				i = contents.indexOf(' ');
 				fileName = contents.substring(0, i);
-				int lastSpace = i + 1;
+				lastSpace = i + 1;
 				int version = Integer.parseInt(contents.substring(lastSpace, i));
 				contents = contents.substring(i + 1);
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
+				f.changePermissions(from, MasterFile.FREE);
 				if(this.txn.getVersion(f) < version){
-					
-				}else{
-					
+					f.propose(contents, version, from);
+				}
+				if(!f.isWaiting()){
+					f.chooseProp(f.requestor);
+					this.send(f.requestor, TXNProtocol.WD, Utility.stringToByteArray(fileName + " " + f.getVersion() + " " + f.getContents()));
+					f.requestor = -1;
 				}
 				break;
 			case TXNProtocol.ERROR:
+				String[] parts = Utility.byteArrayToString(pkt.getPayload()).split(" ");
+				
+				if(parts.length == 2){ 
+					fileName = parts[0];
+					int errCode = Integer.parseInt(parts[1]);
+					if(errCode == Error.ERR_10){
+						//This is a client saying it doesn't have a file after the server sent it a WF
+						//This means the MasterFile has some corrupted state, change permissions for that client to invalid.
+						f = (MasterFile)this.getFileFromCache(fileName);
+						f.changePermissions(from, File.INV);
+					}
+				}
 				break;
 			case TXNProtocol.COMMIT_DATA:
+				if(!this.commitQueue.containsKey(from))
+					this.commitQueue.put(from, new ArrayList<Command>());
+				
+				contents = Utility.byteArrayToString(pkt.getPayload());
+				i = contents.indexOf(' ');
+				fileName = contents.substring(0, i);
+				lastSpace = i + 1;
+				int commandType = Integer.parseInt(contents.substring(lastSpace, i));
+				f = (MasterFile)this.getFileFromCache(fileName);
+				
+				Command c;
+				if(commandType == Command.APPEND || commandType == Command.PUT || commandType == Command.UPDATE){
+					contents = contents.substring(i + 1);
+					c = new Command(MASTER_NODE, commandType, f, contents);
+				}else{
+					c = new Command(MASTER_NODE, commandType, f);
+				}
+				
+				this.commitQueue.get(from).add(c);
 				break;
 			case TXNProtocol.COMMIT:
+				this.commit(from, Integer.parseInt(Utility.byteArrayToString(pkt.getPayload())));
 				break;
+		}
+	}
+	
+	private void commit(int client, int size){
+		List<Command> commits = this.commitQueue.get(client);
+		if(size != commits.size()){
+			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(Error.ERROR_STRINGS[Error.ERR_40]));
+		}else{
+			
 		}
 	}
 	
@@ -115,6 +165,7 @@ public class TransactionLayer {
 					this.n.write(fileName, contents, false, true);
 					f.setState(File.RW);
 					f.setVersion(version);
+					this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + ""));
 					this.txn.add(c);
 					this.n.printSuccess(c);
 				} catch (IOException e) {
@@ -305,7 +356,7 @@ public class TransactionLayer {
 		File f = this.cache.get(fileName);
 		
 		if(f == null){
-			f = this.n.addr == MASTER_NODE ? new MasterFile(fileName) : new File(File.INV, fileName);
+			f = this.n.addr == MASTER_NODE ? new MasterFile(fileName, "") : new File(File.INV, fileName);
 			this.cache.put(fileName, f);
 		}
 		return f;

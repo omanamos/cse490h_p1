@@ -16,5 +16,9 @@ public class Error {
 	 * File too large
 	 */
 	public static final int ERR_30 = 3;
-	public static final String[] ERROR_STRINGS = {"10 - File does not exist", "11 - File already exists", "20 - Timeout", "30 - File too large"};
+	/**
+	 * Commit Failed
+	 */
+	public static final int ERR_40 = 4;
+	public static final String[] ERROR_STRINGS = {"10 - File does not exist", "11 - File already exists", "20 - Timeout", "30 - File too large", "40 - Commit Failed. Please try again"};
 }
