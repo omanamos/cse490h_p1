@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import edu.washington.cs.cse490h.lib.Utility;
+
 
 public class Transaction implements Iterable<Command> {
 	
@@ -47,15 +49,27 @@ public class Transaction implements Iterable<Command> {
 		return rtn;
 	}
 	
-	public String getVersion(String contents){
-		for(Command c : log){
+	public int getVersion(File f){
+		int version = f.getVersion();
+		for(Command c : this.fileLog.get(f)){
+			if(c.getType() == Command.APPEND || c.getType() == Command.PUT)
+				version++;
+		}
+		return version;
+	}
+	
+	public byte[] getVersion(File f, String contents){
+		int version = f.getVersion();
+		for(Command c : this.getCommands(f)){
 			if(c.getType() == Command.APPEND){
+				version++;
 				contents += c.getContents();
 			}else if(c.getType() == Command.PUT){
+				version++;
 				contents = c.getContents();
 			}
 		}
-		return contents;
+		return Utility.stringToByteArray(f.getName() + " " + version + " " + contents);
 	}
 	
 }

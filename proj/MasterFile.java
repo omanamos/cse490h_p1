@@ -9,11 +9,27 @@ public class MasterFile extends File implements Iterable<Integer>{
 	//address, state
 	private boolean isWaiting;
 	private HashMap<Integer, Integer> filePermissions;
+	private String curContents;
+	private int curVersion;
 	
-	public MasterFile(String name) {
+	public MasterFile(String name, String contents) {
 		super(File.INV, name);
 		this.isWaiting = false;
 		this.filePermissions = new HashMap<Integer,Integer>();
+		this.curContents = contents;
+	}
+	
+	public void update(String contents, int version){
+		this.curContents = contents;
+		this.curVersion = version;
+	}
+	
+	public String getContents(){
+		return this.curContents;
+	}
+	
+	public int getVersion(){
+		return this.curVersion;
 	}
 	
 	public boolean isWaiting(){

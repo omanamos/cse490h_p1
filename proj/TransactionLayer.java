@@ -2,8 +2,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.swing.text.Utilities;
-
 import edu.washington.cs.cse490h.lib.Utility;
 
 
@@ -22,6 +20,7 @@ public class TransactionLayer {
 		this.n = (DistNode)n;
 		this.RIOLayer = RIOLayer;
 		this.lastTXNnum = n.addr;
+		this.txn = this.n.addr == MASTER_NODE ? new Transaction( -1 ) : null;
 	}
 
 	public void send(int server, int protocol, byte[] payload) {
@@ -43,13 +42,15 @@ public class TransactionLayer {
 	
 	private void masterReceive(int from, TXNPacket pkt){
 		MasterFile f;
+		String contents;
+		String fileName;
 		
 		switch(pkt.getProtocol()){
 			case TXNProtocol.WQ:
 				f = (MasterFile)this.getFileFromCache(Utility.byteArrayToString(pkt.getPayload()));
 				if(f.isCheckedOut()){
 					try{
-						byte[] payload = this.buildWDPayload(f);
+						byte[] payload = this.txn.getVersion(f, this.n.get(f.getName()));
 						this.send(from, TXNProtocol.WD, payload);
 					}catch(IOException e){
 						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray("Fatal Error: couldn't find file: " + f.getName() + " on server."));
@@ -61,9 +62,22 @@ public class TransactionLayer {
 					}
 				}
 				break;
-			case TXNProtocol.ERROR:
-				break;
 			case TXNProtocol.WD:
+				contents = Utility.byteArrayToString(pkt.getPayload());
+				int i = contents.indexOf(' ');
+				fileName = contents.substring(0, i);
+				int lastSpace = i + 1;
+				int version = Integer.parseInt(contents.substring(lastSpace, i));
+				contents = contents.substring(i + 1);
+				f = (MasterFile)this.getFileFromCache(fileName);
+				
+				if(this.txn.getVersion(f) < version){
+					
+				}else{
+					
+				}
+				break;
+			case TXNProtocol.ERROR:
 				break;
 			case TXNProtocol.COMMIT_DATA:
 				break;
@@ -72,31 +86,17 @@ public class TransactionLayer {
 		}
 	}
 	
-	private byte[] buildWDPayload(File f) throws IOException{
-		int version = f.getVersion();
-		String contents = this.n.get(f.getName());
-		for(Command c : this.txn.getCommands(f)){
-			if(c.getType() == Command.APPEND){
-				version++;
-				contents += c.getContents();
-			}else if(c.getType() == Command.PUT){
-				version++;
-				contents = c.getContents();
-			}
-		}
-		return Utility.stringToByteArray(f.getName() + " " + version + " " + contents);
-	}
-	
-	//TODO: execute command queue somewhere in here	
 	private void slaveReceive(TXNPacket pkt){
 		String fileName;
+		File f;
 		
 		switch(pkt.getProtocol()){
 			case TXNProtocol.WF:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
+				f = this.getFileFromCache(fileName);
 				try {
-					String contents = this.txn.getVersion(this.n.get(fileName));
-					this.send(MASTER_NODE, TXNProtocol.WD, Utility.stringToByteArray(fileName + " " + contents));
+					byte[] payload = this.txn.getVersion(f, this.n.get(fileName));
+					this.send(MASTER_NODE, TXNProtocol.WD, payload);
 				} catch (IOException e) {
 					this.send(MASTER_NODE, TXNProtocol.ERROR, Utility.stringToByteArray(fileName + " " + Error.ERR_10));
 				}
@@ -109,7 +109,7 @@ public class TransactionLayer {
 				int version = Integer.parseInt(contents.substring(lastSpace, i));
 				contents = contents.substring(i + 1);
 				
-				File f = this.getFileFromCache(fileName);
+				f = this.getFileFromCache(fileName);
 				Command c = (Command)f.execute(); //Get command that originally requested this Query
 				try {
 					this.n.write(fileName, contents, false, true);
@@ -177,14 +177,9 @@ public class TransactionLayer {
 			this.send(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(f.getName()));
 			return false;
 		}else{
-
-			try {
-				f.execute();
-				this.n.printData(this.txn.getVersion( this.n.get(f.getName()) ));
-				this.txn.add( c );
-			} catch (IOException e) {
-				this.n.printError(c, Error.ERR_10);
-			}
+			f.execute();
+			//this.n.printData(this.txn.getVersion( this.n.get(f.getName()) ));
+			this.txn.add( c );
 			return true;
 		}	
 	}
@@ -231,7 +226,7 @@ public class TransactionLayer {
 		}else{
 			f.execute();
 			this.txn.add( c );
-			this.n.printSuccess(c);
+			//this.n.printSuccess(c);
 
 			return true;
 		}
@@ -254,7 +249,7 @@ public class TransactionLayer {
 		}else{
 			f.execute();
 			this.txn.add(c);
-			this.n.printSuccess(c);
+			//this.n.printSuccess(c);
 			return true;
 		}
 		
@@ -277,12 +272,6 @@ public class TransactionLayer {
 			return false;//WQ
 		} else {
 			f.execute();
-			try {
-				this.n.delete(f.getName());
-				this.n.printSuccess(c);
-			} catch (IOException e) {
-				this.n.printError(c, Error.ERR_10);
-			}
 			return true;
 			
 		}
