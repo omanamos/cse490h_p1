@@ -126,7 +126,41 @@ public class TransactionLayer {
 			case TXNProtocol.ABORT:
 				this.abort();
 				break;
+			case TXNProtocol.COMMIT:
+				this.commitChangesLocally();
+				this.commitConfirm();
+				break;
 		}
+	}
+	
+	public void commitChangesLocally() {
+		for( Command c : this.txn ) {
+			try {
+				int type = c.getType();
+				switch( type ) {
+				case Command.GET :
+					this.n.printData(this.n.get(c.getFileName() ));
+					break;
+				case Command.APPEND:
+					this.n.write(c.getFileName(), c.getContents(), true, false);
+					break;
+				case Command.PUT:
+					this.n.write(c.getFileName(), c.getContents(), false, false);
+					break;
+				case Command.CREATE:
+					this.n.create(c.getFileName());
+					break;
+				case Command.DELETE:
+					this.n.delete(c.getFileName());
+					break;
+				}
+			} catch(IOException e) {
+				this.n.printError("Fatal Error: When applying commit locally on: " + c.getFileName() + "  command: " + c ) ;
+			}
+
+			this.n.printSuccess(c);
+		}
+		
 	}
 	
 	public void executeCommandQueue(File f){
@@ -293,12 +327,20 @@ public class TransactionLayer {
 		//Send the final commit message
 		this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(this.txn.id + "") );
 	}
+	
+	public void commitConfirm() {
+		this.txn = null;
+	}
 
 	public void start() {
-		int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
-		
-		//start a new transaction by creating a new transaction object
-		this.txn = new Transaction( newTXNnum );
+		if( this.txn != null ) {
+			int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
+			
+			//start a new transaction by creating a new transaction object
+			this.txn = new Transaction( newTXNnum );
+		} else {
+			this.n.printError("ERROR: Transaction in progress: can not start new transaction");
+		}
 	}
 	
 	private File getFileFromCache(String fileName) {
