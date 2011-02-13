@@ -45,7 +45,7 @@ public class TransactionLayer {
 	
 	public void onReceive(int from, byte[] payload) {
 		TXNPacket packet = TXNPacket.unpack(payload);
-		if(packet != null && packet.getProtocol() == TXNProtocol.HB)
+		if( packet.getProtocol() == TXNProtocol.HB)
 			this.sendHB(from);
 		else if(this.n.addr == MASTER_NODE){
 			masterReceive(from, packet);
@@ -407,7 +407,7 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			this.n.printError(c, Error.ERR_11);
+		//	this.n.printError(c, Error.ERR_11);
 			return true;
 		}
 	}
