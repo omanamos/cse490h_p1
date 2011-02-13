@@ -335,9 +335,6 @@ public class TransactionLayer {
 				case Command.PUT:
 					this.n.write(c.getFileName(), c.getContents(), false, false);
 					break;
-				case Command.CREATE:
-					this.n.create(c.getFileName());
-					break;
 				case Command.DELETE:
 					this.n.delete(c.getFileName());
 					break;
