@@ -452,7 +452,7 @@ class OutChannel {
 			}
 			establishSession();
 			System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, 0, "", Error.ERR_20));
-			n.TXNLayer.onTimeout(n.addr, pkt.getPayload());
+			n.TXNLayer.onTimeout(this.destAddr, pkt.getPayload());
 		}
 	}
 	

@@ -44,7 +44,7 @@ public class TransactionLayer {
 			slaveReceive(packet);
 	}
 	
-	public void onTimeout(int from, byte[] payload){
+	public void onTimeout(int dest, byte[] payload){
 		
 	}
 	
@@ -141,9 +141,33 @@ public class TransactionLayer {
 					f.abort(client);
 				this.send(client, TXNProtocol.ABORT, new byte[0]);
 			}else if(c.isWaiting()){
-				//TODO: add commit to queue and send heartbeat to nodes that the commit is waiting for
+				//add commit to queue and send heartbeat to nodes that the commit is waiting for
+				for(Integer addr : c){
+					this.send(addr, TXNProtocol.HB, new byte[0]);
+				}
+				this.waitingQueue.put(client, c);
 			}else{
-				//TODO: push changes to disk and put most recent version in memory in MasterFile
+				//push changes to disk and put most recent version in memory in MasterFile
+				for(MasterFile f : log){
+					try{
+						int version = f.getVersion();
+						String contents = this.n.get(f.getName());
+						for(Command cmd : log.getCommands(f)){
+							if(cmd.getType() == Command.APPEND){
+								contents += cmd.getContents();
+								version++;
+							}else if(cmd.getType() == Command.PUT){
+								contents = cmd.getContents();
+								version++;
+							}
+						}
+						this.n.write(f.getName(), contents, false, true);
+						f.commit(client, contents, version);
+					}catch(IOException e){
+						//TODO: send back error to client
+						return;
+					}
+				}
 				this.send(client, TXNProtocol.COMMIT, new byte[0]);
 			}
 		}

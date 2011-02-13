@@ -46,6 +46,10 @@ public class Log implements Iterable<MasterFile>{
 		}
 	}
 	
+	public List<Command> getCommands(MasterFile f){
+		return this.lookup.get(f);
+	}
+	
 	public boolean hasReads(MasterFile f){
 		return this.reads.get(f);
 	}

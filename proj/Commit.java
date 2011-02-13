@@ -1,8 +1,9 @@
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 
-public class Commit {
+public class Commit implements Iterable<Integer>{
 	
 	private boolean abort;
 	/**
@@ -39,6 +40,10 @@ public class Commit {
 				this.abort = true;
 			}
 		}
+	}
+	
+	public Iterator<Integer> iterator(){
+		return this.wait.keySet().iterator();
 	}
 	
 	public void remove(Integer node){

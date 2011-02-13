@@ -7,6 +7,7 @@ public class TXNProtocol extends Protocol {
 	public static final int ABORT = 10;
 	public static final int COMMIT_DATA = 11;
 	public static final int ERROR = 12;
+	public static final int HB = 13;
 	
 	/**
 	 * Tests if this is a valid protocol for a Packet
@@ -20,7 +21,7 @@ public class TXNProtocol extends Protocol {
 	}
 	
 	public static boolean isTXNProtocol(int p){
-		return p == WQ || p == WD || p == WF || p == COMMIT || p == ABORT || p == COMMIT_DATA || p == ERROR;
+		return p == WQ || p == WD || p == WF || p == COMMIT || p == ABORT || p == COMMIT_DATA || p == ERROR || p == HB;
 	}
 
 	/**
@@ -41,6 +42,7 @@ public class TXNProtocol extends Protocol {
 		case ABORT: return "abort";
 		case COMMIT_DATA: return "commit data";
 		case ERROR: return "error";
+		case HB: return "heartbeat";
 		default:
 			return Protocol.protocolToString(protocol);
 		}
