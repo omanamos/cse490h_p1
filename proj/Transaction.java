@@ -56,7 +56,7 @@ public class Transaction implements Iterable<Command> {
 	
 	public boolean isDeleted(File f){
 		List<Command> cmds = this.fileLog.get(f);
-		return cmds.size() != 0 && cmds.get(cmds.size() - 1).getType() == Command.DELETE;
+		return cmds != null && cmds.size() != 0 && cmds.get(cmds.size() - 1).getType() == Command.DELETE;
 	}
 	
 	public Set<File> getFiles(){
