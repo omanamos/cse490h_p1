@@ -1,7 +1,9 @@
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 
 import edu.washington.cs.cse490h.lib.Callback;
@@ -335,6 +337,7 @@ class InChannel {
 class OutChannel {
 	private HashMap<Integer, RIOPacket> unACKedPackets;
 	private HashMap<Integer, Integer> pktRetries;
+	private ArrayList<RIOPacket> pendingPackets;
 	
 	private int lastSeqNumSent;
 	private ReliableInOrderMsgLayer parent;
@@ -359,6 +362,7 @@ class OutChannel {
 		this.n = n;
 		this.sessionID = sessionId;
 		this.destAddr = destAddr;
+		this.pendingPackets = new ArrayList<RIOPacket>();
 		
 		establishingSession = false;
 		queuedCommands = new LinkedList<RIOPacket>();
@@ -435,6 +439,18 @@ class OutChannel {
 			RIOPacket pkt = unACKedPackets.get(seqNum);
 			unACKedPackets.remove(seqNum);
 			pktRetries.remove(seqNum);
+			boolean lastSequence = false;
+			int maxSeqNum = seqNum + 1;
+			while(!lastSequence){
+				if(unACKedPackets.containsKey(maxSeqNum)){
+					pendingPackets.add(unACKedPackets.get(maxSeqNum));
+					unACKedPackets.remove(maxSeqNum);
+					pktRetries.remove(maxSeqNum);
+					maxSeqNum++;
+				} else
+					lastSequence = true;
+			}
+			establishSession();
 			System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, 0, "", Error.ERR_20));
 			n.TXNLayer.onTimeout(n.addr, pkt.getPayload());
 		}
@@ -462,8 +478,16 @@ class OutChannel {
 		if(this.sessionID == -1){
 			this.establishingSession = false;
 			this.unACKedPackets = new HashMap<Integer, RIOPacket>();
-			this.lastSeqNumSent = seqNum;
 			this.sessionID = sessionId;
+
+			for(int i = 0; i < pendingPackets.size(); i++){
+				seqNum++;
+				RIOPacket tPkt = pendingPackets.remove(i);
+				unACKedPackets.put(seqNum, tPkt);
+				pktRetries.put(seqNum, 0);
+			}
+			
+			this.lastSeqNumSent = seqNum;
 			
 			while(!this.queuedCommands.isEmpty()){
 				RIOPacket p = this.queuedCommands.poll();
