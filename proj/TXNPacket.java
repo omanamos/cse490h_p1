@@ -88,7 +88,7 @@ public class TXNPacket extends Queueable{
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
 
-			if (bytesRead != payload.length || bytesRead == -1 && payload.length == 0) {
+			if ( bytesRead != payload.length ) {
 				return null;
 			}
 
