@@ -184,10 +184,10 @@ public class TransactionLayer {
 					f.setState(File.RW);
 					f.changePermissions(from, MasterFile.FREE);
 					String payload = fileName + " " + f.getVersion() + " ";
-					this.n.send(from, TXNProtocol.WD, Utility.stringToByteArray(payload));
+					this.send(from, TXNProtocol.WD, Utility.stringToByteArray(payload));
 				}else{
 					String payload = DistNode.buildErrorString(this.n.addr, from, TXNProtocol.CREATE, fileName, Error.ERR_11);
-					this.n.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
+					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 				}
 				break;
 		}
@@ -384,7 +384,7 @@ public class TransactionLayer {
 			else
 				this.txn.add( c );
 			return true;
-		}	
+		}
 	}
 
 	//TODO: Decide what to do for creates/deletes and transactions
