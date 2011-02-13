@@ -531,7 +531,7 @@ public class TransactionLayer {
 			//Send all of our commands to the master node
 			int cnt = 0;
 			for( Command c : this.txn ) {
-				String payload = c.getType() + " " + c.getFileName() + " ";
+				String payload = c.getFileName() + " " + c.getType() + " ";
 				if( c.getType() == Command.PUT || c.getType() == Command.APPEND || c.getType() == Command.UPDATE ) {
 					payload += c.getContents();
 				}
