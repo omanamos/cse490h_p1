@@ -1,6 +1,6 @@
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.Set;
 
 
 public class Commit implements Iterable<Integer>{
@@ -9,11 +9,11 @@ public class Commit implements Iterable<Integer>{
 	/**
 	 * key = client that this commit is waiting on
 	 */
-	private Map<Integer, Boolean> wait;
+	private Set<Integer> wait;
 	
 	public Commit(int client, Log log){
 		this.abort = false;
-		this.wait = new HashMap<Integer,Boolean>();
+		this.wait = new HashSet<Integer>();
 		for(MasterFile f : log){
 			int dep = f.getDep(client);
 			if(dep == -1 && log.hasReads(f)){
@@ -26,7 +26,7 @@ public class Commit implements Iterable<Integer>{
 				//this client didn't get its initial version from the server
 				if(log.getInitialVersion(f) > f.getVersion()){
 					//if there are reads or writes that depend on an uncommitted and unaborted transaction
-					this.wait.put(dep, true);
+					this.wait.add(dep);
 				}else if(log.getInitialVersion(f) == f.getVersion() && f.getLastCommitter() != dep){
 					//two nodes wrote the same version, and the one you don't depend on committed first
 					//but the node you depend on hasn't aborted yet/attempted to commit
@@ -43,7 +43,7 @@ public class Commit implements Iterable<Integer>{
 	}
 	
 	public Iterator<Integer> iterator(){
-		return this.wait.keySet().iterator();
+		return this.wait.iterator();
 	}
 	
 	public void remove(Integer node){

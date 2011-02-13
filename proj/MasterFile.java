@@ -19,7 +19,6 @@ public class MasterFile extends File implements Iterable<Integer>{
 	 */
 	private Map<Integer, Integer> initalVersions;
 	private HashMap<Integer, Integer> dependencies;
-	private Update lastUpdate;
 	private PriorityQueue<Update> proposals;
 	
 	public MasterFile(String name, String contents) {
@@ -29,15 +28,12 @@ public class MasterFile extends File implements Iterable<Integer>{
 		this.filePermissions = new HashMap<Integer, Integer>();
 		this.initalVersions = new HashMap<Integer, Integer>();
 		this.requestor = -1;
-		this.lastUpdate = null;
 		this.proposals = new PriorityQueue<Update>();
 	}
 	
-	public void commit(int client, String contents, int version){
-		this.lastUpdate = null;
+	public void commit(int client){
 		this.lastCommitter = client;
 		this.initalVersions.remove(client);
-		this.lastUpdate = new Update(contents, version, client);
 	}
 	
 	public void abort(int client){
@@ -53,7 +49,7 @@ public class MasterFile extends File implements Iterable<Integer>{
 		return this.lastCommitter;
 	}
 	
-	public void chooseProp(int requestor){
+	public Update chooseProp(int requestor){
 		Update u = this.proposals.poll();
 		while(u != null && this.initalVersions.get(u.source) < this.version && u.version > this.initalVersions.get(u.source))
 			u = this.proposals.poll();
@@ -62,10 +58,10 @@ public class MasterFile extends File implements Iterable<Integer>{
 			this.initalVersions.put(requestor, u.version);
 			if(this.version != u.version){
 				this.dependencies.put(requestor, u.source);
-				this.lastUpdate = u;
 			}
 		}
 		this.proposals.clear();
+		return u;
 	}
 	
 	public void addDep(int requestor, int sender){
@@ -80,14 +76,6 @@ public class MasterFile extends File implements Iterable<Integer>{
 	
 	public void propose(String contents, int version, int source){
 		this.proposals.add(new Update(contents, version, source));
-	}
-	
-	public String getContents(){
-		return this.lastUpdate.contents;
-	}
-	
-	public int getVersion(){
-		return this.lastUpdate.version;
 	}
 	
 	public boolean isWaiting(){
