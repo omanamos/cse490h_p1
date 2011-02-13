@@ -496,7 +496,7 @@ public class TransactionLayer {
 	}
 
 	public void start() {
-		if( this.txn != null ) {
+		if( this.txn == null ) {
 			int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
 			
 			//start a new transaction by creating a new transaction object

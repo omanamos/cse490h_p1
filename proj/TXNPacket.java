@@ -22,7 +22,7 @@ public class TXNPacket extends Queueable{
 	 * @param sessionId The sessionId between the sender and receiver
 	 */
 	public TXNPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		this(protocol, payload, MAX_PAYLOAD_SIZE, !RPCProtocol.isRPCProtocol(protocol));
+		this(protocol, payload, MAX_PAYLOAD_SIZE, !TXNProtocol.isTXNProtocol(protocol));
 	}
 	
 	protected TXNPacket(int protocol, byte[] payload, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
