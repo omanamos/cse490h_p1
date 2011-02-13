@@ -409,7 +409,6 @@ public class TransactionLayer {
 		}
 	}
 
-	//TODO: Decide what to do for creates/deletes and transactions
 	public boolean create(String filename){
 		boolean rtn = false;
 		if( assertTXNStarted() ) {
@@ -528,7 +527,11 @@ public class TransactionLayer {
 	public void txnExecute() {
 		if( this.txn.willCommit ) {
 			this.txn.decrementNumQueued();
+			if( this.txn.getNumQueued() == 0 ) {
+				this.commit();
+			}
 		}
+
 	}
 
 	public void commit() {
