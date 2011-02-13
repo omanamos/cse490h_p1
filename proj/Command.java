@@ -6,7 +6,7 @@ public class Command extends Queueable{
 	public static final int APPEND = 3;
 	public static final int DELETE = 4;
 	public static final int UPDATE = 5;
-	private static final String[] toS = {"Create", "Get", "Put", "Append", "Delete"};
+	private static final String[] toS = {"Create", "Get", "Put", "Append", "Delete", "Update"};
 	
 	private int type;
 	private File f;

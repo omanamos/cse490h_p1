@@ -296,13 +296,7 @@ public class TransactionLayer {
 					f.setVersion(version);
 					this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + ""));
 					this.txn.add(c);
-					
-					
-					
-					
-					
-					
-					
+					this.txnExecute();
 				} catch (IOException e) {
 					this.n.printError("Fatal Error: Couldn't update file: " + fileName + " to version: " + version);
 				}
@@ -342,9 +336,6 @@ public class TransactionLayer {
 				case Command.PUT:
 					this.n.write(c.getFileName(), c.getContents(), false, false);
 					break;
-				case Command.CREATE:
-					this.n.create(c.getFileName());
-					break;
 				case Command.DELETE:
 					this.n.delete(c.getFileName());
 					break;
@@ -352,8 +343,8 @@ public class TransactionLayer {
 			} catch(IOException e) {
 				this.n.printError("Fatal Error: When applying commit locally on: " + c.getFileName() + "  command: " + c ) ;
 			}
-
-			this.n.printSuccess(c);
+			if(c.getType() != Command.UPDATE)
+				this.n.printSuccess(c);
 		}
 		
 	}
@@ -412,11 +403,11 @@ public class TransactionLayer {
 				this.n.printError(c, Error.ERR_10);
 			else
 				this.txn.add( c );
+			txnExecute();
 			return true;
 		}
 	}
 
-	//TODO: Decide what to do for creates/deletes and transactions
 	public boolean create(String filename){
 		boolean rtn = false;
 		if( assertTXNStarted() ) {
@@ -436,7 +427,7 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-		//	this.n.printError(c, Error.ERR_11);
+			txnExecute();
 			return true;
 		}
 	}
@@ -459,10 +450,13 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			if(this.txn.isDeleted(f))
+			if(this.txn.isDeleted(f)) {
 				this.n.printError(c, Error.ERR_10);
-			else
+			}
+			else {
 				this.txn.add( c );
+			}
+			txnExecute();
 			return true;
 		}
 	}
@@ -486,10 +480,12 @@ public class TransactionLayer {
 		}else{
 			f.execute();
 			
-			if(this.txn.isDeleted(f))
+			if(this.txn.isDeleted(f)) {
 				this.n.printError(c, Error.ERR_10);
-			else
+			} else {
 				this.txn.add( c );
+			}
+			txnExecute();
 			return true;
 		}
 		
@@ -497,7 +493,7 @@ public class TransactionLayer {
 
 	//TODO: Decide what to do for creates/deletes and transactions
 	public boolean delete(String filename){
-		if( assertTXNStarted() ) {
+		if( assertTXNStarted() && notCommited() ) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.DELETE, f);
 		
@@ -516,6 +512,7 @@ public class TransactionLayer {
 			f.execute();
 			f.setState(File.INV);
 			this.txn.add(c);
+			txnExecute();
 			return true;
 			
 		}
@@ -525,23 +522,51 @@ public class TransactionLayer {
 		if( assertTXNStarted() )
 			this.txn = null;
 	}
+	
+	public void txnExecute() {
+		if( this.txn.willCommit ) {
+			this.txn.decrementNumQueued();
+			if( this.txn.getNumQueued() == 0 ) {
+				this.commit();
+			}
+		}
+
+	}
 
 	public void commit() {
 
 		if( assertTXNStarted() ) {
-			//Send all of our commands to the master node
-			int cnt = 0;
-			for( Command c : this.txn ) {
-				String payload = c.getFileName() + " " + c.getType() + " ";
-				if( c.getType() == Command.PUT || c.getType() == Command.APPEND || c.getType() == Command.UPDATE ) {
-					payload += c.getContents();
+			//Check to see if there are queued commands before committing
+			if( noQueuedCommands() ) {
+				//Send all of our commands to the master node
+				int cnt = 0;
+				for( Command c : this.txn ) {
+					String payload = c.getFileName() + " " + c.getType() + " ";
+					if( c.getType() == Command.PUT || c.getType() == Command.APPEND || c.getType() == Command.UPDATE ) {
+						payload += c.getContents();
+					}
+					this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
+					cnt++;
 				}
-				this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
-				cnt++;
+				//Send the final commit message
+				this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(cnt + "") );
+			} else {
+				//set will commit to true to that the txn commits after all queued commands complete
+				this.txn.willCommit = true;
 			}
-			//Send the final commit message
-			this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(cnt + "") );
 		}
+	}
+	
+	public boolean noQueuedCommands() {
+		int commandCount = 0;
+		for( File f : this.cache.values() ) {
+			commandCount += f.numCommandsOnQueue();
+		}
+		if( commandCount > 0 ) {
+			this.txn.setNumQueued( commandCount );
+			return false;
+		}
+		return true;
 	}
 	
 	public void commitConfirm() {
@@ -562,6 +587,14 @@ public class TransactionLayer {
 	public boolean assertTXNStarted() {
 		if( this.txn == null ) {
 			this.n.printError("ERROR: No transaction in progress: please start new transaction");
+			return false;
+		}
+		return true;
+	}
+	
+	public boolean notCommited() {
+		if( this.txn.willCommit ) {
+			this.n.printError("ERROR: Current transaction to be commited: please start new transaction");
 			return false;
 		}
 		return true;

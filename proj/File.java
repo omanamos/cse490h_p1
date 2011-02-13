@@ -64,6 +64,10 @@ public class File {
 		return this.name.hashCode();
 	}
 	
+	public int numCommandsOnQueue() {
+		return this.queuedCommands.size();
+	}
+	
 	public String toString(){
 		String q = "[";
 		for(Queueable t : this.queuedCommands)

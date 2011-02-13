@@ -61,6 +61,7 @@ public class Utility {
      * @return the escaped string
      */
     public static String logEscape(String s) {
+    	if( s== null ) return "";
         s = s.replace(" ", "_");
         s = s.replace("\n", "|");
         return "'" + "'";
