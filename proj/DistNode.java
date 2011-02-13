@@ -113,7 +113,7 @@ public class DistNode extends RIONode {
 	 */
 	private void copyFile(PersistentStorageReader r, PersistentStorageWriter w, String start) throws IOException{
 		String file = start;
-		String line = r.readLine(); 
+		String line = r.readLine();
 		while(line != null){
 			file += line + "\n";
 			line = r.readLine();

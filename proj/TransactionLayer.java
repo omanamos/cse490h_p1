@@ -295,6 +295,13 @@ public class TransactionLayer {
 					f.setVersion(version);
 					this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + ""));
 					this.txn.add(c);
+					
+					
+					
+					
+					
+					
+					
 				} catch (IOException e) {
 					this.n.printError("Fatal Error: Couldn't update file: " + fileName + " to version: " + version);
 				}
@@ -522,15 +529,17 @@ public class TransactionLayer {
 
 		if( assertTXNStarted() ) {
 			//Send all of our commands to the master node
+			int cnt = 0;
 			for( Command c : this.txn ) {
-				String payload = c.getType() + " " + c.getFileName();
-				if( c.getType() == Command.PUT || c.getType() == Command.APPEND ) {
-					payload += " " + c.getContents();
+				String payload = c.getType() + " " + c.getFileName() + " ";
+				if( c.getType() == Command.PUT || c.getType() == Command.APPEND || c.getType() == Command.UPDATE ) {
+					payload += c.getContents();
 				}
 				this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
+				cnt++;
 			}
 			//Send the final commit message
-			this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(this.txn.id + "") );
+			this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(cnt + "") );
 		}
 	}
 	
