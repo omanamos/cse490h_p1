@@ -147,11 +147,11 @@ public class TransactionLayer {
 				int commandType = Integer.parseInt(contents.substring(lastSpace, i));
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
-				Command c;
+				Command c = null;
 				if(commandType == Command.APPEND || commandType == Command.PUT || commandType == Command.UPDATE){
 					contents = contents.substring(i + 1);
 					c = new Command(MASTER_NODE, commandType, f, contents);
-				}else{
+				} else {
 					c = new Command(MASTER_NODE, commandType, f);
 				}
 				
@@ -191,12 +191,18 @@ public class TransactionLayer {
 							if(cmd.getType() == Command.APPEND){
 								contents += cmd.getContents();
 								version++;
+								this.n.write(f.getName(), contents, false, true);
 							}else if(cmd.getType() == Command.PUT){
 								contents = cmd.getContents();
 								version++;
+								this.n.write(f.getName(), contents, false, true);
+							}else if(cmd.getType() == Command.CREATE ) {
+								this.n.create(f.getName());
+							} else if(cmd.getType() == Command.DELETE ) {
+								f.setState(File.INV);
+								this.n.delete(f.getName());
 							}
 						}
-						this.n.write(f.getName(), contents, false, true);
 						f.commit(client);
 					}catch(IOException e){
 						//TODO: send back error to client
@@ -360,7 +366,7 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			this.n.printError(c, Error.ERR_11);
+			this.txn.add(c);
 			return true;
 		}
 	}
@@ -383,8 +389,6 @@ public class TransactionLayer {
 		}else{
 			f.execute();
 			this.txn.add( c );
-			//this.n.printSuccess(c);
-
 			return true;
 		}
 	}
@@ -406,7 +410,6 @@ public class TransactionLayer {
 		}else{
 			f.execute();
 			this.txn.add(c);
-			//this.n.printSuccess(c);
 			return true;
 		}
 		
@@ -425,10 +428,11 @@ public class TransactionLayer {
 	
 	private boolean delete(Command c, File f){
 		if(f.getState() != File.RW) {
-			this.send(MASTER_NODE, TXNProtocol.DELETE, Utility.stringToByteArray(f.getName()));
+			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName()));
 			return false;//WQ
 		} else {
 			f.execute();
+			this.txn.add(c);
 			return true;
 			
 		}
