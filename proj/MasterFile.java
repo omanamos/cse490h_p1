@@ -1,7 +1,6 @@
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 
 //Master Files reside on the MASTER_NODE
@@ -18,22 +17,36 @@ public class MasterFile extends File implements Iterable<Integer>{
 	 * key = requester
 	 * value = sender
 	 */
+	private Map<Integer, Integer> initalVersions;
 	private HashMap<Integer, Integer> dependencies;
-	private List<Update> updates;
+	private Update lastUpdate;
 	private PriorityQueue<Update> proposals;
 	
 	public MasterFile(String name, String contents) {
 		super(File.INV, name);
 		this.lastCommitter = -1;
 		this.isWaiting = false;
-		this.filePermissions = new HashMap<Integer,Integer>();
+		this.filePermissions = new HashMap<Integer, Integer>();
+		this.initalVersions = new HashMap<Integer, Integer>();
 		this.requestor = -1;
-		this.updates = new ArrayList<Update>();
+		this.lastUpdate = null;
 		this.proposals = new PriorityQueue<Update>();
 	}
 	
-	public void commit(int from){
-		this.lastCommitter = from;//TODO
+	public void commit(int client, String contents, int version){
+		this.lastUpdate = null;
+		this.lastCommitter = client;
+		this.initalVersions.remove(client);
+		this.lastUpdate = new Update(contents, version, client);
+	}
+	
+	public void abort(int client){
+		this.initalVersions.remove(client);
+		for(Integer r : this.dependencies.keySet()){
+			if(this.dependencies.get(r) == client){
+				this.dependencies.remove(r);
+			}
+		}
 	}
 	
 	public int getLastCommitter(){
@@ -42,8 +55,16 @@ public class MasterFile extends File implements Iterable<Integer>{
 	
 	public void chooseProp(int requestor){
 		Update u = this.proposals.poll();
-		this.dependencies.put(requestor, u.source);
-		this.updates.add(u);
+		while(u != null && this.initalVersions.get(u.source) < this.version && u.version > this.initalVersions.get(u.source))
+			u = this.proposals.poll();
+		
+		if(u != null){
+			this.initalVersions.put(requestor, u.version);
+			if(this.version != u.version){
+				this.dependencies.put(requestor, u.source);
+				this.lastUpdate = u;
+			}
+		}
 		this.proposals.clear();
 	}
 	
@@ -51,20 +72,22 @@ public class MasterFile extends File implements Iterable<Integer>{
 		this.dependencies.put(requestor, sender);
 	}
 	
+	public int getDep(int client){
+		if(!this.dependencies.containsKey(client))
+			return -1;
+		return this.dependencies.get(client);
+	}
+	
 	public void propose(String contents, int version, int source){
 		this.proposals.add(new Update(contents, version, source));
 	}
 	
 	public String getContents(){
-		return this.updates.get(this.updates.size() - 1).contents;
+		return this.lastUpdate.contents;
 	}
 	
 	public int getVersion(){
-		return this.updates.get(this.updates.size() - 1).version;
-	}
-	
-	public List<Update> getUpdates(){
-		return this.updates;
+		return this.lastUpdate.version;
 	}
 	
 	public boolean isWaiting(){
@@ -78,7 +101,7 @@ public class MasterFile extends File implements Iterable<Integer>{
 	public boolean hasCopy( int addr ) {
 		return this.filePermissions.containsKey(addr);
 	}
-
+	
 	public void changePermissions( int addr, int state ) {
 		if(state == File.INV)
 			this.filePermissions.remove(addr);

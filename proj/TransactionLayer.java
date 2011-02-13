@@ -9,7 +9,7 @@ import edu.washington.cs.cse490h.lib.Utility;
 
 public class TransactionLayer {
 
-	private final static int MASTER_NODE = 0;
+	public final static int MASTER_NODE = 0;
 	
 	private DistNode n;
 	private ReliableInOrderMsgLayer RIOLayer;
@@ -17,6 +17,11 @@ public class TransactionLayer {
 	private int lastTXNnum;
 	private Transaction txn;
 	private Map<Integer, List<Command>> commitQueue;
+	/**
+	 * key = addr of node trying to commit
+	 * value = commit status
+	 */
+	private Map<Integer, Commit> waitingQueue;
 	
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
 		this.cache = new HashMap<String, File>();
@@ -52,13 +57,9 @@ public class TransactionLayer {
 			case TXNProtocol.WQ:
 				f = (MasterFile)this.getFileFromCache(Utility.byteArrayToString(pkt.getPayload()));
 				if(!f.isCheckedOut()){
-					try{
-						byte[] payload = this.txn.getVersion(f, this.n.get(f.getName()));
-						f.addDep(from, MASTER_NODE);
-						this.send(from, TXNProtocol.WD, payload);
-					}catch(IOException e){
-						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray("Fatal Error: couldn't find file: " + f.getName() + " on server."));
-					}
+					byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + f.getContents());
+					f.addDep(from, MASTER_NODE);
+					this.send(from, TXNProtocol.WD, payload);
 				}else{
 					f.requestor = from;
 					for(Integer client : f){
@@ -128,11 +129,23 @@ public class TransactionLayer {
 	}
 	
 	private void commit(int client, int size){
-		List<Command> commits = this.commitQueue.get(client);
-		if(size != commits.size()){
+		List<Command> commands = this.commitQueue.get(client);
+		if(size != commands.size()){
 			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(Error.ERROR_STRINGS[Error.ERR_40]));
 		}else{
+			Log log = new Log(commands);
+			Commit c = new Commit(client, log);
 			
+			if(c.abort()){
+				for(MasterFile f : log)
+					f.abort(client);
+				this.send(client, TXNProtocol.ABORT, new byte[0]);
+			}else if(c.isWaiting()){
+				//TODO: add commit to queue and send heartbeat to nodes that the commit is waiting for
+			}else{
+				//TODO: push changes to disk and put most recent version in memory in MasterFile
+				this.send(client, TXNProtocol.COMMIT, new byte[0]);
+			}
 		}
 	}
 	

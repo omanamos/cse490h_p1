@@ -8,7 +8,7 @@ public class File {
 	private int state;
 	private String name;
 	private Queue<Queueable> queuedCommands;
-	private int version;
+	protected int version;
 	
 	public File(int state, String name){
 		if(!isValidState(state)){
