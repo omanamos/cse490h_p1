@@ -15,9 +15,9 @@ public class MasterFile extends File implements Iterable<Integer>{
 	/**
 	 * Requester depends on sender
 	 * key = requester
-	 * value = sender
+	 * value = file state
 	 */
-	private Map<Integer, Integer> initalVersions;
+	private Map<Integer, Update> initalVersions;
 	private HashMap<Integer, Integer> dependencies;
 	private PriorityQueue<Update> proposals;
 	
@@ -26,9 +26,10 @@ public class MasterFile extends File implements Iterable<Integer>{
 		this.lastCommitter = -1;
 		this.isWaiting = false;
 		this.filePermissions = new HashMap<Integer, Integer>();
-		this.initalVersions = new HashMap<Integer, Integer>();
+		this.initalVersions = new HashMap<Integer, Update>();
 		this.requestor = -1;
 		this.proposals = new PriorityQueue<Update>();
+		this.dependencies = new HashMap<Integer, Integer>();
 	}
 	
 	public void commit(int client){
@@ -49,13 +50,17 @@ public class MasterFile extends File implements Iterable<Integer>{
 		return this.lastCommitter;
 	}
 	
+	public Update getInitialVersion(int addr){
+		return this.initalVersions.get(addr);
+	}
+	
 	public Update chooseProp(int requestor){
 		Update u = this.proposals.poll();
-		while(u != null && this.initalVersions.get(u.source) < this.version && u.version > this.initalVersions.get(u.source))
+		while(u != null && this.initalVersions.get(u.source).version < this.version && u.version > this.initalVersions.get(u.source).version)
 			u = this.proposals.poll();
 		
 		if(u != null){
-			this.initalVersions.put(requestor, u.version);
+			this.initalVersions.put(requestor, u);
 			if(this.version != u.version){
 				this.dependencies.put(requestor, u.source);
 			}
@@ -64,8 +69,9 @@ public class MasterFile extends File implements Iterable<Integer>{
 		return u;
 	}
 	
-	public void addDep(int requestor, int sender){
-		this.dependencies.put(requestor, sender);
+	public void addDep(int requestor, Update u){
+		this.dependencies.put(requestor, u.source);
+		this.initalVersions.put(requestor, u);
 	}
 	
 	public int getDep(int client){
