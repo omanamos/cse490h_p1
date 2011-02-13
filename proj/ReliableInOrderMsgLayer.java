@@ -433,7 +433,7 @@ class OutChannel {
 			numRetries = numRetries == null ? 0 : numRetries;
 			pktRetries.put( seqNum, numRetries + 1 );
 			resendRIOPacket(n, seqNum);
-		} else {
+		} else if(unACKedPackets.containsKey(seqNum)){
 			RIOPacket pkt = unACKedPackets.get(seqNum);
 			unACKedPackets.remove(seqNum);
 			pktRetries.remove(seqNum);
