@@ -37,7 +37,7 @@ public class TransactionLayer {
 		this.commitQueue = this.n.addr == MASTER_NODE ? new HashMap<Integer, List<Command>>() : null;
 		this.waitingQueue = new HashMap<Integer, Commit>();
 	}
-
+	
 	public void send(int server, int protocol, byte[] payload) {
 		TXNPacket pkt = new TXNPacket(protocol, payload);
 		this.RIOLayer.sendRIO(server, Protocol.TXN, pkt.pack());
@@ -60,13 +60,24 @@ public class TransactionLayer {
 	public void onTimeout(int dest, byte[] payload){
 		TXNPacket pkt = TXNPacket.unpack(payload);
 		if(this.n.addr == MASTER_NODE){
-			for(Integer committer : waitingQueue.keySet()){
-				Commit com = waitingQueue.get(committer);
-				for(Integer dep : com){
-					if(dep == dest){
-						this.send(committer, TXNProtocol.ABORT, new byte[0]);
-						break;
+			if(pkt.getProtocol() == TXNProtocol.HB){
+				for(Integer committer : waitingQueue.keySet()){
+					Commit com = waitingQueue.get(committer);
+					for(Integer dep : com){
+						if(dep == dest){
+							this.send(committer, TXNProtocol.ABORT, new byte[0]);
+							break;
+						}
 					}
+				}
+			}else if(pkt.getProtocol() == TXNProtocol.WF){
+				String fileName = Utility.byteArrayToString(pkt.getPayload());
+				MasterFile f = (MasterFile)this.getFileFromCache(fileName);
+				f.changePermissions(dest, File.INV);
+				if(!f.isWaiting()){
+					Update u = f.chooseProp(f.requestor);
+					this.send(f.requestor, TXNProtocol.WD, Utility.stringToByteArray(fileName + " " + u.version + " " + u.contents));
+					f.requestor = -1;
 				}
 			}
 		}else
@@ -97,6 +108,11 @@ public class TransactionLayer {
 					}
 				}else{
 					f.requestor = from;
+					try{
+						f.propose(this.n.get(fileName), f.getVersion(), MASTER_NODE);
+					}catch(IOException e){
+						f.propose("", f.getVersion(), MASTER_NODE);
+					}
 					for(Integer client : f){
 						f.changePermissions(client, MasterFile.WF);
 						this.send(client, TXNProtocol.WF, Utility.stringToByteArray(f.getName()));
@@ -113,7 +129,7 @@ public class TransactionLayer {
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				f.changePermissions(from, MasterFile.FREE);
-				if(this.txn.getVersion(f) < version){
+				if(f.getVersion() < version){
 					f.propose(contents, version, from);
 				}
 				if(!f.isWaiting()){
@@ -159,6 +175,20 @@ public class TransactionLayer {
 				break;
 			case TXNProtocol.COMMIT:
 				this.commit(from, Integer.parseInt(Utility.byteArrayToString(pkt.getPayload())));
+				break;
+			case TXNProtocol.CREATE:
+				fileName = Utility.byteArrayToString(pkt.getPayload());
+				f = (MasterFile)this.getFileFromCache(fileName);
+				
+				if(f.getState() == File.INV){
+					f.setState(File.RW);
+					f.changePermissions(from, MasterFile.FREE);
+					String payload = fileName + " " + f.getVersion() + " ";
+					this.n.send(from, TXNProtocol.WD, Utility.stringToByteArray(payload));
+				}else{
+					String payload = DistNode.buildErrorString(this.n.addr, from, TXNProtocol.CREATE, fileName, Error.ERR_11);
+					this.n.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
+				}
 				break;
 		}
 	}
@@ -216,11 +246,17 @@ public class TransactionLayer {
 			case TXNProtocol.WF:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = this.getFileFromCache(fileName);
-				try {
-					byte[] payload = this.txn.getVersion(f, this.n.get(fileName));
+				
+				if(f.getState() == File.INV){
+					byte[] payload = Utility.stringToByteArray(fileName + " " + -1 + " ");
 					this.send(MASTER_NODE, TXNProtocol.WD, payload);
-				} catch (IOException e) {
-					this.send(MASTER_NODE, TXNProtocol.ERROR, Utility.stringToByteArray(fileName + " " + Error.ERR_10));
+				}else{
+					try {
+						byte[] payload = this.txn.getVersion(f, this.n.get(fileName));
+						this.send(MASTER_NODE, TXNProtocol.WD, payload);
+					} catch (IOException e) {
+						this.send(MASTER_NODE, TXNProtocol.ERROR, Utility.stringToByteArray(fileName + " " + Error.ERR_10));
+					}
 				}
 				break;
 			case TXNProtocol.WD:
