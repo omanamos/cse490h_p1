@@ -84,7 +84,7 @@ public class TransactionLayer {
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				if(f.getState() == File.INV){
-					String payload = DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
+					String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
 					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 				}else if(!f.isCheckedOut()){
 					try{
@@ -92,7 +92,7 @@ public class TransactionLayer {
 						f.addDep(from, MASTER_NODE);
 						this.send(from, TXNProtocol.WD, payload);
 					}catch(IOException e){
-						String payload = DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
+						String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
 						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 					}
 				}else{
