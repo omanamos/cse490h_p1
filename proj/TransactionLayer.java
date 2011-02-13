@@ -560,7 +560,7 @@ public class TransactionLayer {
 	
 	public boolean noQueuedCommands() {
 		int commandCount = 0;
-		for( File f : this.txn.getFiles() ) {
+		for( File f : this.cache.values() ) {
 			commandCount += f.numCommandsOnQueue();
 		}
 		if( commandCount > 0 ) {
