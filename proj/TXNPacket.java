@@ -83,12 +83,12 @@ public class TXNPacket extends Queueable{
 		try {
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
-			Integer protocol = new Integer( in.readByte() );
+			int protocol = in.readByte();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
 
-			if ( protocol == null && ( bytesRead != payload.length || bytesRead == -1 && payload.length == 0) ) {
+			if ( bytesRead != payload.length ) {
 				return null;
 			}
 
