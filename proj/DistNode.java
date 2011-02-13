@@ -1,11 +1,16 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.regex.Pattern;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 
 public class DistNode extends RIONode {
+	
+	
+	private HashSet<String> fileList;
 	
 	public String get(String fileName) throws IOException{
 		PersistentStorageReader r = this.getReader(fileName);
@@ -17,6 +22,7 @@ public class DistNode extends RIONode {
 		}
 		return file.length() == 0 ? "" : file.substring(0, file.length() - 1);
 	}
+	
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
 		if(fileExists(fileName) || force)
@@ -30,12 +36,28 @@ public class DistNode extends RIONode {
 	
 	public void create(String fileName) throws IOException {
 		this.getWriter(fileName, false).write("");
+		if(this.addr == TransactionLayer.MASTER_NODE){
+			if(!fileList.contains(fileName)){
+				fileList.add(fileName);
+				this.getWriter(".l", true).write("fileName");
+			}
+		}
+			
 	}
 	
 	public void delete(String fileName) throws IOException {
-		if(fileExists(fileName))
+		if(fileExists(fileName)){
 			this.getWriter(fileName, true).delete();
-		else
+			if(this.addr == TransactionLayer.MASTER_NODE){
+				fileList.remove(fileName);
+				PersistentStorageWriter writer = this.getWriter("temp", true);
+				String contents = "";
+				for(String file : fileList){
+					contents.concat(file + "\n");
+				}
+				putFile(".l", contents, true);
+			}
+		}else
 			throw new IOException();
 	}
 	
@@ -104,6 +126,30 @@ public class DistNode extends RIONode {
 		}
 	}
 	
+	private void createFile(String fileName){
+		if(!fileExists(fileName)){
+			try{
+				PersistentStorageWriter files = getWriter(fileName, false);
+				files.write("");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private void deleteFile(String fileName){
+		if(fileExists(fileName)){
+			try{
+				this.getWriter(fileName, false).delete();
+				
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
 	/**
 	 * Copies the file in r to the file in w, appending start to the beginning of the file
 	 * @param r Buffer to read from - source
@@ -126,6 +172,7 @@ public class DistNode extends RIONode {
 	 * Starts up the node. Checks for unfinished PUT commands.
 	 */
 	public void start() {
+		fileList = new HashSet<String>();
 		if(fileExists(".temp")){
 			try{
 				PersistentStorageReader tempR = this.getReader(".temp");
@@ -141,6 +188,32 @@ public class DistNode extends RIONode {
 				e.printStackTrace();
 			}
 		}
+		if(!fileExists(".l")){
+			createFile(".l");
+			
+		} else {
+			try{
+				PersistentStorageReader files = getReader(".l");
+				String fileName = files.readLine();
+				boolean endOfFile = fileName == null ? true : false;
+				while(!endOfFile){
+					if(fileExists(fileName)){
+						fileList.add("fileName");
+					}
+					fileName = files.readLine();
+					if(fileName == null){
+						endOfFile = true;
+					}
+					
+				}
+				
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		this.TXNLayer.setCache(fileList);
+			
 	}
 
 	@Override
