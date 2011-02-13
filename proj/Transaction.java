@@ -13,11 +13,15 @@ public class Transaction implements Iterable<Command> {
 	public final int id;
 	private List<Command> log;
 	private Map<File, List<Command>> fileLog;
+	private int numQueued;
+	public boolean willCommit;
 	
 	public Transaction(int id){
 		this.id = id;
 		this.log = new ArrayList<Command>();
 		this.fileLog = new HashMap<File, List<Command>>();
+		this.numQueued = 0;
+		this.willCommit = false;
 	}
 	
 	public void add(Command c){
@@ -31,8 +35,19 @@ public class Transaction implements Iterable<Command> {
 		return this.log;
 	}
 	
+	
 	public List<Command> getCommands(File f){
 		return this.fileLog.get(f);
+	}
+	
+	public void setNumQueued( int num ) {
+		this.numQueued = num;
+	}
+	
+	public void decrementNumQueued() {
+		if( this.willCommit ) {
+			this.numQueued--;
+		}
 	}
 	
 	public boolean isDeleted(File f){
