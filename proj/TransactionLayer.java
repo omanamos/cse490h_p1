@@ -46,7 +46,7 @@ public class TransactionLayer {
 	
 	public void onReceive(int from, byte[] payload) {
 		TXNPacket packet = TXNPacket.unpack(payload);
-		if(packet != null && packet.getProtocol() == TXNProtocol.HB)
+		if( packet.getProtocol() == TXNProtocol.HB)
 			this.sendHB(from);
 		else if(this.n.addr == MASTER_NODE){
 			masterReceive(from, packet);
@@ -100,8 +100,9 @@ public class TransactionLayer {
 					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 				}else if(!f.isCheckedOut()){
 					try{
-						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + this.n.get(fileName));
-						f.addDep(from, MASTER_NODE);
+						contents = this.n.get(fileName);
+						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + contents);
+						f.addDep(from, new Update(contents, f.getVersion(), MASTER_NODE));
 						this.send(from, TXNProtocol.WD, payload);
 					}catch(IOException e){
 						String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
@@ -142,7 +143,7 @@ public class TransactionLayer {
 			case TXNProtocol.ERROR:
 				String[] parts = Utility.byteArrayToString(pkt.getPayload()).split(" ");
 				
-				if(parts.length == 2){ 
+				if(parts.length == 2){
 					fileName = parts[0];
 					int errCode = Integer.parseInt(parts[1]);
 					if(errCode == Error.ERR_10){
@@ -161,12 +162,13 @@ public class TransactionLayer {
 				i = contents.indexOf(' ');
 				fileName = contents.substring(0, i);
 				lastSpace = i + 1;
+				i = contents.indexOf(' ', lastSpace);
 				int commandType = Integer.parseInt(contents.substring(lastSpace, i));
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				Command c = null;
 				if(commandType == Command.APPEND || commandType == Command.PUT || commandType == Command.UPDATE){
-					contents = contents.substring(i + 1);
+					contents = i == contents.length() ? "" : contents.substring(i + 1);
 					c = new Command(MASTER_NODE, commandType, f, contents);
 				} else {
 					c = new Command(MASTER_NODE, commandType, f);
@@ -177,11 +179,17 @@ public class TransactionLayer {
 			case TXNProtocol.COMMIT:
 				this.commit(from, Integer.parseInt(Utility.byteArrayToString(pkt.getPayload())));
 				break;
+				
+				
+				
+				
+				
 			case TXNProtocol.CREATE:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				if(f.getState() == File.INV){
+					f.addDep(from, new Update("", 0, MASTER_NODE));
 					f.setState(File.RW);
 					f.changePermissions(from, MasterFile.FREE);
 					String payload = fileName + " " + f.getVersion() + " ";
@@ -201,10 +209,11 @@ public class TransactionLayer {
 		} else if( commands == null ) {
 			this.send(client, TXNProtocol.COMMIT, new byte[0]);
 		}else {
+			
 			Log log = new Log(commands);
 			Commit c = new Commit(client, log);
 			
-			if(c.abort()){
+			if(c.abort() && true){
 				for(MasterFile f : log)
 					f.abort(client);
 				this.send(client, TXNProtocol.ABORT, new byte[0]);
@@ -219,9 +228,13 @@ public class TransactionLayer {
 				for(MasterFile f : log){
 					try{
 						int version = f.getVersion();
-						String contents = this.n.get(f.getName());
+						Update u = f.getInitialVersion(client + 0);
+						String contents = u.contents;
+						
 						for(Command cmd : log.getCommands(f)){
-							if(cmd.getType() == Command.APPEND){
+							 if(cmd.getType() == Command.CREATE){
+								 this.n.create(cmd.getFileName());
+							 }else if(cmd.getType() == Command.APPEND){
 								contents += cmd.getContents();
 								version++;
 								this.n.write(f.getName(), contents, false, true);
@@ -229,8 +242,6 @@ public class TransactionLayer {
 								contents = cmd.getContents();
 								version++;
 								this.n.write(f.getName(), contents, false, true);
-							}else if(cmd.getType() == Command.CREATE ) {
-								this.n.create(f.getName());
 							} else if(cmd.getType() == Command.DELETE ) {
 								f.setState(File.INV);
 								this.n.delete(f.getName());
@@ -285,6 +296,13 @@ public class TransactionLayer {
 					f.setVersion(version);
 					this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + ""));
 					this.txn.add(c);
+					
+					
+					
+					
+					
+					
+					
 				} catch (IOException e) {
 					this.n.printError("Fatal Error: Couldn't update file: " + fileName + " to version: " + version);
 				}
@@ -298,6 +316,15 @@ public class TransactionLayer {
 				this.commitChangesLocally();
 				this.commitConfirm();
 				break;
+			case TXNProtocol.ERROR:
+				contents = Utility.byteArrayToString(pkt.getPayload());
+				i = contents.indexOf(' ');
+				fileName = contents.substring(0, i);
+				contents = contents.substring(i + 1);
+				
+				f = this.getFileFromCache(fileName);
+				f.execute();
+				this.n.printError(contents);
 		}
 	}
 	
@@ -364,13 +391,14 @@ public class TransactionLayer {
 	 *=====================================================*/
 	
 	public boolean get(String filename){
-		File f = this.cache.get( filename );
-		Command c = new Command(MASTER_NODE, Command.GET, f);
-		
-		if(f.execute(c)){
-			return get(c, f);
+		if( assertTXNStarted() ) {
+			File f = this.cache.get( filename );
+			Command c = new Command(MASTER_NODE, Command.GET, f);
+			
+			if(f.execute(c)){
+				return get(c, f);
+			}
 		}
-		
 		return false;
 	}
 	
@@ -391,13 +419,14 @@ public class TransactionLayer {
 	//TODO: Decide what to do for creates/deletes and transactions
 	public boolean create(String filename){
 		boolean rtn = false;
-		File f = getFileFromCache( filename );
-		Command c = new Command(MASTER_NODE, Command.CREATE, f, "");
-		
-		if(f.execute(c)){
-			return create(c, f);
+		if( assertTXNStarted() ) {
+			File f = getFileFromCache( filename );
+			Command c = new Command(MASTER_NODE, Command.CREATE, f, "");
+			
+			if(f.execute(c)){
+				return create(c, f);
+			}
 		}
-		
 		return rtn;
 	}
 	
@@ -407,19 +436,20 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			this.n.printError(c, Error.ERR_11);
+		//	this.n.printError(c, Error.ERR_11);
 			return true;
 		}
 	}
 
 	public boolean put(String filename, String content){
-		File f = getFileFromCache( filename );
-		Command c = new Command(MASTER_NODE, Command.PUT, f, content);
-		
-		if(f.execute(c)){
-			return put(c, f);
+		if( assertTXNStarted() ) {
+			File f = getFileFromCache( filename );
+			Command c = new Command(MASTER_NODE, Command.PUT, f, content);
+			
+			if(f.execute(c)){
+				return put(c, f);
+			}
 		}
-		
 		return false;
 	}
 	
@@ -438,11 +468,13 @@ public class TransactionLayer {
 	}
 
 	public boolean append(String filename, String content){
-		File f = getFileFromCache( filename );
-		Command c = new Command(MASTER_NODE, Command.APPEND, f, content);
-		
-		if(f.execute(c)) {
-			return append(c, f);
+		if( assertTXNStarted() ) {
+			File f = getFileFromCache( filename );
+			Command c = new Command(MASTER_NODE, Command.APPEND, f, content);
+			
+			if(f.execute(c)) {
+				return append(c, f);
+			}
 		}
 		return false;
 	}
@@ -465,11 +497,13 @@ public class TransactionLayer {
 
 	//TODO: Decide what to do for creates/deletes and transactions
 	public boolean delete(String filename){
-		File f = getFileFromCache( filename );
-		Command c = new Command(MASTER_NODE, Command.DELETE, f);
-	
-		if(f.execute(c)) {
-			return delete(c, f);
+		if( assertTXNStarted() ) {
+			File f = getFileFromCache( filename );
+			Command c = new Command(MASTER_NODE, Command.DELETE, f);
+		
+			if(f.execute(c)) {
+				return delete(c, f);
+			}
 		}
 		return false;
 	}
@@ -488,20 +522,26 @@ public class TransactionLayer {
 	}
 
 	public void abort() {
-		this.txn = null;
+		if( assertTXNStarted() )
+			this.txn = null;
 	}
 
 	public void commit() {
-		//Send all of our commands to the master node
-		for( Command c : this.txn ) {
-			String payload = c.getType() + " " + c.getFileName();
-			if( c.getType() == Command.PUT || c.getType() == Command.APPEND ) {
-				payload += " " + c.getContents();
+
+		if( assertTXNStarted() ) {
+			//Send all of our commands to the master node
+			int cnt = 0;
+			for( Command c : this.txn ) {
+				String payload = c.getType() + " " + c.getFileName() + " ";
+				if( c.getType() == Command.PUT || c.getType() == Command.APPEND || c.getType() == Command.UPDATE ) {
+					payload += c.getContents();
+				}
+				this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
+				cnt++;
 			}
-			this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
+			//Send the final commit message
+			this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(cnt + "") );
 		}
-		//Send the final commit message
-		this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(this.txn.id + "") );
 	}
 	
 	public void commitConfirm() {
@@ -517,6 +557,14 @@ public class TransactionLayer {
 		} else {
 			this.n.printError("ERROR: Transaction in progress: can not start new transaction");
 		}
+	}
+	
+	public boolean assertTXNStarted() {
+		if( this.txn == null ) {
+			this.n.printError("ERROR: No transaction in progress: please start new transaction");
+			return false;
+		}
+		return true;
 	}
 	
 	private File getFileFromCache(String fileName) {

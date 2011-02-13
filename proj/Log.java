@@ -17,6 +17,7 @@ public class Log implements Iterable<MasterFile>{
 		reads = new HashMap<MasterFile, Boolean>();
 		writes = new HashMap<MasterFile, Boolean>();
 		lookup = new HashMap<MasterFile, List<Command>>();
+		startingVersions = new HashMap<MasterFile, Integer>();
 		
 		for(Command c : log){
 			MasterFile f = (MasterFile)c.getFile();

@@ -88,9 +88,9 @@ public class TXNPacket extends Queueable{
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			int bytesRead = in.read(payload, 0, payload.length);
 
-			if ( bytesRead != payload.length ) {
-				return null;
-			}
+		//	if ( bytesRead != payload.length ) {
+		//		return null;
+		//	}
 
 			return new TXNPacket(protocol, payload);
 		} catch (IllegalArgumentException e) {
