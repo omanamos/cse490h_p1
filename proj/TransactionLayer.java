@@ -356,7 +356,7 @@ public class TransactionLayer {
 	
 	private boolean create(Command c, File f){
 		if(f.getState() == File.INV){
-			this.send(MASTER_NODE, RPCProtocol.CREATE, Utility.stringToByteArray(f.getName()));
+			this.send(MASTER_NODE, TXNProtocol.CREATE, Utility.stringToByteArray(f.getName()));
 			return false;
 		}else{
 			f.execute();
@@ -378,7 +378,7 @@ public class TransactionLayer {
 	
 	private boolean put(Command c, File f){
 		if(f.getState() == File.INV){
-			this.send(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
+			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
 			return false;
 		}else{
 			f.execute();
@@ -401,7 +401,7 @@ public class TransactionLayer {
 	
 	private boolean append(Command c, File f){
 		if(f.getState() != File.RW) {
-			this.send(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
+			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
 			return false;
 		}else{
 			f.execute();
@@ -425,7 +425,7 @@ public class TransactionLayer {
 	
 	private boolean delete(Command c, File f){
 		if(f.getState() != File.RW) {
-			this.send(MASTER_NODE, RPCProtocol.DELETE, Utility.stringToByteArray(f.getName()));
+			this.send(MASTER_NODE, TXNProtocol.DELETE, Utility.stringToByteArray(f.getName()));
 			return false;//WQ
 		} else {
 			f.execute();
