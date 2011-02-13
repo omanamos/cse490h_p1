@@ -379,8 +379,10 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			//this.n.printData(this.txn.getVersion( this.n.get(f.getName()) ));
-			this.txn.add( c );
+			if(this.txn.isDeleted(f))
+				this.n.printError(c, Error.ERR_10);
+			else
+				this.txn.add( c );
 			return true;
 		}	
 	}
@@ -404,7 +406,7 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			this.txn.add(c);
+			this.n.printError(c, Error.ERR_11);
 			return true;
 		}
 	}
@@ -426,7 +428,10 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			this.txn.add( c );
+			if(this.txn.isDeleted(f))
+				this.n.printError(c, Error.ERR_10);
+			else
+				this.txn.add( c );
 			return true;
 		}
 	}
@@ -447,7 +452,11 @@ public class TransactionLayer {
 			return false;
 		}else{
 			f.execute();
-			this.txn.add(c);
+			
+			if(this.txn.isDeleted(f))
+				this.n.printError(c, Error.ERR_10);
+			else
+				this.txn.add( c );
 			return true;
 		}
 		
@@ -470,6 +479,7 @@ public class TransactionLayer {
 			return false;//WQ
 		} else {
 			f.execute();
+			f.setState(File.INV);
 			this.txn.add(c);
 			return true;
 			
