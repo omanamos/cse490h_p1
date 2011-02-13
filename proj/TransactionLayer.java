@@ -195,9 +195,11 @@ public class TransactionLayer {
 	
 	private void commit(int client, int size){
 		List<Command> commands = this.commitQueue.get(client);
-		if(size != commands.size()){
+		if( commands != null && size != commands.size()){
 			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(Error.ERROR_STRINGS[Error.ERR_40]));
-		}else{
+		} else if( commands == null ) {
+			this.send(client, TXNProtocol.COMMIT, new byte[0]);
+		}else {
 			Log log = new Log(commands);
 			Commit c = new Commit(client, log);
 			
@@ -496,7 +498,7 @@ public class TransactionLayer {
 	}
 
 	public void start() {
-		if( this.txn != null ) {
+		if( this.txn == null ) {
 			int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
 			
 			//start a new transaction by creating a new transaction object
