@@ -99,8 +99,9 @@ public class TransactionLayer {
 					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 				}else if(!f.isCheckedOut()){
 					try{
-						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + this.n.get(fileName));
-						f.addDep(from, MASTER_NODE);
+						contents = this.n.get(fileName);
+						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + contents);
+						f.addDep(from, new Update(contents, f.getVersion(), MASTER_NODE));
 						this.send(from, TXNProtocol.WD, payload);
 					}catch(IOException e){
 						String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
@@ -141,7 +142,7 @@ public class TransactionLayer {
 			case TXNProtocol.ERROR:
 				String[] parts = Utility.byteArrayToString(pkt.getPayload()).split(" ");
 				
-				if(parts.length == 2){ 
+				if(parts.length == 2){
 					fileName = parts[0];
 					int errCode = Integer.parseInt(parts[1]);
 					if(errCode == Error.ERR_10){
@@ -160,12 +161,13 @@ public class TransactionLayer {
 				i = contents.indexOf(' ');
 				fileName = contents.substring(0, i);
 				lastSpace = i + 1;
+				i = contents.indexOf(' ', lastSpace);
 				int commandType = Integer.parseInt(contents.substring(lastSpace, i));
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				Command c = null;
 				if(commandType == Command.APPEND || commandType == Command.PUT || commandType == Command.UPDATE){
-					contents = contents.substring(i + 1);
+					contents = i == contents.length() ? "" : contents.substring(i + 1);
 					c = new Command(MASTER_NODE, commandType, f, contents);
 				} else {
 					c = new Command(MASTER_NODE, commandType, f);
@@ -176,11 +178,17 @@ public class TransactionLayer {
 			case TXNProtocol.COMMIT:
 				this.commit(from, Integer.parseInt(Utility.byteArrayToString(pkt.getPayload())));
 				break;
+				
+				
+				
+				
+				
 			case TXNProtocol.CREATE:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				if(f.getState() == File.INV){
+					f.addDep(from, new Update("", 0, MASTER_NODE));
 					f.setState(File.RW);
 					f.changePermissions(from, MasterFile.FREE);
 					String payload = fileName + " " + f.getVersion() + " ";
@@ -200,10 +208,11 @@ public class TransactionLayer {
 		} else if( commands == null ) {
 			this.send(client, TXNProtocol.COMMIT, new byte[0]);
 		}else {
+			
 			Log log = new Log(commands);
 			Commit c = new Commit(client, log);
 			
-			if(c.abort()){
+			if(c.abort() && true){
 				for(MasterFile f : log)
 					f.abort(client);
 				this.send(client, TXNProtocol.ABORT, new byte[0]);
@@ -218,9 +227,13 @@ public class TransactionLayer {
 				for(MasterFile f : log){
 					try{
 						int version = f.getVersion();
-						String contents = this.n.get(f.getName());
+						Update u = f.getInitialVersion(client + 0);
+						String contents = u.contents;
+						
 						for(Command cmd : log.getCommands(f)){
-							if(cmd.getType() == Command.APPEND){
+							 if(cmd.getType() == Command.CREATE){
+								 this.n.create(cmd.getFileName());
+							 }else if(cmd.getType() == Command.APPEND){
 								contents += cmd.getContents();
 								version++;
 								this.n.write(f.getName(), contents, false, true);
@@ -228,8 +241,6 @@ public class TransactionLayer {
 								contents = cmd.getContents();
 								version++;
 								this.n.write(f.getName(), contents, false, true);
-							}else if(cmd.getType() == Command.CREATE ) {
-								this.n.create(f.getName());
 							} else if(cmd.getType() == Command.DELETE ) {
 								f.setState(File.INV);
 								this.n.delete(f.getName());
@@ -297,6 +308,15 @@ public class TransactionLayer {
 				this.commitChangesLocally();
 				this.commitConfirm();
 				break;
+			case TXNProtocol.ERROR:
+				contents = Utility.byteArrayToString(pkt.getPayload());
+				i = contents.indexOf(' ');
+				fileName = contents.substring(0, i);
+				contents = contents.substring(i + 1);
+				
+				f = this.getFileFromCache(fileName);
+				f.execute();
+				this.n.printError(contents);
 		}
 	}
 	
@@ -492,15 +512,17 @@ public class TransactionLayer {
 
 	public void commit() {
 		//Send all of our commands to the master node
+		int cnt = 0;
 		for( Command c : this.txn ) {
-			String payload = c.getType() + " " + c.getFileName();
-			if( c.getType() == Command.PUT || c.getType() == Command.APPEND ) {
-				payload += " " + c.getContents();
+			String payload = c.getFileName() + " " + c.getType() + " ";
+			if( c.getType() == Command.PUT || c.getType() == Command.APPEND || c.getType() == Command.UPDATE) {
+				payload += c.getContents();
 			}
+			cnt++;
 			this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
 		}
 		//Send the final commit message
-		this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(this.txn.id + "") );
+		this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(cnt + "") );
 	}
 	
 	public void commitConfirm() {
