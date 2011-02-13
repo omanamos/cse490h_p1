@@ -272,8 +272,9 @@ public class TransactionLayer {
 				int i = contents.indexOf(' ');
 				fileName = contents.substring(0, i);
 				int lastSpace = i + 1;
+				i = contents.indexOf(' ', lastSpace);
 				int version = Integer.parseInt(contents.substring(lastSpace, i));
-				contents = contents.substring(i + 1);
+				contents = i == contents.length() - 1 ? "" : contents.substring(i + 1);
 				
 				f = this.getFileFromCache(fileName);
 				Command c = (Command)f.execute(); //Get command that originally requested this Query
