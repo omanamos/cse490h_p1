@@ -188,31 +188,33 @@ public class DistNode extends RIONode {
 				e.printStackTrace();
 			}
 		}
-		if(!fileExists(".l")){
-			createFile(".l");
-			
-		} else {
-			try{
-				PersistentStorageReader files = getReader(".l");
-				String fileName = files.readLine();
-				boolean endOfFile = fileName == null ? true : false;
-				while(!endOfFile){
-					if(fileExists(fileName)){
-						fileList.add("fileName");
-					}
-					fileName = files.readLine();
-					if(fileName == null){
-						endOfFile = true;
+		if(this.addr == TransactionLayer.MASTER_NODE){
+			if(!fileExists(".l")){
+				createFile(".l");
+				
+			} else {
+				try{
+					PersistentStorageReader files = getReader(".l");
+					String fileName = files.readLine();
+					boolean endOfFile = fileName == null ? true : false;
+					while(!endOfFile){
+						if(fileExists(fileName)){
+							fileList.add("fileName");
+						}
+						fileName = files.readLine();
+						if(fileName == null){
+							endOfFile = true;
+						}
+						
 					}
 					
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
+			this.TXNLayer.setCache(fileList);
 		}
-		this.TXNLayer.setCache(fileList);
 			
 	}
 
