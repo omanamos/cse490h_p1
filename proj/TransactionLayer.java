@@ -295,13 +295,6 @@ public class TransactionLayer {
 					f.setVersion(version);
 					this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + ""));
 					this.txn.add(c);
-					
-					
-					
-					
-					
-					
-					
 				} catch (IOException e) {
 					this.n.printError("Fatal Error: Couldn't update file: " + fileName + " to version: " + version);
 				}
@@ -351,8 +344,8 @@ public class TransactionLayer {
 			} catch(IOException e) {
 				this.n.printError("Fatal Error: When applying commit locally on: " + c.getFileName() + "  command: " + c ) ;
 			}
-
-			this.n.printSuccess(c);
+			if(c.getType() == Command.UPDATE)
+				this.n.printSuccess(c);
 		}
 		
 	}
