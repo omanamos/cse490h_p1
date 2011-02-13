@@ -3,7 +3,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Queue;
 
 import edu.washington.cs.cse490h.lib.Callback;
@@ -69,9 +68,8 @@ public class ReliableInOrderMsgLayer {
 		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(pkt);
 		
 		for(RIOPacket p: toBeDelivered) {
-			//System.out.println(p.getSeqNum() + " " + Protocol.protocolToString(p.getProtocol()));
 			// deliver in-order the next sequence of packets
-			TXNLayer.onRPCReceive(from, p.getPayload());
+			TXNLayer.onReceive(from, p.getPayload());
 		}
 	}
 	

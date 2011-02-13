@@ -16,6 +16,11 @@ public class TransactionLayer {
 	private Map<String, File> cache;
 	private int lastTXNnum;
 	private Transaction txn;
+	
+	/**
+	 * key = addr of node uploading its commit
+	 * value = list of commands received so far of the commit
+	 */
 	private Map<Integer, List<Command>> commitQueue;
 	/**
 	 * key = addr of node trying to commit
@@ -23,12 +28,14 @@ public class TransactionLayer {
 	 */
 	private Map<Integer, Commit> waitingQueue;
 	
+	
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
 		this.cache = new HashMap<String, File>();
 		this.n = (DistNode)n;
 		this.RIOLayer = RIOLayer;
 		this.lastTXNnum = n.addr;
 		this.commitQueue = this.n.addr == MASTER_NODE ? new HashMap<Integer, List<Command>>() : null;
+		this.waitingQueue = new HashMap<Integer, Commit>();
 	}
 
 	public void send(int server, int protocol, byte[] payload) {
@@ -36,16 +43,34 @@ public class TransactionLayer {
 		this.RIOLayer.sendRIO(server, Protocol.TXN, pkt.pack());
 	}
 	
-	public void onRPCReceive(int from, byte[] payload) {
+	public void onReceive(int from, byte[] payload) {
 		TXNPacket packet = TXNPacket.unpack(payload);
-		if(this.n.addr == MASTER_NODE)
+		if(packet.getProtocol() == TXNProtocol.HB)
+			this.sendHB(from);
+		else if(this.n.addr == MASTER_NODE){
 			masterReceive(from, packet);
-		else
+		}else
 			slaveReceive(packet);
 	}
 	
+	public void sendHB(int dest){
+		this.RIOLayer.sendRIO(dest, TXNProtocol.HB, new byte[0]);
+	}
+	
 	public void onTimeout(int dest, byte[] payload){
-		
+		TXNPacket pkt = TXNPacket.unpack(payload);
+		if(this.n.addr == MASTER_NODE){
+			for(Integer committer : waitingQueue.keySet()){
+				Commit com = waitingQueue.get(committer);
+				for(Integer dep : com){
+					if(dep == dest){
+						this.send(committer, TXNProtocol.ABORT, new byte[0]);
+						break;
+					}
+				}
+			}
+		}else
+			this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
 	}
 	
 	private void masterReceive(int from, TXNPacket pkt){
@@ -55,11 +80,21 @@ public class TransactionLayer {
 		
 		switch(pkt.getProtocol()){
 			case TXNProtocol.WQ:
-				f = (MasterFile)this.getFileFromCache(Utility.byteArrayToString(pkt.getPayload()));
-				if(!f.isCheckedOut()){
-					byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + f.getContents());
-					f.addDep(from, MASTER_NODE);
-					this.send(from, TXNProtocol.WD, payload);
+				fileName = Utility.byteArrayToString(pkt.getPayload());
+				f = (MasterFile)this.getFileFromCache(fileName);
+				
+				if(f.getState() == File.INV){
+					String payload = DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
+					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
+				}else if(!f.isCheckedOut()){
+					try{
+						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + this.n.get(fileName));
+						f.addDep(from, MASTER_NODE);
+						this.send(from, TXNProtocol.WD, payload);
+					}catch(IOException e){
+						String payload = DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
+						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
+					}
 				}else{
 					f.requestor = from;
 					for(Integer client : f){
@@ -82,8 +117,8 @@ public class TransactionLayer {
 					f.propose(contents, version, from);
 				}
 				if(!f.isWaiting()){
-					f.chooseProp(f.requestor);
-					this.send(f.requestor, TXNProtocol.WD, Utility.stringToByteArray(fileName + " " + f.getVersion() + " " + f.getContents()));
+					Update u = f.chooseProp(f.requestor);
+					this.send(f.requestor, TXNProtocol.WD, Utility.stringToByteArray(fileName + " " + u.version + " " + u.contents));
 					f.requestor = -1;
 				}
 				break;
@@ -162,7 +197,7 @@ public class TransactionLayer {
 							}
 						}
 						this.n.write(f.getName(), contents, false, true);
-						f.commit(client, contents, version);
+						f.commit(client);
 					}catch(IOException e){
 						//TODO: send back error to client
 						return;
