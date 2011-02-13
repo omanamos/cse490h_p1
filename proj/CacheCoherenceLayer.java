@@ -332,7 +332,7 @@ public class CacheCoherenceLayer {
 				data = Utility.byteArrayToString(packet.getPayload());
 				int index = data.indexOf(' ');
 				fileName = data.substring(0, index);
-
+				
 				index = data.indexOf(' ', fileName.length() + 1);
 				String contents;
 				if( index == -1 ) {
@@ -547,7 +547,7 @@ public class CacheCoherenceLayer {
 		File f = this.cache.get(filename);
 		
 		if(f == null){
-			f = this.n.addr == MASTER_NODE ? new MasterFile(filename) : new File(File.INV, filename);
+			f = this.n.addr == MASTER_NODE ? new MasterFile(filename, "") : new File(File.INV, filename);
 			this.cache.put(filename, f);
 		}
 		return f;
