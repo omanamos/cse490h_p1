@@ -76,7 +76,7 @@ public class DistNode extends RIONode {
 	 * @param code error code returned as defined by Error class
 	 */
 	public static String buildErrorString(int server, int client, int protocol, String fileName, int code){
-		return "Node " + client + ": Error: " + TXNProtocol.protocolToString(protocol) + " on server " + 
+		return "Node " + client + ": Error: " + Command.toString(protocol) + " on server " + 
 						server + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
 	}
 	
