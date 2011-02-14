@@ -35,6 +35,7 @@ public class MasterFile extends File implements Iterable<Integer>{
 	public void commit(int client){
 		this.lastCommitter = client;
 		this.initalVersions.remove(client);
+		this.filePermissions.remove(client);
 	}
 	
 	public void abort(int client){

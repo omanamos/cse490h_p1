@@ -91,6 +91,7 @@ public class TransactionLayer {
 		
 		switch(pkt.getProtocol()){
 			case TXNProtocol.WQ:
+				//TODO: queue commands if we are currently waiting for a WF
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
@@ -102,6 +103,7 @@ public class TransactionLayer {
 						contents = this.n.get(fileName);
 						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + contents);
 						f.addDep(from, new Update(contents, f.getVersion(), MASTER_NODE));
+						f.changePermissions(from, MasterFile.FREE);
 						this.send(from, TXNProtocol.WD, payload);
 					}catch(IOException e){
 						String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
@@ -125,8 +127,9 @@ public class TransactionLayer {
 				i = contents.indexOf(' ');
 				fileName = contents.substring(0, i);
 				lastSpace = i + 1;
+				i = contents.indexOf(' ', lastSpace);
 				int version = Integer.parseInt(contents.substring(lastSpace, i));
-				contents = contents.substring(i + 1);
+				contents = i == contents.length() - 1 ? "" : contents.substring(i + 1);
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				f.changePermissions(from, MasterFile.FREE);
@@ -178,11 +181,6 @@ public class TransactionLayer {
 			case TXNProtocol.COMMIT:
 				this.commit(from, Integer.parseInt(Utility.byteArrayToString(pkt.getPayload())));
 				break;
-				
-				
-				
-				
-				
 			case TXNProtocol.CREATE:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
@@ -246,6 +244,7 @@ public class TransactionLayer {
 								this.n.delete(f.getName());
 							}
 						}
+						f.setVersion(version);
 						f.commit(client);
 					}catch(IOException e){
 						//TODO: send back error to client
@@ -380,9 +379,9 @@ public class TransactionLayer {
 	 * Methods DistNode uses to talk to TXNLayer
 	 *=====================================================*/
 	
-	public boolean get(String filename){
+	public boolean get(String fileName){
 		if( assertTXNStarted() ) {
-			File f = this.cache.get( filename );
+			File f = this.getFileFromCache(fileName);
 			Command c = new Command(MASTER_NODE, Command.GET, f);
 			
 			if(f.execute(c)){
@@ -394,7 +393,7 @@ public class TransactionLayer {
 	
 	private boolean get(Command c, File f){
 		if(f.getState() == File.INV){
-			this.send(MASTER_NODE, RPCProtocol.GET, Utility.stringToByteArray(f.getName()));
+			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName()));
 			return false;
 		}else{
 			f.execute();
@@ -445,7 +444,7 @@ public class TransactionLayer {
 	
 	private boolean put(Command c, File f){
 		if(f.getState() == File.INV){
-			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
+			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName())); //WQ
 			return false;
 		}else{
 			f.execute();
@@ -474,7 +473,7 @@ public class TransactionLayer {
 	
 	private boolean append(Command c, File f){
 		if(f.getState() != File.RW) {
-			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName() + " " + File.RW)); //WQ
+			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName())); //WQ
 			return false;
 		}else{
 			f.execute();
@@ -570,6 +569,7 @@ public class TransactionLayer {
 	
 	public void commitConfirm() {
 		this.txn = null;
+		this.cache.clear();
 	}
 
 	public void start() {
