@@ -5,6 +5,8 @@ import java.util.Set;
 
 public class Commit implements Iterable<Integer>{
 	
+	private Log log;
+	
 	private boolean abort;
 	/**
 	 * key = client that this commit is waiting on
@@ -12,6 +14,7 @@ public class Commit implements Iterable<Integer>{
 	private Set<Integer> wait;
 	
 	public Commit(int client, Log log){
+		this.log = log;
 		this.abort = false;
 		this.wait = new HashSet<Integer>();
 		for(MasterFile f : log){
@@ -40,6 +43,10 @@ public class Commit implements Iterable<Integer>{
 				this.abort = true;
 			}
 		}
+	}
+	
+	public Log getLog(){
+		return this.log;
 	}
 	
 	public Iterator<Integer> iterator(){

@@ -17,8 +17,8 @@ import edu.washington.cs.cse490h.lib.Utility;
  * reliable, in-order message delivery, even in the presence of node failures.
  */
 public class ReliableInOrderMsgLayer {
-	public final static int TIMEOUT = 3;
-	public final static int MAX_RETRY = 5;
+	public final static int TIMEOUT = 2;
+	public final static int MAX_RETRY = 1;
 	
 	private HashMap<Integer, InChannel> inConnections;
 	private HashMap<Integer, OutChannel> outConnections;
@@ -219,6 +219,19 @@ public class ReliableInOrderMsgLayer {
 		
 		out.sendRIOPacket(protocol, payload);
 	}
+	
+	public void setHB(int destAddr, boolean heartbeat){
+		OutChannel out = outConnections.get(destAddr);
+		if(out == null) {
+			out = new OutChannel(this, this.n, destAddr);
+			outConnections.put(destAddr, out);
+		}
+		
+		if(heartbeat)
+			out.startHB();
+		else
+			out.stopHB();
+	}
 
 	/**
 	 * Callback for timeouts while waiting for an ACK.
@@ -240,6 +253,8 @@ public class ReliableInOrderMsgLayer {
 		StringBuffer sb = new StringBuffer();
 		for(Integer i: inConnections.keySet()) {
 			sb.append(inConnections.get(i).toString() + "\n");
+			
+			
 		}
 		
 		return sb.toString();
@@ -347,6 +362,8 @@ class OutChannel {
 	private boolean establishingSession; //true if this connection is currently setting up the session.
 	private Queue<RIOPacket> queuedCommands; //fills up with queued commands while the session is being established.
 	
+	private boolean heartbeat;
+	
 	OutChannel(ReliableInOrderMsgLayer parent, RIONode n, int destAddr){
 		this(parent, n, destAddr, -1);
 	}
@@ -364,6 +381,17 @@ class OutChannel {
 		
 		establishingSession = false;
 		queuedCommands = new LinkedList<RIOPacket>();
+		
+		this.heartbeat = false;
+	}
+	
+	protected void startHB(){
+		this.heartbeat = true;
+		this.sendRIOPacket(Protocol.TXN, new TXNPacket(TXNProtocol.HB, new byte[0]).pack());
+	}
+	
+	protected void stopHB(){
+		this.heartbeat = false;
 	}
 	
 	/**
@@ -430,12 +458,12 @@ class OutChannel {
 	public void onTimeout(RIONode n, Integer seqNum) {
 		Integer numRetries = pktRetries.get( seqNum );
 		if(unACKedPackets.containsKey(seqNum) && ( numRetries == null || numRetries <= ReliableInOrderMsgLayer.MAX_RETRY ) ) {
+
 			numRetries = numRetries == null ? 0 : numRetries;
 			pktRetries.put( seqNum, numRetries + 1 );
 			resendRIOPacket(n, seqNum);
 		} else if(unACKedPackets.containsKey(seqNum)){
-			RIOPacket pkt = unACKedPackets.get(seqNum);
-			unACKedPackets.remove(seqNum);
+			RIOPacket pkt = unACKedPackets.remove(seqNum);
 			pktRetries.remove(seqNum);
 			boolean lastSequence = false;
 			int maxSeqNum = seqNum + 1;
@@ -449,20 +477,25 @@ class OutChannel {
 					lastSequence = true;
 			}
 			establishSession();
-			System.out.println(DistNode.buildErrorString(this.destAddr, this.n.addr, 0, "", Error.ERR_20));
 			n.TXNLayer.onTimeout(this.destAddr, pkt.getPayload());
 		}
 	}
 	
 	/**
 	 * Called when we get an ACK back. Removes the outstanding packet if it is
-	 * still in unACKedPackets.
+	 * still in unACKedPackets. 
 	 * 
 	 * @param seqNum
 	 *            The sequence number that was just ACKed
 	 */
 	protected void receiveAck(int seqNum) {
-		unACKedPackets.remove(seqNum);
+		this.pktRetries.remove(seqNum);
+		RIOPacket p = unACKedPackets.remove(seqNum);
+		if(p != null){
+			TXNPacket pkt = TXNPacket.unpack(p.getPayload());
+			if(pkt != null && pkt.getProtocol() == TXNProtocol.HB && heartbeat)
+				this.sendRIOPacket(Protocol.TXN, p.getPayload());
+		}
 	}
 	
 	/**
@@ -473,24 +506,22 @@ class OutChannel {
 	 * @param seqNum set lastSeqNumSent to for this connection (could be not initial value in case of client failure)
 	 */
 	protected void receiveAckSession(int sessionId, int seqNum) {
-		if(this.sessionID == -1){
-			this.establishingSession = false;
-			this.unACKedPackets = new HashMap<Integer, RIOPacket>();
-			this.sessionID = sessionId;
+		this.establishingSession = false;
+		this.unACKedPackets = new HashMap<Integer, RIOPacket>();
+		this.sessionID = sessionId;
 
-			for(int i = 0; i < pendingPackets.size(); i++){
-				seqNum++;
-				RIOPacket tPkt = pendingPackets.remove(i);
-				unACKedPackets.put(seqNum, tPkt);
-				pktRetries.put(seqNum, 0);
-			}
-			
-			this.lastSeqNumSent = seqNum;
-			
-			while(!this.queuedCommands.isEmpty()){
-				RIOPacket p = this.queuedCommands.poll();
-				this.sendRIOPacket(p.getProtocol(), p.getPayload());
-			}
+		for(int i = 0; i < pendingPackets.size(); i++){
+			seqNum++;
+			RIOPacket tPkt = pendingPackets.remove(i);
+			unACKedPackets.put(seqNum, tPkt);
+			pktRetries.put(seqNum, 0);
+		}
+		
+		this.lastSeqNumSent = seqNum;
+		
+		while(!this.queuedCommands.isEmpty()){
+			RIOPacket p = this.queuedCommands.poll();
+			this.sendRIOPacket(p.getProtocol(), p.getPayload());
 		}
 	}
 	
@@ -509,7 +540,7 @@ class OutChannel {
 			//System.out.println("Values: " + toS(this.unACKedPackets.values()) + " Keys: " + toS(this.unACKedPackets.keySet()));
 			//System.out.println("SeqNum: " + seqNum + " Protocol: " + pkt.getProtocol());
 			
-			n.send(destAddr, pkt.getProtocol(), pkt.getPayload());
+			n.send(destAddr, Protocol.TXN, pkt.pack());
 			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();

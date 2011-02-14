@@ -1,6 +1,5 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.regex.Pattern;
 
@@ -50,7 +49,6 @@ public class DistNode extends RIONode {
 			this.getWriter(fileName, true).delete();
 			if(this.addr == TransactionLayer.MASTER_NODE){
 				fileList.remove(fileName);
-				PersistentStorageWriter writer = this.getWriter("temp", true);
 				String contents = "";
 				for(String file : fileList){
 					contents.concat(file + "\n");
@@ -78,7 +76,7 @@ public class DistNode extends RIONode {
 	 * @param code error code returned as defined by Error class
 	 */
 	public static String buildErrorString(int server, int client, int protocol, String fileName, int code){
-		return "Node " + client + ": Error: " + RPCProtocol.protocolToString(protocol) + " on server " + 
+		return "Node " + client + ": Error: " + TXNProtocol.protocolToString(protocol) + " on server " + 
 						server + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
 	}
 	
@@ -166,7 +164,6 @@ public class DistNode extends RIONode {
 			}
 		}
 		if(this.addr == TransactionLayer.MASTER_NODE){
-			boolean haveL = fileExists(".l");
 			if(!fileExists(".l")){
 				try {
 					this.getWriter(".l", false).write("");
@@ -179,16 +176,11 @@ public class DistNode extends RIONode {
 				try{
 					PersistentStorageReader files = getReader(".l");
 					String fileName = files.readLine();
-					boolean endOfFile = fileName == null ? true : false;
-					while(!endOfFile){
+					while(fileName != null){
 						if(fileExists(fileName)){
 							fileList.add(fileName);
 						}
 						fileName = files.readLine();
-						if(fileName == null){
-							endOfFile = true;
-						}
-						
 					}
 					
 				} catch (IOException e) {
@@ -237,7 +229,7 @@ public class DistNode extends RIONode {
 			else if(command.equals("txcommit"))
 				this.TXNLayer.commit();
 			else
-				this.TXNLayer.abort();
+				this.TXNLayer.abort(true);
 		}else{
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
 			return;

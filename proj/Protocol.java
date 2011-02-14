@@ -9,6 +9,7 @@ public class Protocol {
 	public static final int TXN = 0;
 	public static final int ACK = 1;
 	public static final int SESSION = 2;
+	public static final int HB = 3;
 	
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
@@ -24,7 +25,7 @@ public class Protocol {
 	 * @return true if the protocol is valid, false otherwise
 	 */
 	public static boolean isPktProtocolValid(int p) {
-		return (p == TXN || p == ACK ||  p == SESSION);
+		return (p == TXN || p == ACK ||  p == SESSION || p == HB);
 	}
 
 	/**
@@ -44,6 +45,8 @@ public class Protocol {
 				return "RIO Acknowledgement Packet";
 			case RIOTEST_PKT:
 				return "RIO Testing Packet";
+			case HB:
+				return "RIO Heartbeat";
 			default:
 				return "Unknown Protocol";
 		}

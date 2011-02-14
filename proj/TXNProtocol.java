@@ -23,8 +23,8 @@ public class TXNProtocol extends Protocol {
 	}
 	
 	public static boolean isTXNProtocol(int p){
-		return p == WQ || p == WD || p == WF || p == COMMIT || p == ABORT || p == COMMIT_DATA || p == ERROR || p == HB
-			|| p == CREATE || p == DELETE;
+		return p == WQ || p == WD || p == WF || p == COMMIT || p == ABORT || p == COMMIT_DATA || p == ERROR
+			|| p == CREATE || p == DELETE || p == HB;
 	}
 
 	/**
@@ -45,9 +45,9 @@ public class TXNProtocol extends Protocol {
 		case ABORT: return "abort";
 		case COMMIT_DATA: return "commit data";
 		case ERROR: return "error";
-		case HB: return "heartbeat";
 		case CREATE: return "create";
 		case DELETE: return "delete";
+		case HB: return "heartbeat";
 		default:
 			return Protocol.protocolToString(protocol);
 		}

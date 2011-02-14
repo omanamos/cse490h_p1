@@ -44,18 +44,16 @@ public class TransactionLayer {
 		this.RIOLayer.sendRIO(server, Protocol.TXN, pkt.pack());
 	}
 	
+	public void setHB(int dest, boolean heartbeat){
+		this.RIOLayer.setHB(dest, heartbeat);
+	}
+	
 	public void onReceive(int from, byte[] payload) {
 		TXNPacket packet = TXNPacket.unpack(payload);
-		if( packet.getProtocol() == TXNProtocol.HB)
-			this.sendHB(from);
-		else if(this.n.addr == MASTER_NODE){
+		if(this.n.addr == MASTER_NODE){
 			masterReceive(from, packet);
 		}else
 			slaveReceive(packet);
-	}
-	
-	public void sendHB(int dest){
-		this.RIOLayer.sendRIO(dest, TXNProtocol.HB, new byte[0]);
 	}
 	
 	public void onTimeout(int dest, byte[] payload){
@@ -202,57 +200,81 @@ public class TransactionLayer {
 	
 	private void commit(int client, int size){
 		List<Command> commands = this.commitQueue.get(client);
+		
 		if( commands != null && size != commands.size()){
-			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(Error.ERROR_STRINGS[Error.ERR_40]));
+			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(" " + Error.ERROR_STRINGS[Error.ERR_40]));
 		} else if( commands == null ) {
 			this.send(client, TXNProtocol.COMMIT, new byte[0]);
 		}else {
-			
 			Log log = new Log(commands);
-			Commit c = new Commit(client, log);
-			
-			if(c.abort() && true){
-				for(MasterFile f : log)
-					f.abort(client);
-				this.send(client, TXNProtocol.ABORT, new byte[0]);
-			}else if(c.isWaiting()){
-				//add commit to queue and send heartbeat to nodes that the commit is waiting for
-				for(Integer addr : c){
-					this.send(addr, TXNProtocol.HB, new byte[0]);
-				}
-				this.waitingQueue.put(client, c);
-			}else{
-				//push changes to disk and put most recent version in memory in MasterFile
-				for(MasterFile f : log){
-					try{
-						int version = f.getVersion();
-						Update u = f.getInitialVersion(client + 0);
-						String contents = u.contents;
-						
-						for(Command cmd : log.getCommands(f)){
-							 if(cmd.getType() == Command.CREATE){
-								 this.n.create(cmd.getFileName());
-							 }else if(cmd.getType() == Command.APPEND){
-								contents += cmd.getContents();
-								version++;
-								this.n.write(f.getName(), contents, false, true);
-							}else if(cmd.getType() == Command.PUT){
-								contents = cmd.getContents();
-								version++;
-								this.n.write(f.getName(), contents, false, true);
-							} else if(cmd.getType() == Command.DELETE ) {
-								f.setState(File.INV);
-								this.n.delete(f.getName());
-							}
+			this.commit(client, log);
+		}
+		this.commitQueue.get(client).clear();
+	}
+	
+	private void commit(int client, Log log){
+		Commit c = new Commit(client, log);
+		
+		if(c.abort() && true){
+			for(MasterFile f : log)
+				f.abort(client);
+			this.send(client, TXNProtocol.ABORT, new byte[0]);
+		}else if(c.isWaiting()){
+			//add commit to queue and send heartbeat to nodes that the commit is waiting for
+			for(Integer addr : c){
+				this.setHB(addr, true);
+			}
+			this.waitingQueue.put(client, c);
+		}else{
+			//push changes to disk and put most recent version in memory in MasterFile
+			for(MasterFile f : log){
+				try{
+					int version = f.getVersion();
+					Update u = f.getInitialVersion(client + 0);
+					String contents = u.contents;
+					boolean deleted = false;
+					
+					for(Command cmd : log.getCommands(f)){
+						 if(cmd.getType() == Command.CREATE){
+							 this.n.create(cmd.getFileName());
+						 }else if(cmd.getType() == Command.APPEND){
+							contents += cmd.getContents();
+							version++;
+						}else if(cmd.getType() == Command.PUT){
+							contents = cmd.getContents();
+							version++;
+						} else if(cmd.getType() == Command.DELETE ) {
+							f.setState(File.INV);
+							this.n.delete(f.getName());
+							deleted = true;
 						}
-						f.setVersion(version);
-						f.commit(client);
-					}catch(IOException e){
-						//TODO: send back error to client
-						return;
+					}
+					if(!deleted)
+						this.n.write(f.getName(), contents, false, true);
+					
+					f.setVersion(version);
+					f.commit(client);
+				}catch(IOException e){
+					e.printStackTrace();
+					return;
+				}
+			}
+			this.send(client, TXNProtocol.COMMIT, new byte[0]);
+			
+			this.setHB(client, false);
+			//Allow any transactions dependent on this one to commit
+			for(Integer committer : waitingQueue.keySet()){
+				Commit com = waitingQueue.get(committer);
+				for(Integer dep : com){
+					if(dep == client){
+						com.remove(client);
+						if(!com.isWaiting()){
+							this.waitingQueue.remove(committer);
+							this.commit(committer, com.getLog());
+						}
+						break;
 					}
 				}
-				this.send(client, TXNProtocol.COMMIT, new byte[0]);
 			}
 		}
 	}
@@ -303,7 +325,7 @@ public class TransactionLayer {
 				executeCommandQueue(f);
 				break;
 			case TXNProtocol.ABORT:
-				this.abort();
+				this.abort(false);
 				break;
 			case TXNProtocol.COMMIT:
 				this.commitChangesLocally();
@@ -490,7 +512,6 @@ public class TransactionLayer {
 		
 	}
 
-	//TODO: Decide what to do for creates/deletes and transactions
 	public boolean delete(String filename){
 		if( assertTXNStarted() && notCommited() ) {
 			File f = getFileFromCache( filename );
@@ -517,9 +538,15 @@ public class TransactionLayer {
 		}
 	}
 
-	public void abort() {
-		if( assertTXNStarted() )
+	public void abort(boolean notifyServer) {
+		if( assertTXNStarted() ){
 			this.txn = null;
+			this.cache.clear();
+			if(notifyServer)
+				this.send(MASTER_NODE, TXNProtocol.ABORT, new byte[0]);
+			else
+				this.n.printError("Error: Transaction aborted, please start a new transaction and try again.");
+		}
 	}
 	
 	public void txnExecute() {
@@ -529,7 +556,6 @@ public class TransactionLayer {
 				this.commit();
 			}
 		}
-
 	}
 
 	public void commit() {
@@ -605,18 +631,17 @@ public class TransactionLayer {
 		
 		if(f == null){
 			f = this.n.addr == MASTER_NODE ? new MasterFile(fileName, "") : new File(File.INV, fileName);
-			this.cache.put(fileName, f);
+			if(!fileName.isEmpty())
+				this.cache.put(fileName, f);
 		}
 		return f;
 	}
 
 	public void setCache(HashSet<String> fileList) {
-		if(fileList.size() != 0){
-			for(String fileName : fileList){
-				getFileFromCache(fileName);
-			}
+		for(String fileName : fileList){
+			File f = getFileFromCache(fileName);
+			f.setState(File.RW);
 		}
-		
 	}
 
 }
