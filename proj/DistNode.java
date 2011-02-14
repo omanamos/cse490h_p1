@@ -39,7 +39,7 @@ public class DistNode extends RIONode {
 		if(this.addr == TransactionLayer.MASTER_NODE){
 			if(!fileList.contains(fileName)){
 				fileList.add(fileName);
-				this.getWriter(".l", true).write("fileName");
+				this.getWriter(".l", true).write(fileName + "\n");
 			}
 		}
 			
@@ -126,29 +126,6 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	private void createFile(String fileName){
-		if(!fileExists(fileName)){
-			try{
-				PersistentStorageWriter files = getWriter(fileName, false);
-				files.write("");
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-	}
-	
-	private void deleteFile(String fileName){
-		if(fileExists(fileName)){
-			try{
-				this.getWriter(fileName, false).delete();
-				
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-	}
 	
 	/**
 	 * Copies the file in r to the file in w, appending start to the beginning of the file
@@ -189,8 +166,14 @@ public class DistNode extends RIONode {
 			}
 		}
 		if(this.addr == TransactionLayer.MASTER_NODE){
+			boolean haveL = fileExists(".l");
 			if(!fileExists(".l")){
-				createFile(".l");
+				try {
+					this.getWriter(".l", false).write("");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 				
 			} else {
 				try{
@@ -199,7 +182,7 @@ public class DistNode extends RIONode {
 					boolean endOfFile = fileName == null ? true : false;
 					while(!endOfFile){
 						if(fileExists(fileName)){
-							fileList.add("fileName");
+							fileList.add(fileName);
 						}
 						fileName = files.readLine();
 						if(fileName == null){
