@@ -168,7 +168,6 @@ public class DistNode extends RIONode {
 				try {
 					this.getWriter(".l", false).write("");
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				
@@ -184,7 +183,6 @@ public class DistNode extends RIONode {
 					}
 					
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}

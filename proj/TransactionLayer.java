@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import edu.washington.cs.cse490h.lib.Utility;
 
@@ -18,6 +19,7 @@ public class TransactionLayer {
 	private int lastTXNnum;
 	private Transaction txn;
 	
+	private Set<Integer> assumedCrashed;
 	/**
 	 * key = addr of node uploading its commit
 	 * value = list of commands received so far of the commit
@@ -37,6 +39,7 @@ public class TransactionLayer {
 		this.lastTXNnum = n.addr;
 		this.commitQueue = this.n.addr == MASTER_NODE ? new HashMap<Integer, List<Command>>() : null;
 		this.waitingQueue = new HashMap<Integer, Commit>();
+		this.assumedCrashed = new HashSet<Integer>();
 	}
 	
 	public void send(int server, int protocol, byte[] payload) {
@@ -44,6 +47,11 @@ public class TransactionLayer {
 		this.RIOLayer.sendRIO(server, Protocol.TXN, pkt.pack());
 	}
 	
+	/**
+	 * Starts or stops a heartbeat to a given node
+	 * @param dest node to start or stop the heartbeat
+	 * @param heartbeat true = start, false = stop
+	 */
 	public void setHB(int dest, boolean heartbeat){
 		this.RIOLayer.setHB(dest, heartbeat);
 	}
@@ -56,10 +64,23 @@ public class TransactionLayer {
 			slaveReceive(packet);
 	}
 	
+	/**
+	 * Called when a message times out on the RIOLayer
+	 * @param dest
+	 * @param payload
+	 */
 	public void onTimeout(int dest, byte[] payload){
 		TXNPacket pkt = TXNPacket.unpack(payload);
-		if(this.n.addr == MASTER_NODE){
+		if(this.n.addr == MASTER_NODE){ //This is the server
 			if(pkt.getProtocol() == TXNProtocol.HB){
+				//This is a heartbeat that timed out, meaning either a client has crashed or we assume it has.
+				//We must tell all commits waiting on this client to abort and flag this client as crashed, so if
+				//it didn't and tries to commit, it will have to abort.
+				this.assumedCrashed.add(dest);
+				for(String fileName : this.cache.keySet()){
+					MasterFile f = (MasterFile)this.cache.get(fileName);
+					f.changePermissions(dest, File.INV);
+				}
 				for(Integer committer : waitingQueue.keySet()){
 					Commit com = waitingQueue.get(committer);
 					for(Integer dep : com){
@@ -69,7 +90,8 @@ public class TransactionLayer {
 						}
 					}
 				}
-			}else if(pkt.getProtocol() == TXNProtocol.WF){
+			}else if(pkt.getProtocol() == TXNProtocol.WF){ 
+				//a write forward timed out. We should check to see if we are waiting on any other WF, if not, send a response to the requester.
 				String fileName = Utility.byteArrayToString(pkt.getPayload());
 				MasterFile f = (MasterFile)this.getFileFromCache(fileName);
 				f.changePermissions(dest, File.INV);
@@ -78,9 +100,13 @@ public class TransactionLayer {
 					this.send(f.requestor, TXNProtocol.WD, Utility.stringToByteArray(fileName + " " + u.version + " " + u.contents));
 					f.requestor = -1;
 				}
-			}
-		}else
+			}else
+				this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
+		}else{ //this is the client and we should just print out the message
+			if(pkt.getProtocol() == TXNProtocol.START)
+				this.txn = null;
 			this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
+		}
 	}
 	
 	private void masterReceive(int from, TXNPacket pkt){
@@ -89,15 +115,14 @@ public class TransactionLayer {
 		int i, lastSpace;
 		
 		switch(pkt.getProtocol()){
-			case TXNProtocol.WQ:
-				//TODO: queue commands if we are currently waiting for a WF
+			case TXNProtocol.WQ://payload structure: "[fileName]"
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
-				if(f.getState() == File.INV){
+				if(f.getState() == File.INV){ //the file doesn't exist on the server, return an error
 					String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
 					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
-				}else if(!f.isCheckedOut()){
+				}else if(!f.isCheckedOut()){ //The file hasn't been checked out by anyone, return the last committed version.
 					try{
 						contents = this.n.get(fileName);
 						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + contents);
@@ -108,7 +133,10 @@ public class TransactionLayer {
 						String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
 						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 					}
-				}else{
+				}else if(f.isWaiting()){ //The server is currently waiting for some WFs to return from clients. Enqueue this request to execute once they have returned.
+					pkt.setSource(from);
+					f.execute(pkt);
+				}else{ //The server must send out WFs to all clients that have copies of the file, and pick the highest version that is returned.
 					f.requestor = from;
 					try{
 						f.propose(this.n.get(fileName), f.getVersion(), MASTER_NODE);
@@ -116,12 +144,14 @@ public class TransactionLayer {
 						f.propose("", f.getVersion(), MASTER_NODE);
 					}
 					for(Integer client : f){
-						f.changePermissions(client, MasterFile.WF);
-						this.send(client, TXNProtocol.WF, Utility.stringToByteArray(f.getName()));
+						if(!this.assumedCrashed.contains(client)){ //only ask clients who aren't assumed to be crashed
+							f.changePermissions(client, MasterFile.WF);
+							this.send(client, TXNProtocol.WF, Utility.stringToByteArray(f.getName()));
+						}
 					}
 				}
 				break;
-			case TXNProtocol.WD:
+			case TXNProtocol.WD: //A client has returned its most recent version to the server.
 				contents = Utility.byteArrayToString(pkt.getPayload());
 				i = contents.indexOf(' ');
 				fileName = contents.substring(0, i);
@@ -137,8 +167,15 @@ public class TransactionLayer {
 				}
 				if(!f.isWaiting()){
 					Update u = f.chooseProp(f.requestor);
-					this.send(f.requestor, TXNProtocol.WD, Utility.stringToByteArray(fileName + " " + u.version + " " + u.contents));
+					byte[] payload = Utility.stringToByteArray(fileName + " " + u.version + " " + u.contents);
+					this.send(f.requestor, TXNProtocol.WD, payload);
+					f.changePermissions(f.requestor, MasterFile.FREE);
 					f.requestor = -1;
+					while(f.peek() != null){ //also return queued requests for the file
+						TXNPacket p = (TXNPacket)f.execute();
+						this.send(p.getSource(), TXNProtocol.WD, payload);
+						f.changePermissions(p.getSource(), MasterFile.FREE);
+					}
 				}
 				break;
 			case TXNProtocol.ERROR:
@@ -195,27 +232,47 @@ public class TransactionLayer {
 					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 				}
 				break;
+			case TXNProtocol.START:
+				this.assumedCrashed.remove(from);
+				for(String fName : this.cache.keySet()){
+					f = (MasterFile)this.cache.get(fName);
+					f.changePermissions(from, File.INV);
+				}
+				for(Integer committer : waitingQueue.keySet()){
+					Commit com = waitingQueue.get(committer);
+					for(Integer dep : com){
+						if(dep == from){
+							this.send(committer, TXNProtocol.ABORT, new byte[0]);
+							break;
+						}
+					}
+				}
+				this.send(from, TXNProtocol.START, new byte[0]);
+				break;
 		}
 	}
 	
 	private void commit(int client, int size){
 		List<Command> commands = this.commitQueue.get(client);
 		
-		if( commands != null && size != commands.size()){
+		if(this.assumedCrashed.contains(client)){
+			this.assumedCrashed.remove(client);
+			this.send(client, TXNProtocol.ABORT, new byte[0]);
+		}else if( commands != null && size != commands.size()){
 			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(" " + Error.ERROR_STRINGS[Error.ERR_40]));
 		} else if( commands == null ) {
 			this.send(client, TXNProtocol.COMMIT, new byte[0]);
 		}else {
-			Log log = new Log(commands);
+			Log log = new Log(client, commands);
 			this.commit(client, log);
 		}
 		this.commitQueue.get(client).clear();
 	}
 	
 	private void commit(int client, Log log){
-		Commit c = new Commit(client, log);
+		Commit c = new Commit(client, log, this.assumedCrashed);
 		
-		if(c.abort() && true){
+		if(c.abort()){
 			for(MasterFile f : log)
 				f.abort(client);
 			this.send(client, TXNProtocol.ABORT, new byte[0]);
@@ -230,7 +287,7 @@ public class TransactionLayer {
 			for(MasterFile f : log){
 				try{
 					int version = f.getVersion();
-					Update u = f.getInitialVersion(client + 0);
+					Update u = f.getInitialVersion(client);
 					String contents = u.contents;
 					boolean deleted = false;
 					
@@ -340,9 +397,13 @@ public class TransactionLayer {
 				f = this.getFileFromCache(fileName);
 				f.execute();
 				this.n.printError(contents);
+			case TXNProtocol.START:
+				this.txn.isStarted = true;
+				break;
 		}
 	}
 	
+	//CLIENT METHOD
 	public void commitChangesLocally() {
 		for( Command c : this.txn ) {
 			try {
@@ -368,8 +429,10 @@ public class TransactionLayer {
 				this.n.printSuccess(c);
 		}
 		
+		this.n.printData("Success: Transaction successfully committed.");
 	}
 	
+	//CLIENT METHOD
 	public void executeCommandQueue(File f){
 		Command c = (Command)f.peek();
 		boolean stop = false;
@@ -399,11 +462,12 @@ public class TransactionLayer {
 	
 
 	/*=====================================================
+	 * CLIENT METHODS
 	 * Methods DistNode uses to talk to TXNLayer
 	 *=====================================================*/
 	
 	public boolean get(String fileName){
-		if( assertTXNStarted() ) {
+		if( assertTXNStarted() && notCommited() ) {
 			File f = this.getFileFromCache(fileName);
 			Command c = new Command(MASTER_NODE, Command.GET, f);
 			
@@ -431,7 +495,7 @@ public class TransactionLayer {
 
 	public boolean create(String filename){
 		boolean rtn = false;
-		if( assertTXNStarted() ) {
+		if( assertTXNStarted() && notCommited() ) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.CREATE, f, "");
 			
@@ -454,7 +518,7 @@ public class TransactionLayer {
 	}
 
 	public boolean put(String filename, String content){
-		if( assertTXNStarted() ) {
+		if( assertTXNStarted() && notCommited() ) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.PUT, f, content);
 			
@@ -483,7 +547,7 @@ public class TransactionLayer {
 	}
 
 	public boolean append(String filename, String content){
-		if( assertTXNStarted() ) {
+		if( assertTXNStarted() && notCommited() ) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.APPEND, f, content);
 			
@@ -545,7 +609,7 @@ public class TransactionLayer {
 			if(notifyServer)
 				this.send(MASTER_NODE, TXNProtocol.ABORT, new byte[0]);
 			else
-				this.n.printError("Error: Transaction aborted, please start a new transaction and try again.");
+				this.n.printError("Error on node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
 		}
 	}
 	
@@ -605,14 +669,18 @@ public class TransactionLayer {
 			
 			//start a new transaction by creating a new transaction object
 			this.txn = new Transaction( newTXNnum );
+			this.send(MASTER_NODE, TXNProtocol.START, new byte[0]);
 		} else {
-			this.n.printError("ERROR: Transaction in progress: can not start new transaction");
+			this.n.printError("ERROR: Transaction in progress on node " + this.n.addr + " : can not start new transaction");
 		}
 	}
 	
 	public boolean assertTXNStarted() {
 		if( this.txn == null ) {
-			this.n.printError("ERROR: No transaction in progress: please start new transaction");
+			this.n.printError("ERROR: No transaction in progress on node " + this.n.addr + " : please start new transaction");
+			return false;
+		}else if(!this.txn.isStarted){
+			this.n.printError("ERROR: Transaction currently starting on node " + this.n.addr + " : please wait until it finishes.");
 			return false;
 		}
 		return true;
@@ -620,7 +688,7 @@ public class TransactionLayer {
 	
 	public boolean notCommited() {
 		if( this.txn.willCommit ) {
-			this.n.printError("ERROR: Current transaction to be commited: please start new transaction");
+			this.n.printError("ERROR: Current transaction to be commited on node " + this.n.addr + " : please start new transaction");
 			return false;
 		}
 		return true;

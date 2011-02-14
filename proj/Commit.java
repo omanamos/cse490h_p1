@@ -13,13 +13,13 @@ public class Commit implements Iterable<Integer>{
 	 */
 	private Set<Integer> wait;
 	
-	public Commit(int client, Log log){
+	public Commit(int client, Log log, Set<Integer> assumedCrashed){
 		this.log = log;
 		this.abort = false;
 		this.wait = new HashSet<Integer>();
 		for(MasterFile f : log){
 			int dep = f.getDep(client);
-			if(dep == -1 && log.hasReads(f)){
+			if(assumedCrashed.contains(dep) || dep == -1 && log.hasReads(f)){
 				//Dep transaction aborted -> this one must also abort
 				this.abort = true;
 				return;
