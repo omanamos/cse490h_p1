@@ -15,6 +15,7 @@ public class Transaction implements Iterable<Command> {
 	private Map<File, List<Command>> fileLog;
 	private int numQueued;
 	public boolean willCommit;
+	public boolean isStarted;
 	
 	public Transaction(int id){
 		this.id = id;
@@ -22,6 +23,7 @@ public class Transaction implements Iterable<Command> {
 		this.fileLog = new HashMap<File, List<Command>>();
 		this.numQueued = 0;
 		this.willCommit = false;
+		isStarted = false;
 	}
 	
 	public void add(Command c){

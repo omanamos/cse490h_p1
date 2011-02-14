@@ -86,7 +86,7 @@ public class TXNPacket extends Queueable{
 			int protocol = in.readByte();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
-			int bytesRead = in.read(payload, 0, payload.length);
+			//int bytesRead = in.read(payload, 0, payload.length);
 
 		//	if ( bytesRead != payload.length ) {
 		//		return null;

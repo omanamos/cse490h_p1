@@ -12,7 +12,7 @@ public class Log implements Iterable<MasterFile>{
 	private Map<MasterFile, Boolean> reads;
 	private Map<MasterFile, Boolean> writes;
 	
-	public Log(List<Command> log){
+	public Log(int client, List<Command> log){
 		files = new ArrayList<MasterFile>();
 		reads = new HashMap<MasterFile, Boolean>();
 		writes = new HashMap<MasterFile, Boolean>();
@@ -38,7 +38,7 @@ public class Log implements Iterable<MasterFile>{
 					writes.put(f, true);
 					break;
 				case Command.UPDATE:
-					startingVersions.put(f, Integer.parseInt(c.getContents()));
+					startingVersions.put(f, f.getInitialVersion(client).version);
 					files.add(f);
 					reads.put(f, false);
 					writes.put(f, false);
