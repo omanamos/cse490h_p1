@@ -209,7 +209,7 @@ public class TransactionLayer {
 			Log log = new Log(commands);
 			this.commit(client, log);
 		}
-		this.commitQueue.get(client).clear();
+	    this.commitQueue.get(client).clear();
 	}
 	
 	private void commit(int client, Log log){
