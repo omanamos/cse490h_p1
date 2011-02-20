@@ -14,7 +14,7 @@ public abstract class RIONode extends Node {
 	//protected CacheCoherenceLayer CCLayer;
 	protected TransactionLayer TXNLayer;
 	
-	public static int NUM_NODES = 10;
+	public static int NUM_NODES = 3;
 	
 	public RIONode() {
 		this.RIOLayer = new ReliableInOrderMsgLayer(this);

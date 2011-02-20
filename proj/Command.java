@@ -63,7 +63,10 @@ public class Command extends Queueable{
 	}
 	
 	public String toString(){
-		return toS[this.type];
+		if(this.type == PUT || this.type == APPEND)
+			return toS[this.type] + " " + this.f.getName() + " " + this.contents.replaceAll("\n", "\\n");
+		else
+			return toS[this.type] + " " + this.f.getName();
 	}
 	
 	public static String toString(int type){

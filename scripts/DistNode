@@ -1,0 +1,40 @@
+start 0
+start 1
+start 2
+time
+1 txstart
+2 txstart
+time
+time
+time
+time
+time
+time
+time
+time
+time
+time
+time
+time
+1 create test
+1 put test "hello world!"
+1 create test1
+1 put test1 "hello2"
+time
+1 txcommit
+time
+time
+time
+time
+time
+time
+1 get test
+1 get test1
+time
+1 txcommit
+time
+time
+time
+time
+time
+time

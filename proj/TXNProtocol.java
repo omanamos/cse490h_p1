@@ -10,6 +10,7 @@ public class TXNProtocol extends Protocol {
 	public static final int HB = 13;
 	public static final int CREATE = 14;
 	public static final int START = 16;
+	public static final int PAXOS = 17;
 	
 	/**
 	 * Tests if this is a valid protocol for a Packet
