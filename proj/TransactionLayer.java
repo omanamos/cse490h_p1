@@ -15,10 +15,16 @@ public class TransactionLayer {
 	
 	private DistNode n;
 	private ReliableInOrderMsgLayer RIOLayer;
+	private PaxosLayer paxos;
+	
 	private Map<String, File> cache;
+	
+	//CLIENT FIELD
 	private int lastTXNnum;
+	//CLIENT FIELD
 	private Transaction txn;
 	
+	//SERVER FIELDS
 	private Set<Integer> assumedCrashed;
 	/**
 	 * key = addr of node uploading its commit
@@ -37,9 +43,13 @@ public class TransactionLayer {
 		this.n = (DistNode)n;
 		this.RIOLayer = RIOLayer;
 		this.lastTXNnum = n.addr;
-		this.commitQueue = this.n.addr == MASTER_NODE ? new HashMap<Integer, List<Command>>() : null;
-		this.waitingQueue = new HashMap<Integer, Commit>();
-		this.assumedCrashed = new HashSet<Integer>();
+		
+		if(this.n.addr == MASTER_NODE){
+			this.paxos = new PaxosLayer(this);
+			this.commitQueue = new HashMap<Integer, List<Command>>();
+			this.waitingQueue = new HashMap<Integer, Commit>();
+			this.assumedCrashed = new HashSet<Integer>();
+		}
 	}
 	
 	public void send(int server, int protocol, byte[] payload) {
@@ -58,7 +68,9 @@ public class TransactionLayer {
 	
 	public void onReceive(int from, byte[] payload) {
 		TXNPacket packet = TXNPacket.unpack(payload);
-		if(this.n.addr == MASTER_NODE){
+		if(packet.getProtocol() == TXNProtocol.PAXOS){
+			this.paxos.onReceive(from, packet.getPayload());
+		}else if(this.n.addr == MASTER_NODE){
 			masterReceive(from, packet);
 		}else
 			slaveReceive(packet);
@@ -105,6 +117,10 @@ public class TransactionLayer {
 		}else{ //this is the client and we should just print out the message
 			if(pkt.getProtocol() == TXNProtocol.START)
 				this.txn = null;
+			else if(pkt.getProtocol() == TXNProtocol.WD || pkt.getProtocol() == TXNProtocol.ERROR){
+				this.send(dest, pkt.getProtocol(), pkt.getPayload());
+				return;
+			}
 			this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
 		}
 	}
@@ -120,7 +136,7 @@ public class TransactionLayer {
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
 				if(f.getState() == File.INV){ //the file doesn't exist on the server, return an error
-					String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
+					String payload = fileName + " " + Error.ERR_10;
 					this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 				}else if(!f.isCheckedOut()){ //The file hasn't been checked out by anyone, return the last committed version.
 					try{
@@ -130,7 +146,7 @@ public class TransactionLayer {
 						f.changePermissions(from, MasterFile.FREE);
 						this.send(from, TXNProtocol.WD, payload);
 					}catch(IOException e){
-						String payload = fileName + " " + DistNode.buildErrorString(this.n.addr, from, TXNProtocol.WQ, fileName, Error.ERR_10);
+						String payload = fileName + " " + Error.ERR_10;
 						this.send(from, TXNProtocol.ERROR, Utility.stringToByteArray(payload));
 					}
 				}else if(f.isWaiting()){ //The server is currently waiting for some WFs to return from clients. Enqueue this request to execute once they have returned.
@@ -249,6 +265,22 @@ public class TransactionLayer {
 				}
 				this.send(from, TXNProtocol.START, new byte[0]);
 				break;
+			case TXNProtocol.ABORT:
+				for(String fName : this.cache.keySet()){
+					f = (MasterFile)this.cache.get(fName);
+					f.abort(from);
+				}
+				for(Integer committer : waitingQueue.keySet()){
+					Commit com = waitingQueue.get(committer);
+					for(Integer dep : com){
+						if(dep == from){
+							this.commit(committer, com.getLog());
+							break;
+						}
+					}
+				}
+				this.send(from, TXNProtocol.ABORT, new byte[0]);
+				break;
 		}
 	}
 	
@@ -257,6 +289,10 @@ public class TransactionLayer {
 		
 		if(this.assumedCrashed.contains(client)){
 			this.assumedCrashed.remove(client);
+			for(String fName : this.cache.keySet()){
+				MasterFile f = (MasterFile)this.cache.get(fName);
+				f.commit(client);
+			}
 			this.send(client, TXNProtocol.ABORT, new byte[0]);
 		}else if( commands != null && size != commands.size()){
 			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(" " + Error.ERROR_STRINGS[Error.ERR_40]));
@@ -284,37 +320,42 @@ public class TransactionLayer {
 			this.waitingQueue.put(client, c);
 		}else{
 			//push changes to disk and put most recent version in memory in MasterFile
-			for(MasterFile f : log){
-				try{
-					int version = f.getVersion();
-					Update u = f.getInitialVersion(client);
-					String contents = u.contents;
-					boolean deleted = false;
-					
-					for(Command cmd : log.getCommands(f)){
-						 if(cmd.getType() == Command.CREATE){
-							 this.n.create(cmd.getFileName());
-						 }else if(cmd.getType() == Command.APPEND){
-							contents += cmd.getContents();
-							version++;
-						}else if(cmd.getType() == Command.PUT){
-							contents = cmd.getContents();
-							version++;
-						} else if(cmd.getType() == Command.DELETE ) {
-							f.setState(File.INV);
-							this.n.delete(f.getName());
-							deleted = true;
+			try{
+				Map<MasterFile, Update> updates = new HashMap<MasterFile, Update>();
+				for(MasterFile f : log){
+						int version = f.getVersion();
+						Update u = f.getInitialVersion(client);
+						String contents = u.contents;
+						boolean deleted = false;
+						
+						for(Command cmd : log.getCommands(f)){
+							 if(cmd.getType() == Command.CREATE){
+								 contents = "";
+								 deleted = false;
+								 version++;
+							 }else if(cmd.getType() == Command.APPEND){
+								contents += cmd.getContents();
+								version++;
+							}else if(cmd.getType() == Command.PUT){
+								contents = cmd.getContents();
+								version++;
+							} else if(cmd.getType() == Command.DELETE ) {
+								version++;
+								contents = "";
+								deleted = true;
+							}
 						}
-					}
-					if(!deleted)
-						this.n.write(f.getName(), contents, false, true);
-					
-					f.setVersion(version);
-					f.commit(client);
-				}catch(IOException e){
-					e.printStackTrace();
-					return;
+						if(!deleted)
+							updates.put(f, new Update(contents, version, client));
+						else
+							updates.put(f, new Update("", version, -1));
+						
 				}
+				this.n.write(".wh_log", Update.toString(updates), false, true);
+				this.pushUpdatesToDisk(updates);
+			}catch(IOException e){
+				e.printStackTrace();
+				return;
 			}
 			this.send(client, TXNProtocol.COMMIT, new byte[0]);
 			
@@ -334,6 +375,22 @@ public class TransactionLayer {
 				}
 			}
 		}
+	}
+	
+	public void pushUpdatesToDisk(Map<MasterFile, Update> updates) throws IOException{
+		for(MasterFile f : updates.keySet()){
+			Update u = updates.get(f);
+			if(u.source == -1){
+				f.setState(File.INV);
+				this.n.delete(f.getName());
+			}else{
+				f.setState(File.RW);
+				this.n.write(f.getName(), u.contents, false, true);
+			}
+			f.setVersion(u.version);
+			f.commit(u.source);
+		}
+		this.n.delete(".wh_log");
 	}
 	
 	private void slaveReceive(TXNPacket pkt){
@@ -395,10 +452,18 @@ public class TransactionLayer {
 				contents = contents.substring(i + 1);
 				
 				f = this.getFileFromCache(fileName);
-				f.execute();
-				this.n.printError(contents);
+				c = (Command)f.execute();
+				try{
+					int code = Integer.parseInt(contents.trim());
+					this.n.printError(c, code);
+				}catch(Exception e){
+					this.n.printError(contents);
+				}
+				executeCommandQueue(f);
+				break;
 			case TXNProtocol.START:
 				this.txn.isStarted = true;
+				this.n.printData("Success: Transaction Started");
 				break;
 		}
 	}
@@ -507,12 +572,17 @@ public class TransactionLayer {
 	}
 	
 	private boolean create(Command c, File f){
-		if(f.getState() == File.INV){
+		if(f.getState() == File.INV && !this.txn.isDeleted(f)){
 			this.send(MASTER_NODE, TXNProtocol.CREATE, Utility.stringToByteArray(f.getName()));
 			return false;
 		}else{
 			f.execute();
-			txnExecute();
+			if(this.txn.isDeleted(f)){
+				this.txn.add(c);
+				f.setState(File.RW);
+			}else
+				this.n.printError(c, Error.ERR_11);
+			this.txnExecute();
 			return true;
 		}
 	}
@@ -603,13 +673,15 @@ public class TransactionLayer {
 	}
 
 	public void abort(boolean notifyServer) {
-		if( assertTXNStarted() ){
+		if( (this.txn == null || !this.txn.isStarted) && notifyServer ){
+			this.assertTXNStarted();
+		}else{
 			this.txn = null;
 			this.cache.clear();
 			if(notifyServer)
 				this.send(MASTER_NODE, TXNProtocol.ABORT, new byte[0]);
 			else
-				this.n.printError("Error on node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
+				this.n.printError("Node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
 		}
 	}
 	
@@ -680,7 +752,7 @@ public class TransactionLayer {
 			this.n.printError("ERROR: No transaction in progress on node " + this.n.addr + " : please start new transaction");
 			return false;
 		}else if(!this.txn.isStarted){
-			this.n.printError("ERROR: Transaction currently starting on node " + this.n.addr + " : please wait until it finishes.");
+			this.n.printError("ERROR: Could not execute command. Transaction currently starting on node " + this.n.addr + " : please wait until it finishes.");
 			return false;
 		}
 		return true;
@@ -694,7 +766,7 @@ public class TransactionLayer {
 		return true;
 	}
 	
-	private File getFileFromCache(String fileName) {
+	public File getFileFromCache(String fileName) {
 		File f = this.cache.get(fileName);
 		
 		if(f == null){
@@ -705,7 +777,7 @@ public class TransactionLayer {
 		return f;
 	}
 
-	public void setCache(HashSet<String> fileList) {
+	public void setupCache(HashSet<String> fileList) {
 		for(String fileName : fileList){
 			File f = getFileFromCache(fileName);
 			f.setState(File.RW);

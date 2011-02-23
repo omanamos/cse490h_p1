@@ -9,8 +9,8 @@ public class TXNProtocol extends Protocol {
 	public static final int ERROR = 12;
 	public static final int HB = 13;
 	public static final int CREATE = 14;
-	public static final int DELETE = 15;
 	public static final int START = 16;
+	public static final int PAXOS = 17;
 	
 	/**
 	 * Tests if this is a valid protocol for a Packet
@@ -25,7 +25,7 @@ public class TXNProtocol extends Protocol {
 	
 	public static boolean isTXNProtocol(int p){
 		return p == WQ || p == WD || p == WF || p == COMMIT || p == ABORT || p == COMMIT_DATA || p == ERROR
-			|| p == CREATE || p == DELETE || p == HB || p == START;
+			|| p == CREATE || p == HB || p == START;
 	}
 
 	/**
@@ -47,7 +47,6 @@ public class TXNProtocol extends Protocol {
 		case COMMIT_DATA: return "commit data";
 		case ERROR: return "error";
 		case CREATE: return "create";
-		case DELETE: return "delete";
 		case HB: return "heartbeat";
 		case START: return "start";
 		default:

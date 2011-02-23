@@ -41,6 +41,8 @@ public class MasterFile extends File implements Iterable<Integer>{
 	
 	public void abort(int client){
 		this.initalVersions.remove(client);
+		this.filePermissions.remove(client);
+		this.dependencies.remove(client);
 		for(Integer r : this.dependencies.keySet()){
 			if(this.dependencies.get(r) == client){
 				this.dependencies.remove(r);

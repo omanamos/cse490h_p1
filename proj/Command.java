@@ -6,7 +6,7 @@ public class Command extends Queueable{
 	public static final int APPEND = 3;
 	public static final int DELETE = 4;
 	public static final int UPDATE = 5;
-	private static final String[] toS = {"Create", "Get", "Put", "Append", "Delete", "Update"};
+	public static final String[] toS = {"Create", "Get", "Put", "Append", "Delete", "Update"};
 	
 	private int type;
 	private File f;
@@ -63,6 +63,17 @@ public class Command extends Queueable{
 	}
 	
 	public String toString(){
-		return toS[this.type];
+		if(this.type == PUT || this.type == APPEND)
+			return toS[this.type] + " " + this.f.getName() + " " + this.contents.replaceAll("\n", "\\n");
+		else
+			return toS[this.type] + " " + this.f.getName();
+	}
+	
+	public static String toString(int type){
+		try{
+			return Command.toS[type];
+		}catch(Exception e){
+			return TXNProtocol.protocolToString(type);
+		}
 	}
 }

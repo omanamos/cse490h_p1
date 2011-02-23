@@ -11,8 +11,10 @@ public class Log implements Iterable<MasterFile>{
 	private Map<MasterFile, List<Command>> lookup;
 	private Map<MasterFile, Boolean> reads;
 	private Map<MasterFile, Boolean> writes;
+	private List<Command> log;
 	
 	public Log(int client, List<Command> log){
+		this.log = log;
 		files = new ArrayList<MasterFile>();
 		reads = new HashMap<MasterFile, Boolean>();
 		writes = new HashMap<MasterFile, Boolean>();
@@ -38,7 +40,7 @@ public class Log implements Iterable<MasterFile>{
 					writes.put(f, true);
 					break;
 				case Command.UPDATE:
-					startingVersions.put(f, f.getInitialVersion(client).version);
+					startingVersions.put(f, Integer.parseInt(c.getContents()));
 					files.add(f);
 					reads.put(f, false);
 					writes.put(f, false);
@@ -65,5 +67,13 @@ public class Log implements Iterable<MasterFile>{
 	
 	public int getInitialVersion(MasterFile f){
 		return this.startingVersions.get(f);
+	}
+	
+	public String buildWHLog(){
+		String rtn = "";
+		for(Command c : this.log){
+			rtn += c.toString() + "\n";
+		}
+		return rtn;
 	}
 }

@@ -4,50 +4,23 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class TXNPacket extends Queueable{
 
-	public static final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 1;
+public class PaxosPacket extends TXNPacket {
+
+	public static final int HEADER_SIZE = 5;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
-
-	protected int protocol;
 	
-	protected byte[] payload;
-
-	/**
-	 * Constructing a new RIO packet.
-	 * @param protocol The type of packet
-	 * @param seqNum The sequence number of the packet
-	 * @param payload The payload of the packet.
-	 * @param sessionId The sessionId between the sender and receiver
-	 */
-	public TXNPacket(int protocol, byte[] payload) throws IllegalArgumentException {
-		this(protocol, payload, MAX_PAYLOAD_SIZE, !TXNProtocol.isTXNProtocol(protocol));
+	private int proposalNumber;
+	
+	public PaxosPacket(int protocol, int proposalNumber, byte[] payload){
+		super(protocol, payload, MAX_PAYLOAD_SIZE, !PaxosProtocol.isPaxosProtocol(protocol));
+		this.proposalNumber = proposalNumber;
 	}
 	
-	protected TXNPacket(int protocol, byte[] payload, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
-		if (hasInvalidProtocol) {
-			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol: " + protocol);
-		}else if(payload.length > maxPayloadSize){
-			throw new IllegalArgumentException("Illegal arguments given to Packet: Payload to large");
-		}
-		this.protocol = protocol;
-		this.payload = payload;
-	}
-
-	/**
-	 * @return The protocol number
-	 */
-	public int getProtocol() {
-		return this.protocol;
+	public int getProposalNumber(){
+		return this.proposalNumber;
 	}
 	
-	/**
-	 * @return The payload
-	 */
-	public byte[] getPayload() {
-		return this.payload;
-	}
 	/**
 	 * Convert the RIOPacket packet object into a byte array for sending over the wire.
 	 * Format:
@@ -62,6 +35,7 @@ public class TXNPacket extends Queueable{
 			DataOutputStream out = new DataOutputStream(byteStream);
 
 			out.writeByte(this.protocol);
+			out.writeInt(proposalNumber);
 			
 			out.write(payload, 0, payload.length);
 
@@ -79,16 +53,17 @@ public class TXNPacket extends Queueable{
 	 * @param packet String representation of the transport packet
 	 * @return RIOPacket object created or null if the byte[] representation was corrupted
 	 */
-	public static TXNPacket unpack(byte[] packet) {
+	public static PaxosPacket unpack(byte[] packet) {
 		try {
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
 			int protocol = in.readByte();
+			int proposalNumber = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			in.read(payload, 0, payload.length);
 
-			return new TXNPacket(protocol, payload);
+			return new PaxosPacket(protocol, proposalNumber, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

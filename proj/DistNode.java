@@ -7,10 +7,21 @@ import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 
 public class DistNode extends RIONode {
-	
+	/**
+	 * Failure rate functions that designate probability of an event happening.
+	 * The student may hide these by implementing static methods with the same
+	 * signature in their own node class. 0<=p<=1.
+	 */
+	public static double getFailureRate() { return 0 / 100.0; }
+	public static double getRecoveryRate() { return 100.0 / 100.0; }
+	public static double getDropRate() { return 0 / 100.0; }
+	public static double getDelayRate() { return 0 / 100.0; }
 	
 	private HashSet<String> fileList;
 	
+	/*========================================
+	 * START FILE INTERFACE METHODS
+	 *========================================*/
 	public String get(String fileName) throws IOException{
 		PersistentStorageReader r = this.getReader(fileName);
 		String file = "";
@@ -24,24 +35,25 @@ public class DistNode extends RIONode {
 	
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
-		if(fileExists(fileName) || force)
+		if(fileExists(fileName) || force){
+			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.contains(fileName) && !fileName.startsWith(".")){
+				fileList.add(fileName);
+				this.getWriter(".l", true).write(fileName + "\n");
+			}
 			if(!append)
 				putFile(fileName, content, force);
 			else
 				this.getWriter(fileName, true).write(content);
-		else 
+		}else 
 			throw new IOException();
 	}
 	
 	public void create(String fileName) throws IOException {
 		this.getWriter(fileName, false).write("");
-		if(this.addr == TransactionLayer.MASTER_NODE){
-			if(!fileList.contains(fileName)){
-				fileList.add(fileName);
-				this.getWriter(".l", true).write(fileName + "\n");
-			}
+		if(this.addr == TransactionLayer.MASTER_NODE && !fileList.contains(fileName)){
+			fileList.add(fileName);
+			this.getWriter(".l", true).write(fileName + "\n");
 		}
-			
 	}
 	
 	public void delete(String fileName) throws IOException {
@@ -51,7 +63,7 @@ public class DistNode extends RIONode {
 				fileList.remove(fileName);
 				String contents = "";
 				for(String file : fileList){
-					contents.concat(file + "\n");
+					contents += file + "\n";
 				}
 				putFile(".l", contents, true);
 			}
@@ -59,35 +71,13 @@ public class DistNode extends RIONode {
 			throw new IOException();
 	}
 	
-	public void printError(Command c, int errCode){
-		System.out.println(buildErrorString(c.getDest(), this.addr, c.getType(), c.getFileName(), errCode));
-	}
+	/*========================================
+	 * END FILE INTERFACE METHODS
+	 *========================================*/
 	
-	public void printError(String msg){
-		System.out.println(msg);
-	}
-	
-	/**
-	 * Prints out an error in the following form Node #{addr}: Error: #{protocol} on server #{server} and file #{fileName} returned error code #{code}"
-	 * @param server server node
-	 * @param client client node
-	 * @param protocol protocol used
-	 * @param fileName name of file in command
-	 * @param code error code returned as defined by Error class
-	 */
-	public static String buildErrorString(int server, int client, int protocol, String fileName, int code){
-		return "Node " + client + ": Error: " + TXNProtocol.protocolToString(protocol) + " on server " + 
-						server + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
-	}
-	
-	public void printData(String data){
-		System.out.println(data);
-	}
-	
-	public void printSuccess(Command c){
-		System.out.println("Success: Command - " + c + " executed succesfully on file: " + c.getFileName() );
-	}
-	
+	/*========================================
+	 * START FILE UTILS
+	 *========================================*/
 	/**
 	 * Handles the special case of replacing a file's contents with PUT
 	 * @param fileName The name of the file to overwrite
@@ -124,7 +114,6 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	
 	/**
 	 * Copies the file in r to the file in w, appending start to the beginning of the file
 	 * @param r Buffer to read from - source
@@ -142,12 +131,54 @@ public class DistNode extends RIONode {
 		w.write(file);
 	}
 	
+	/*========================================
+	 * END FILE UTILS
+	 *========================================*/
+	
+	
+	/*========================================
+	 * START OUTPUT METHODS
+	 *========================================*/
+	public void printError(Command c, int errCode){
+		System.out.println(buildErrorString(c.getDest(), this.addr, c.getType(), c.getFileName(), errCode));
+	}
+	
+	public void printError(String msg){
+		System.out.println(msg);
+	}
+	
+	/**
+	 * Prints out an error in the following form Node #{addr}: Error: #{protocol} on server #{server} and file #{fileName} returned error code #{code}"
+	 * @param server server node
+	 * @param client client node
+	 * @param protocol protocol used
+	 * @param fileName name of file in command
+	 * @param code error code returned as defined by Error class
+	 */
+	public static String buildErrorString(int server, int client, int protocol, String fileName, int code){
+		return "Node " + client + ": Error: " + Command.toString(protocol) + " on server " + 
+						server + " and file " + fileName + " returned error code " + Error.ERROR_STRINGS[code];
+	}
+	
+	public void printData(String data){
+		System.out.println(data);
+	}
+	
+	public void printSuccess(Command c){
+		System.out.println("Success: Command - " + c + " executed succesfully on file: " + c.getFileName() );
+	}
+	
+	/*========================================
+	 * END OUTPUT METHODS
+	 *========================================*/
+	
 	@Override
 	/**
 	 * Starts up the node. Checks for unfinished PUT commands.
 	 */
 	public void start() {
-		fileList = new HashSet<String>();
+		
+		//PUT RECOVERY
 		if(fileExists(".temp")){
 			try{
 				PersistentStorageReader tempR = this.getReader(".temp");
@@ -163,6 +194,9 @@ public class DistNode extends RIONode {
 				e.printStackTrace();
 			}
 		}
+		
+		//CACHE RECOVERY ON MASTER NODE
+		this.fileList = new HashSet<String>();
 		if(this.addr == TransactionLayer.MASTER_NODE){
 			if(!fileExists(".l")){
 				try {
@@ -186,9 +220,19 @@ public class DistNode extends RIONode {
 					e.printStackTrace();
 				}
 			}
-			this.TXNLayer.setCache(fileList);
+			this.TXNLayer.setupCache(fileList);
 		}
-			
+		
+		//WRITE AHEAD LOG RECOVERY - ON COMMITS
+		if(this.addr == TransactionLayer.MASTER_NODE){
+			if(this.fileExists(".wh_log")){
+				try {
+					this.TXNLayer.pushUpdatesToDisk(Update.fromString(this.TXNLayer, this.getReader(".wh_log")));
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
 	}
 
 	@Override

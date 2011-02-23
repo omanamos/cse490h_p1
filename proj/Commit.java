@@ -19,7 +19,7 @@ public class Commit implements Iterable<Integer>{
 		this.wait = new HashSet<Integer>();
 		for(MasterFile f : log){
 			int dep = f.getDep(client);
-			if(assumedCrashed.contains(dep) || dep == -1 && log.hasReads(f)){
+			if(f.getPermissions(client) == File.INV || f.getState() == File.INV || assumedCrashed.contains(dep) || dep == -1 && log.hasReads(f)){
 				//Dep transaction aborted -> this one must also abort
 				this.abort = true;
 				return;
