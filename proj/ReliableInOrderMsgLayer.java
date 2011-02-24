@@ -1,8 +1,10 @@
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 
 import edu.washington.cs.cse490h.lib.Callback;
@@ -20,9 +22,9 @@ public class ReliableInOrderMsgLayer {
 	public final static int TIMEOUT = 2;
 	public final static int MAX_RETRY = 1;
 	
-	private HashMap<Integer, InChannel> inConnections;
-	private HashMap<Integer, OutChannel> outConnections;
-	private RIONode n;
+	private Map<Integer, InChannel> inConnections;
+	private Map<Integer, OutChannel> outConnections;
+	private DistNode n;
 	private TransactionLayer TXNLayer;
 	private int nextSessionId = 0;
 
@@ -39,7 +41,11 @@ public class ReliableInOrderMsgLayer {
 	public ReliableInOrderMsgLayer(RIONode n) {
 		inConnections = new HashMap<Integer, InChannel>();
 		outConnections = new HashMap<Integer, OutChannel>();
-		this.n = n;
+		this.n = (DistNode)n;
+	}
+	
+	public void addConnections(Map<Integer, InChannel> connections){
+		this.inConnections.putAll(connections);
 	}
 	
 	public void setTXNLayer(TransactionLayer TXNLayer){
@@ -66,6 +72,16 @@ public class ReliableInOrderMsgLayer {
 		this.sendAck(from, pkt.getSeqNum());
 		
 		LinkedList<RIOPacket> toBeDelivered = in.gotPacket(pkt);
+		
+		String content = "";
+		for(Integer addr : this.inConnections.keySet()){
+			content += this.inConnections.get(addr);
+		}
+		try {
+			this.n.write(".sessions", content, false, true);
+		} catch (IOException e) {
+			this.n.printError("Fatal Error: Could not update .sessions file");
+		}
 		
 		for(RIOPacket p: toBeDelivered) {
 			// deliver in-order the next sequence of packets
@@ -115,6 +131,11 @@ public class ReliableInOrderMsgLayer {
 		InChannel in = inConnections.get(from);
 		if(in == null){
 			in = new InChannel(n, from, nextSessionId);
+			try {
+				this.n.write(".sessions", in.toString(), true, true);
+			} catch (IOException e) {
+				this.n.printError("Fatal Error: could not write session to disk");
+			}
 			inConnections.put(from, in);
 			nextSessionId++;
 		}
@@ -138,19 +159,6 @@ public class ReliableInOrderMsgLayer {
 		System.out.println("Node " + this.n.addr + ": Error: Session expired on server " + from);
 	}
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	/**
 	 * SERVER METHOD<br>
 	 * Called when the server receives a packet with an expired/invalid sessionId
@@ -170,20 +178,6 @@ public class ReliableInOrderMsgLayer {
 		this.n.send(from, Protocol.ACK, Utility.stringToByteArray(seqNum + ""));
 	}
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 	/**
 	 * CLIENT METHOD<br>
 	 * Receive an acknowledgment packet.
@@ -195,7 +189,8 @@ public class ReliableInOrderMsgLayer {
 	 */
 	public void receiveAck(int from, byte[] msg) {
 		int seqNum = Integer.parseInt(Utility.byteArrayToString(msg));
-		outConnections.get(from).receiveAck(seqNum);
+		byte[] payload = outConnections.get(from).receiveAck(seqNum);
+		this.TXNLayer.onAck(from, payload);
 	}
 
 	/**
@@ -253,8 +248,6 @@ public class ReliableInOrderMsgLayer {
 		StringBuffer sb = new StringBuffer();
 		for(Integer i: inConnections.keySet()) {
 			sb.append(inConnections.get(i).toString() + "\n");
-			
-			
 		}
 		
 		return sb.toString();
@@ -272,12 +265,16 @@ class InChannel {
 	private HashMap<Integer, RIOPacket> outOfOrderMsgs;
 	private int sessionId;
 	
-	InChannel(RIONode n, int sourceAddr, int nextSessionId){
+	InChannel(RIONode n, int sourceAddr, int sessionID){
+		this(n, sourceAddr, sessionID, -1);
+	}
+	
+	InChannel(RIONode n, int sourceAddr, int sessionID, int lastSeqNumDelivered){
 		this.n = n;
 		this.sourceAddr = sourceAddr;
-		lastSeqNumDelivered = -1;
+		this.lastSeqNumDelivered = lastSeqNumDelivered;
 		outOfOrderMsgs = new HashMap<Integer, RIOPacket>();
-		sessionId = nextSessionId;
+		sessionId = sessionID;
 	}
 
 	/**
@@ -339,7 +336,7 @@ class InChannel {
 	
 	@Override
 	public String toString() {
-		return "last delivered: " + lastSeqNumDelivered + ", outstanding: " + outOfOrderMsgs.size();
+		return this.n.addr + " " + this.sessionId + " " + this.lastSeqNumDelivered + "\n";
 	}
 }
 
@@ -488,14 +485,16 @@ class OutChannel {
 	 * @param seqNum
 	 *            The sequence number that was just ACKed
 	 */
-	protected void receiveAck(int seqNum) {
+	protected byte[] receiveAck(int seqNum) {
 		this.pktRetries.remove(seqNum);
 		RIOPacket p = unACKedPackets.remove(seqNum);
 		if(p != null){
 			TXNPacket pkt = TXNPacket.unpack(p.getPayload());
 			if(pkt != null && pkt.getProtocol() == TXNProtocol.HB && heartbeat)
 				this.sendRIOPacket(Protocol.TXN, p.getPayload());
+			return p.getPayload();
 		}
+		return null;
 	}
 	
 	/**

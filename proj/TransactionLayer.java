@@ -57,9 +57,6 @@ public class TransactionLayer {
 	
 	public void send(int server, int protocol, byte[] payload) {
 		TXNPacket pkt = new TXNPacket(protocol, timeout.nextSeqNum(), payload);
-		if(protocol == TXNProtocol.WQ){
-			timeout.createTimeoutListener(pkt);
-		}
 		this.RIOLayer.sendRIO(server, Protocol.TXN, pkt.pack());
 	}
 	
@@ -70,6 +67,12 @@ public class TransactionLayer {
 	 */
 	public void setHB(int dest, boolean heartbeat){
 		this.RIOLayer.setHB(dest, heartbeat);
+	}
+	
+	public void onAck(int from, byte[] payload){
+		TXNPacket pkt = TXNPacket.unpack(payload);
+		
+		this.timeout.createTimeoutListener(pkt);
 	}
 	
 	public void onReceive(int from, byte[] payload) {

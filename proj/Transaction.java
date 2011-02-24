@@ -69,12 +69,6 @@ public class Transaction implements Iterable<Command> {
 		return this.log.iterator();
 	}
 	
-	public byte[] buildCommit(){
-		byte[] rtn = new byte[0];
-		//TODO: build byte array of this.log
-		return rtn;
-	}
-	
 	public int getVersion(File f){
 		int version = f.getVersion();
 		for(Command c : this.fileLog.get(f)){
@@ -96,6 +90,27 @@ public class Transaction implements Iterable<Command> {
 			}
 		}
 		return Utility.stringToByteArray(f.getName() + " " + version + " " + contents);
+	}
+	
+	public byte[] buildCommit(){
+		String payload = "";
+		
+		for(Command c : this){
+			payload += c + "#";
+		}
+		
+		return Utility.stringToByteArray(payload.substring(0, payload.length() - 1));
+	}
+	
+	public static Transaction fromByteArray(int txnNum, byte[] arr){
+		Transaction txn = new Transaction(txnNum);
+		String payload = Utility.byteArrayToString(arr);
+		
+		for(String command : payload.split("#")){
+			
+		}
+		
+		return txn;
 	}
 	
 }

@@ -1,6 +1,8 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
@@ -177,6 +179,28 @@ public class DistNode extends RIONode {
 	 * Starts up the node. Checks for unfinished PUT commands.
 	 */
 	public void start() {
+		
+		//SESSION RECOVERY
+		if(fileExists(".sessions")){
+			try{
+				Map<Integer, InChannel> sessions = new HashMap<Integer, InChannel>();
+				PersistentStorageReader reader = this.getReader(".temp");
+				String session = reader.readLine();
+				
+				while(session != null){
+					String[] parts = session.split(" ");
+					Integer addr = Integer.parseInt(parts[0]);
+					Integer sessionID = Integer.parseInt(parts[1]);
+					Integer lastSeqNum = Integer.parseInt(parts[2]);
+					sessions.put(addr, new InChannel(this, addr, sessionID, lastSeqNum));
+				}
+				
+				this.RIOLayer.addConnections(sessions);
+				
+			}catch(IOException e){
+				e.printStackTrace();
+			}
+		}
 		
 		//PUT RECOVERY
 		if(fileExists(".temp")){
