@@ -387,7 +387,7 @@ class OutChannel {
 	
 	protected void startHB(){
 		this.heartbeat = true;
-		this.sendRIOPacket(Protocol.TXN, new TXNPacket(TXNProtocol.HB, new byte[0]).pack());
+		this.sendRIOPacket(Protocol.TXN, new TXNPacket(TXNProtocol.HB, 0, new byte[0]).pack());
 	}
 	
 	protected void stopHB(){
@@ -477,7 +477,7 @@ class OutChannel {
 					lastSequence = true;
 			}
 			establishSession();
-			n.TXNLayer.onTimeout(this.destAddr, pkt.getPayload());
+			n.TXNLayer.onRIOTimeout(this.destAddr, pkt.getPayload());
 		}
 	}
 	

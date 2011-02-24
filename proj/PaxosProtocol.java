@@ -18,7 +18,7 @@ public class PaxosProtocol {
 	}
 	
 	public static boolean isPaxosProtocol(int p){
-		return p == PREPARE || p == PROPOSE || p == ACCEPT || p == LEARN;
+		return p == PREPARE || p == PROPOSE || p == ACCEPT || p == LEARN || p == PROMISE;
 	}
 
 	/**
@@ -36,6 +36,7 @@ public class PaxosProtocol {
 		case PROPOSE: return "propose";
 		case ACCEPT: return "accept";
 		case LEARN: return "learn";
+		case PROMISE: return "promise";
 		default:
 			return Protocol.protocolToString(protocol);
 		}

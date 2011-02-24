@@ -13,7 +13,7 @@ public class PaxosPacket extends TXNPacket {
 	private int proposalNumber;
 	
 	public PaxosPacket(int protocol, int proposalNumber, byte[] payload){
-		super(protocol, payload, MAX_PAYLOAD_SIZE, !PaxosProtocol.isPaxosProtocol(protocol));
+		super(protocol, 0, payload, MAX_PAYLOAD_SIZE, !PaxosProtocol.isPaxosProtocol(protocol));
 		this.proposalNumber = proposalNumber;
 	}
 	

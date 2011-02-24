@@ -36,6 +36,8 @@ public class TransactionLayer {
 	 * value = commit status
 	 */
 	private Map<Integer, Commit> waitingQueue;
+
+	private TimeoutManager timeout;
 	
 	
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
@@ -43,6 +45,7 @@ public class TransactionLayer {
 		this.n = (DistNode)n;
 		this.RIOLayer = RIOLayer;
 		this.lastTXNnum = n.addr;
+		this.timeout = new TimeoutManager(5, this.n, this);
 		
 		if(this.n.addr == MASTER_NODE){
 			this.paxos = new PaxosLayer(this);
@@ -53,7 +56,10 @@ public class TransactionLayer {
 	}
 	
 	public void send(int server, int protocol, byte[] payload) {
-		TXNPacket pkt = new TXNPacket(protocol, payload);
+		TXNPacket pkt = new TXNPacket(protocol, timeout.nextSeqNum(), payload);
+		if(protocol == TXNProtocol.WQ){
+			timeout.createTimeoutListener(pkt);
+		}
 		this.RIOLayer.sendRIO(server, Protocol.TXN, pkt.pack());
 	}
 	
@@ -81,7 +87,7 @@ public class TransactionLayer {
 	 * @param dest
 	 * @param payload
 	 */
-	public void onTimeout(int dest, byte[] payload){
+	public void onRIOTimeout(int dest, byte[] payload){
 		TXNPacket pkt = TXNPacket.unpack(payload);
 		if(this.n.addr == MASTER_NODE){ //This is the server
 			if(pkt.getProtocol() == TXNProtocol.HB){
