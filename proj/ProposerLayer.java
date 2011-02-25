@@ -15,7 +15,7 @@ public class ProposerLayer {
 	public ProposerLayer(PaxosLayer paxosLayer) {
 		this.paxosLayer = paxosLayer;
 		this.promises = 0;
-		this.majority = paxosLayer.ACCEPTORS.length/2 + 1;
+		this.majority = PaxosLayer.ACCEPTORS.length / 2 + 1;
 		this.proposalNumber = 0;
 		//TODO: fill gaps!!!, read from disk!!!
 		this.instanceNumber = 0;
@@ -38,8 +38,8 @@ public class ProposerLayer {
 	}
 	
 	private PaxosPacket createProposal() {
-		// TODO Auto-generated method stub
-		return new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, null, this.instanceNumber);
+		// TODO shouldn't pass empty byte arr, should be value
+		return new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, this.instanceNumber, new byte[0]);
 	}
 
 	public void recievedCommit(int from, Commit commit){

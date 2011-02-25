@@ -184,8 +184,9 @@ public class DistNode extends RIONode {
 		if(fileExists(".sessions")){
 			try{
 				Map<Integer, InChannel> sessions = new HashMap<Integer, InChannel>();
-				PersistentStorageReader reader = this.getReader(".temp");
+				PersistentStorageReader reader = this.getReader(".sessions");
 				String session = reader.readLine();
+				int maxSessionID = -1;
 				
 				while(session != null){
 					String[] parts = session.split(" ");
@@ -193,9 +194,11 @@ public class DistNode extends RIONode {
 					Integer sessionID = Integer.parseInt(parts[1]);
 					Integer lastSeqNum = Integer.parseInt(parts[2]);
 					sessions.put(addr, new InChannel(this, addr, sessionID, lastSeqNum));
+					session = reader.readLine();
+					maxSessionID = Math.max(sessionID, maxSessionID);
 				}
 				
-				this.RIOLayer.addConnections(sessions);
+				this.RIOLayer.addConnections(sessions, maxSessionID);
 				
 			}catch(IOException e){
 				e.printStackTrace();

@@ -1,3 +1,5 @@
+import java.util.Map;
+
 import edu.washington.cs.cse490h.lib.Utility;
 
 
@@ -35,26 +37,12 @@ public class Command extends Queueable{
 		this.contents = contents;
 	}
 	
-	public Command(int type, String fileName){
-		return this.
-	}
-	
-	public Command(int type, String fileName, String contents){
-		if(!this.isValidType(type)){
-			throw new IllegalArgumentException("Invalid Command Type: " + type);
-		}
-		
-		this.type = type;
-		this.fileName = fileName;
-		this.contents = contents;
-	}
-	
 	public int getType(){
 		return this.type;
 	}
 	
 	public String getFileName(){
-		return this.f.getName();
+		return this.f == null ? this.fileName : this.f.getName();
 	}
 	
 	public File getFile(){
@@ -79,13 +67,13 @@ public class Command extends Queueable{
 		for(byte b : tmp){
 			contents += b + ",";
 		}
-		contents += contents.length() == 1 ? "" : contents.substring(0, contents.length() - 1) + "]";
+		contents = contents.length() == 1 ? contents + "]" : contents.substring(0, contents.length() - 1) + "]";
 		
 		return this.type + " " + this.f.getName() + " " + contents;
 	}
 	
-	public Command fromByteArray(byte[] arr){
-		String[] command = Utility.byteArrayToString(arr).split(" ");
+	public static Command fromByteArray(String str, Map<String, File> cache){
+		String[] command = str.split(" ");
 		int type = Integer.parseInt(command[0]);
 		String fileName = command[1];
 		
@@ -96,15 +84,16 @@ public class Command extends Queueable{
 			for(int i = 0; i < bsa.length; i++){
 				ba[i] = Byte.parseByte(bsa[i]);
 			}
-			
+			return new Command(TransactionLayer.MASTER_NODE, type, cache.get(fileName), Utility.byteArrayToString(ba));
 		}
+		return new Command(TransactionLayer.MASTER_NODE, type, cache.get(fileName));
 	}
 	
 	public String toString(){
 		if(this.type == PUT || this.type == APPEND)
-			return toS[this.type] + " " + this.f.getName() + " " + this.contents.replaceAll("\n", "\\n");
+			return toS[this.type] + " " + this.getFileName() + " " + this.contents.replaceAll("\n", "\\n");
 		else
-			return toS[this.type] + " " + this.f.getName();
+			return toS[this.type] + " " + this.getFileName();
 	}
 	
 	public static String toString(int type){

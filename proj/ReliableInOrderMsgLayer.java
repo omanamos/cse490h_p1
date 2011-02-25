@@ -26,7 +26,7 @@ public class ReliableInOrderMsgLayer {
 	private Map<Integer, OutChannel> outConnections;
 	private DistNode n;
 	private TransactionLayer TXNLayer;
-	private int nextSessionId = 0;
+	private int nextSessionId;
 
 	/**
 	 * Constructor.
@@ -42,9 +42,11 @@ public class ReliableInOrderMsgLayer {
 		inConnections = new HashMap<Integer, InChannel>();
 		outConnections = new HashMap<Integer, OutChannel>();
 		this.n = (DistNode)n;
+		this.nextSessionId = 0;
 	}
 	
-	public void addConnections(Map<Integer, InChannel> connections){
+	public void addConnections(Map<Integer, InChannel> connections, int maxSessionID){
+		this.nextSessionId = maxSessionID + 1;
 		this.inConnections.putAll(connections);
 	}
 	
@@ -139,7 +141,6 @@ public class ReliableInOrderMsgLayer {
 			inConnections.put(from, in);
 			nextSessionId++;
 		}
-		in.restart();
 		in.returnSessionPacket(SessionProtocol.ACK_SESSION, Utility.stringToByteArray(in.getSessionId() + " " + in.getLastSeqNumDelivered()));
 	}
 	
@@ -190,7 +191,8 @@ public class ReliableInOrderMsgLayer {
 	public void receiveAck(int from, byte[] msg) {
 		int seqNum = Integer.parseInt(Utility.byteArrayToString(msg));
 		byte[] payload = outConnections.get(from).receiveAck(seqNum);
-		this.TXNLayer.onAck(from, payload);
+		if(payload != null)
+			this.TXNLayer.onAck(from, payload);
 	}
 
 	/**
@@ -336,7 +338,7 @@ class InChannel {
 	
 	@Override
 	public String toString() {
-		return this.n.addr + " " + this.sessionId + " " + this.lastSeqNumDelivered + "\n";
+		return this.sourceAddr + " " + this.sessionId + " " + this.lastSeqNumDelivered + "\n";
 	}
 }
 

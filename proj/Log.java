@@ -11,17 +11,17 @@ public class Log implements Iterable<MasterFile>{
 	private Map<MasterFile, List<Command>> lookup;
 	private Map<MasterFile, Boolean> reads;
 	private Map<MasterFile, Boolean> writes;
-	private List<Command> log;
+	private Transaction txn;
 	
-	public Log(int client, List<Command> log){
-		this.log = log;
+	public Log(int client, Transaction txn){
+		this.txn = txn;
 		files = new ArrayList<MasterFile>();
 		reads = new HashMap<MasterFile, Boolean>();
 		writes = new HashMap<MasterFile, Boolean>();
 		lookup = new HashMap<MasterFile, List<Command>>();
 		startingVersions = new HashMap<MasterFile, Integer>();
 		
-		for(Command c : log){
+		for(Command c : txn){
 			MasterFile f = (MasterFile)c.getFile();
 			if(!lookup.containsKey(f))
 				lookup.put(f, new ArrayList<Command>());
@@ -71,7 +71,7 @@ public class Log implements Iterable<MasterFile>{
 	
 	public String buildWHLog(){
 		String rtn = "";
-		for(Command c : this.log){
+		for(Command c : this.txn){
 			rtn += c.toString() + "\n";
 		}
 		return rtn;
