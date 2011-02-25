@@ -1,3 +1,5 @@
+import edu.washington.cs.cse490h.lib.Utility;
+
 
 public class Command extends Queueable{
 	public static final int CREATE = 0;
@@ -12,6 +14,7 @@ public class Command extends Queueable{
 	private File f;
 	private int dest;
 	private String contents;
+	private String fileName;
 	
 	public Command(int dest, int type, File f) throws IllegalArgumentException{
 		this(dest, type, f, null);
@@ -29,6 +32,20 @@ public class Command extends Queueable{
 				contents = contents.substring(1, contents.length() - 1);
 			contents = contents.replaceAll("\\\\n", "\n");
 		}
+		this.contents = contents;
+	}
+	
+	public Command(int type, String fileName){
+		return this.
+	}
+	
+	public Command(int type, String fileName, String contents){
+		if(!this.isValidType(type)){
+			throw new IllegalArgumentException("Invalid Command Type: " + type);
+		}
+		
+		this.type = type;
+		this.fileName = fileName;
 		this.contents = contents;
 	}
 	
@@ -56,10 +73,31 @@ public class Command extends Queueable{
 		return t == CREATE || t == GET || t == PUT || t == APPEND || t == DELETE || t == UPDATE;
 	}
 	
-	public byte[] buildCommit(){
-		byte[] rtn = new byte[0];
-		//TODO: encode type and filename
-		return rtn;
+	public String buildCommit(){
+		byte[] tmp = Utility.stringToByteArray(this.contents);
+		String contents = "[";
+		for(byte b : tmp){
+			contents += b + ",";
+		}
+		contents += contents.length() == 1 ? "" : contents.substring(0, contents.length() - 1) + "]";
+		
+		return this.type + " " + this.f.getName() + " " + contents;
+	}
+	
+	public Command fromByteArray(byte[] arr){
+		String[] command = Utility.byteArrayToString(arr).split(" ");
+		int type = Integer.parseInt(command[0]);
+		String fileName = command[1];
+		
+		String bytes = command[2].substring(1, command[2].length() - 1);
+		if(!bytes.isEmpty()){
+			String[] bsa = bytes.split(",");
+			byte[] ba = new byte[bsa.length];
+			for(int i = 0; i < bsa.length; i++){
+				ba[i] = Byte.parseByte(bsa[i]);
+			}
+			
+		}
 	}
 	
 	public String toString(){
