@@ -4,51 +4,37 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class TXNPacket extends Queueable{
 
+
+public class CommitPacket {
+	
 	public static final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
 	public static final int HEADER_SIZE = 5;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
-	protected int protocol;
+	private int txnNum;
 	private int seqNum;
 	
-	protected byte[] payload;
-
-	/**
-	 * Constructing a new RIO packet.
-	 * @param protocol The type of packet
-	 * @param seqNum The sequence number of the packet
-	 * @param payload The payload of the packet.
-	 * @param sessionId The sessionId between the sender and receiver
-	 */
-	public TXNPacket(int protocol, int seqNum, byte[] payload) throws IllegalArgumentException {
-		this(protocol, seqNum, payload, MAX_PAYLOAD_SIZE, !TXNProtocol.isTXNProtocol(protocol));
+	private Transaction txn;
+	
+	public CommitPacket(Transaction txn, int seqNum){
+		this.txn = txn;
+		this.txnNum = txn.id;
+		this.seqNum = seqNum;
 	}
 	
-	protected TXNPacket(int protocol, int seqNum, byte[] payload, int maxPayloadSize, boolean hasInvalidProtocol) throws IllegalArgumentException {
-		if (hasInvalidProtocol) {
-			throw new IllegalArgumentException("Illegal arguments given to Packet: Invalid protocol: " + protocol);
-		}else if(payload.length > maxPayloadSize){
-			throw new IllegalArgumentException("Illegal arguments given to Packet: Payload to large");
-		}
-		this.protocol = protocol;
-		this.seqNum = seqNum;
-		this.payload = payload;
-	}
-
 	/**
 	 * @return The protocol number
 	 */
-	public int getProtocol() {
-		return this.protocol;
+	public int getTxnNum() {
+		return this.txnNum;
 	}
 	
 	/**
 	 * @return The payload
 	 */
-	public byte[] getPayload() {
-		return this.payload;
+	public Transaction getPayload() {
+		return this.txn;
 	}
 	
 	public int getSeqNum(){
@@ -68,11 +54,12 @@ public class TXNPacket extends Queueable{
 			ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
 			DataOutputStream out = new DataOutputStream(byteStream);
 
-			out.writeByte(this.protocol);
+			out.writeInt(this.txnNum);
 			out.writeInt(this.seqNum);
 			
+			byte[] payload = this.txn.buildCommit();
 			out.write(payload, 0, payload.length);
-
+			
 			out.flush();
 			out.close();
 			return byteStream.toByteArray();
@@ -87,17 +74,18 @@ public class TXNPacket extends Queueable{
 	 * @param packet String representation of the transport packet
 	 * @return RIOPacket object created or null if the byte[] representation was corrupted
 	 */
-	public static TXNPacket unpack(byte[] packet) {
+	public static CommitPacket unpack(byte[] packet) {
 		try {
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
-			int protocol = in.readByte();
+			int txnNum = in.readInt();
 			int seqNum = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			in.read(payload, 0, payload.length);
+			Transaction txn = Transaction.fromByteArray(txnNum, payload);
 
-			return new TXNPacket(protocol, seqNum, payload);
+			return new CommitPacket(txn, seqNum);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {
