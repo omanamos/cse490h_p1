@@ -13,7 +13,7 @@ public class TransactionLayer {
 
 	public final static int MASTER_NODE = 0;
 	
-	private DistNode n;
+	public  DistNode n;
 	private ReliableInOrderMsgLayer RIOLayer;
 	private PaxosLayer paxos;
 	

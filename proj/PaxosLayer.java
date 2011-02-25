@@ -8,12 +8,15 @@ public class PaxosLayer {
 	private ProposerLayer propLayer;
 	private AcceptorLayer accLayer;
 	private LearnerLayer learnLayer;
+	public  DistNode n;
 	
 	public PaxosLayer(TransactionLayer txn){
 		this.txnLayer = txn;
+		this.n = this.txnLayer.n;
 		this.propLayer = new ProposerLayer(this);
 		this.accLayer = new AcceptorLayer(this);
 		this.learnLayer = new LearnerLayer(this);
+		
 		
 	}
 	
@@ -21,9 +24,8 @@ public class PaxosLayer {
 		PaxosPacket pkt = PaxosPacket.unpack(payload);
 		switch(pkt.getProtocol()){
 			case PaxosProtocol.ACCEPT:
-				this.learnLayer.receivedAccept(from, pkt);
 			case PaxosProtocol.LEARN:
-				this.learnLayer.receivedLearn(from, pkt);
+				this.learnLayer.receive(from, pkt);
 			case PaxosProtocol.PREPARE:
 				this.accLayer.receivedPrepare(from, pkt);
 			case PaxosProtocol.PROMISE:

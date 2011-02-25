@@ -11,14 +11,20 @@ public class PaxosPacket extends TXNPacket {
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 	
 	private int proposalNumber;
+	private int instanceNumber;
 	
-	public PaxosPacket(int protocol, int proposalNumber, byte[] payload){
+	public PaxosPacket(int protocol, int proposalNumber, int instanceNumber, byte[] payload){
 		super(protocol, 0, payload, MAX_PAYLOAD_SIZE, !PaxosProtocol.isPaxosProtocol(protocol));
 		this.proposalNumber = proposalNumber;
+		this.instanceNumber = instanceNumber;
 	}
 	
 	public int getProposalNumber(){
 		return this.proposalNumber;
+	}
+	
+	public int getInstanceNumber() {
+		return this.instanceNumber;
 	}
 	
 	/**
@@ -35,7 +41,8 @@ public class PaxosPacket extends TXNPacket {
 			DataOutputStream out = new DataOutputStream(byteStream);
 
 			out.writeByte(this.protocol);
-			out.writeInt(proposalNumber);
+			out.writeInt(this.proposalNumber);
+			out.writeInt(this.instanceNumber);
 			
 			out.write(payload, 0, payload.length);
 
@@ -59,11 +66,12 @@ public class PaxosPacket extends TXNPacket {
 
 			int protocol = in.readByte();
 			int proposalNumber = in.readInt();
+			int instanceNumber = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			in.read(payload, 0, payload.length);
 
-			return new PaxosPacket(protocol, proposalNumber, payload);
+			return new PaxosPacket(protocol, proposalNumber, instanceNumber, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {
