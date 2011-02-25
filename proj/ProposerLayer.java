@@ -18,6 +18,7 @@ public class ProposerLayer {
 		this.majority = PaxosLayer.ACCEPTORS.length / 2 + 1;
 		this.proposalNumber = 0;
 		//TODO: fill gaps!!!, read from disk!!!
+		fillGaps();
 		this.instanceNumber = 0;
 		
 	}
@@ -43,7 +44,18 @@ public class ProposerLayer {
 	}
 
 	public void recievedCommit(int from, Commit commit){
-		commits.add(commit);
+		if(commit.isWaiting())
+			commits.add(commit);
+		else if(!commit.abort()){
+			//send prepare
+		} else {
+			//send abort				
+		}
+			
+	}
+	
+	public void fillGaps(){
+		
 	}
 	
 	
