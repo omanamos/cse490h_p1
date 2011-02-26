@@ -49,6 +49,10 @@ public class Log implements Iterable<MasterFile>{
 		}
 	}
 	
+	public Transaction getTXN(){
+		return this.txn;
+	}
+	
 	public List<Command> getCommands(MasterFile f){
 		return this.lookup.get(f);
 	}

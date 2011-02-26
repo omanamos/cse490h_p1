@@ -19,7 +19,7 @@ import edu.washington.cs.cse490h.lib.Utility;
  * reliable, in-order message delivery, even in the presence of node failures.
  */
 public class ReliableInOrderMsgLayer {
-	public final static int TIMEOUT = 2;
+	public final static int TIMEOUT = 3;
 	public final static int MAX_RETRY = 1;
 	
 	private Map<Integer, InChannel> inConnections;
@@ -190,9 +190,7 @@ public class ReliableInOrderMsgLayer {
 	 */
 	public void receiveAck(int from, byte[] msg) {
 		int seqNum = Integer.parseInt(Utility.byteArrayToString(msg));
-		byte[] payload = outConnections.get(from).receiveAck(seqNum);
-		if(payload != null)
-			this.TXNLayer.onAck(from, payload);
+		outConnections.get(from).receiveAck(seqNum);
 	}
 
 	/**
@@ -487,14 +485,14 @@ class OutChannel {
 	 * @param seqNum
 	 *            The sequence number that was just ACKed
 	 */
-	protected byte[] receiveAck(int seqNum) {
+	protected RIOPacket receiveAck(int seqNum) {
 		this.pktRetries.remove(seqNum);
 		RIOPacket p = unACKedPackets.remove(seqNum);
 		if(p != null){
 			TXNPacket pkt = TXNPacket.unpack(p.getPayload());
 			if(pkt != null && pkt.getProtocol() == TXNProtocol.HB && heartbeat)
 				this.sendRIOPacket(Protocol.TXN, p.getPayload());
-			return p.getPayload();
+			return p;
 		}
 		return null;
 	}
@@ -541,7 +539,7 @@ class OutChannel {
 			//System.out.println("Values: " + toS(this.unACKedPackets.values()) + " Keys: " + toS(this.unACKedPackets.keySet()));
 			//System.out.println("SeqNum: " + seqNum + " Protocol: " + pkt.getProtocol());
 			
-			n.send(destAddr, Protocol.TXN, pkt.pack());
+			n.send(destAddr, pkt.getProtocol(), pkt.pack());
 			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();

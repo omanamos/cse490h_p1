@@ -1,4 +1,3 @@
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,6 +20,9 @@ public class DistNode extends RIONode {
 	
 	private HashSet<String> fileList;
 	
+	public boolean isMaster(){
+		return this.addr == TransactionLayer.MASTER_NODE;
+	}
 	/*========================================
 	 * START FILE INTERFACE METHODS
 	 *========================================*/
@@ -32,6 +34,7 @@ public class DistNode extends RIONode {
 			file += line + "\n";
 			line = r.readLine();
 		}
+		r.close();
 		return file.length() == 0 ? "" : file.substring(0, file.length() - 1);
 	}
 	
@@ -40,12 +43,17 @@ public class DistNode extends RIONode {
 		if(fileExists(fileName) || force){
 			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.contains(fileName) && !fileName.startsWith(".")){
 				fileList.add(fileName);
-				this.getWriter(".l", true).write(fileName + "\n");
+				PersistentStorageWriter w = this.getWriter(".l", true);
+				w.write(fileName + "\n");
+				w.close();
 			}
 			if(!append)
 				putFile(fileName, content, force);
-			else
-				this.getWriter(fileName, true).write(content);
+			else{
+				PersistentStorageWriter w = this.getWriter(fileName, true);
+				w.write(content);
+				w.close();
+			}
 		}else 
 			throw new IOException();
 	}
@@ -54,14 +62,16 @@ public class DistNode extends RIONode {
 		this.getWriter(fileName, false).write("");
 		if(this.addr == TransactionLayer.MASTER_NODE && !fileList.contains(fileName)){
 			fileList.add(fileName);
-			this.getWriter(".l", true).write(fileName + "\n");
+			PersistentStorageWriter w = this.getWriter(".l", true);
+			w.write(fileName + "\n");
+			w.close();
 		}
 	}
 	
 	public void delete(String fileName) throws IOException {
 		if(fileExists(fileName)){
-			this.getWriter(fileName, true).delete();
-			if(this.addr == TransactionLayer.MASTER_NODE){
+			this.getWriter(fileName, false).delete();
+			if(this.addr == TransactionLayer.MASTER_NODE && fileList.contains(fileName)){
 				fileList.remove(fileName);
 				String contents = "";
 				for(String file : fileList){
@@ -94,11 +104,12 @@ public class DistNode extends RIONode {
 			temp = getWriter(".temp", false);
 		
 			copyFile(oldFile, temp, fileName + "\n");
+			oldFile.close();
 		}
 		
 		PersistentStorageWriter newFile = getWriter(fileName, false);
 		newFile.write(content);
-		
+		newFile.close();
 		if(exists)
 			temp.delete();
 	}
@@ -109,9 +120,9 @@ public class DistNode extends RIONode {
 	 */
 	private boolean fileExists(String fileName){
 		try {
-			this.getReader(fileName);
+			this.getReader(fileName).close();
 			return true;
-		} catch (FileNotFoundException e) {
+		} catch (Exception e) {
 			return false;
 		}
 	}
@@ -249,12 +260,43 @@ public class DistNode extends RIONode {
 			}
 			this.TXNLayer.setupCache(fileList);
 		}
+		//TXN ID RECOVERY
+		if(this.fileExists(".txn_id")){
+			try{
+				int txnID = Integer.parseInt(this.getReader(".txn_id").readLine());
+				this.TXNLayer.initializeLastTxnNumber(txnID);
+			}catch(Exception e){
+				e.printStackTrace();
+			}
+		}else{
+			this.TXNLayer.initializeLastTxnNumber(this.addr - RIONode.NUM_NODES);
+		}
+		
+		//TXN LOG RECOVERY
+		if(this.fileExists(".txn_log")){
+			try{
+				Map<Integer, Boolean> log = new HashMap<Integer, Boolean>();
+				PersistentStorageReader reader = this.getReader(".txn_log");
+				String line = reader.readLine();
+				while(line != null){
+					String[] parts = line.split(" ");
+					log.put(Integer.parseInt(parts[0]), parts[1].equals("1"));
+					line = reader.readLine();
+				}
+				
+				this.TXNLayer.initializeLog(log);
+			}catch(Exception e){
+				e.printStackTrace();
+			}
+		}
 		
 		//WRITE AHEAD LOG RECOVERY - ON COMMITS
 		if(this.addr == TransactionLayer.MASTER_NODE){
 			if(this.fileExists(".wh_log")){
 				try {
-					this.TXNLayer.pushUpdatesToDisk(Update.fromString(this.TXNLayer, this.getReader(".wh_log")));
+					PersistentStorageReader reader = this.getReader(".wh_log");
+					int txID = Integer.parseInt(reader.readLine());
+					this.TXNLayer.pushUpdatesToDisk(txID, Update.fromString(this.TXNLayer, reader));
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
