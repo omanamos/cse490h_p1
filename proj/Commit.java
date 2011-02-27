@@ -13,7 +13,10 @@ public class Commit implements Iterable<Integer>{
 	 */
 	private Set<Integer> wait;
 	
-	public Commit(int client, Log log, Set<Integer> assumedCrashed){
+	private int seqNum;
+	
+	public Commit(int client, Log log, Set<Integer> assumedCrashed, int seqNum){
+		this.seqNum = seqNum;
 		this.log = log;
 		this.abort = false;
 		this.wait = new HashSet<Integer>();
@@ -63,5 +66,9 @@ public class Commit implements Iterable<Integer>{
 	
 	public boolean abort(){
 		return this.abort;
+	}
+	
+	public int getSeqNum(){
+		return this.seqNum;
 	}
 }

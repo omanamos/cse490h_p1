@@ -1,3 +1,4 @@
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,12 +11,10 @@ public class TimeoutManager {
 	private DistNode node;
 	private int timeout;
 	
-	//TODO: each connection has to have its own seqNum
-	private int seqNum;
 	/**
-	 * addr -> session ID
+	 * addr -> seqNum
 	 */
-	private Map<Integer, Integer> sids;
+	private Map<Integer, Integer> seqNums;
 	/**
 	 * addr -> seqNum -> packet
 	 */
@@ -25,29 +24,55 @@ public class TimeoutManager {
 		this.timeout = timeout;
 		this.node = node;
 		this.txnLayer = txnLayer;
-		this.seqNum = 0;
 		this.unRtned = new HashMap<Integer, Map<Integer, TXNPacket>>();
+		this.seqNums = new HashMap<Integer, Integer>();
 	}
 	
-	public void onRtn(int dest, int seqNum){
-		this.unRtned.get(dest).remove(seqNum);
+	/**
+	 * @param dest
+	 * @param seqNum
+	 * @return true if the given seqNum has not yet been returned
+	 */
+	public boolean onRtn(int dest, int seqNum){
+		return this.unRtned.get(dest) != null && this.unRtned.get(dest).remove(seqNum) != null;
 	}
 	
 	public void onTimeout(Integer dest, Integer seqNum){
+		TXNPacket pkt = this.unRtned.get(dest).remove(seqNum);
+		if(pkt != null)
+			this.txnLayer.onRIOTimeout(dest, pkt.pack());
+	}
+	
+	public int nextSeqNum(int dest){
+		int seqNum;
+		if(this.seqNums.containsKey(dest))
+			seqNum = this.seqNums.get(dest);
+		else
+			seqNum = -1;
 		
+		seqNum++;
+		this.seqNums.put(dest, seqNum);
+		this.updateDisk();
+		return seqNum;
 	}
 	
-	public int nextSeqNum(){
-		return this.seqNum;
+	private void updateDisk(){
+		try {
+			String contents = "";
+			for(Integer dest : this.seqNums.keySet()){
+				contents += dest + " " + this.seqNums.get(dest) + "\n";
+			}
+			this.node.write(".txnSeq", contents, false, true);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
-	public void createTimeoutListener(int dest, int sid, TXNPacket pkt){
+	public void createTimeoutListener(int dest, TXNPacket pkt){
 		try{
-			this.sids.put(dest, sid);
 			this.addPkt(dest, pkt);
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", this, new String[]{ "java.lang.Integer", "java.lang.Integer" });
-			this.node.addTimeout(new Callback(onTimeoutMethod, txnLayer, new Object[]{ dest, pkt.getSeqNum() }), this.timeout);
-			seqNum++;
+			this.node.addTimeout(new Callback(onTimeoutMethod, this, new Object[]{ dest, pkt.getSeqNum() }), this.timeout);
 		}catch(Exception e){
 			e.printStackTrace();
 		}
