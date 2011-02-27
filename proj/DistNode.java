@@ -118,7 +118,7 @@ public class DistNode extends RIONode {
 	 * @param fileName The name of the file to check for
 	 * @return true if the file exists, false otherwise
 	 */
-	private boolean fileExists(String fileName){
+	public boolean fileExists(String fileName){
 		try {
 			this.getReader(fileName).close();
 			return true;
