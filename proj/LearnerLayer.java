@@ -18,11 +18,13 @@ public class LearnerLayer {
 	private HashMap<Integer, Integer> learned; //instance num, proposal num
 	private DistNode n;
 	private int lastContInstance;
+	private int largestInstanceNum;
 	
 	public LearnerLayer(PaxosLayer paxosLayer) {
 		this.paxosLayer = paxosLayer;
 		this.n = this.paxosLayer.n;
 		this.lastContInstance = -1;
+		this.largestInstanceNum = -1;
 	}
 	
 	public void start() {
@@ -39,6 +41,7 @@ public class LearnerLayer {
 				int instanceNum = Integer.parseInt(entry[0]);
 				int proposalNum = Integer.parseInt(entry[1]);
 				learned.put( instanceNum, proposalNum );
+				updateLargestInstanceNum( instanceNum );
 			}
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
@@ -49,6 +52,12 @@ public class LearnerLayer {
 		}
 	}
 	
+	public void updateLargestInstanceNum( int instanceNum ) {
+		if( instanceNum > this.largestInstanceNum ) {
+			this.largestInstanceNum = instanceNum;
+		}
+	}
+ 	
 	private void readOutOfOrder() {
 	try {
 		PersistentStorageReader r = this.n.getReader(OUT_OF_ORDER);
@@ -58,9 +67,9 @@ public class LearnerLayer {
 			int instanceNum = Integer.parseInt(entry[0]);
 			int proposalNum = Integer.parseInt(entry[1]);
 			String value = entry[2];
-			
 			Proposal p = new Proposal( instanceNum, proposalNum, value );
 			proposals.put( instanceNum, p);
+			updateLargestInstanceNum( instanceNum );
 		}
 	} catch (FileNotFoundException e) {
 		// TODO Auto-generated catch block
@@ -118,6 +127,7 @@ public class LearnerLayer {
 			proposalCount.remove(pkt.getInstanceNumber()); //not sure if we should remove from our counts.
 			writeToLog( pkt ); //since we are the distinguished learner, write to our log
 			sendChosenToAllLearners( pkt );
+			updateLargestInstanceNum( pkt.getInstanceNumber() );
 		}
 		
 	}
@@ -125,29 +135,21 @@ public class LearnerLayer {
 	private void learnProposal( PaxosPacket pkt ) {
 		Proposal p = new Proposal(pkt);
 		proposals.put(pkt.getInstanceNumber(), p ); //add this proposal to our proposals...
-		
-		//if false that means there is a hole somewhere otherwise we learned it
-		if( executeProposal(p) ) {
-			learned.put( p.getInstanceNum(), p.getProposalNum() );
-		} else {
-			//not sure yet probably tell the proposer about the hole or something
-		}
+		executeProposal( p );
 	}
 	
-	private boolean executeProposal( Proposal p ) {
+	private void executeProposal( Proposal p ) {
 		int iNum = p.getInstanceNum();
 		if( iNum == this.lastContInstance + 1 ) {
 			this.lastContInstance++;
 			//ok we can process this
-			
+			learned.put( p.getInstanceNum(), p.getProposalNum() );
 			//now see if we can execute more proposals 
 			this.executeNextLearnedProposal();
 		} else if( iNum > this.lastContInstance + 1 ) {
 			//ok we are missing something so write this proposal to the out of order log
 			writeOutOfOrder( p );
 		}
-		
-		return true;
 	}
 	
 	private void executeNextLearnedProposal() {
@@ -186,21 +188,25 @@ public class LearnerLayer {
 	
 	
 	public int learnedProposalNumForInstance( int instanceNum ) {
-		return learned.get( instanceNum );
+		return this.learned.get( instanceNum );
 	}
 	
 	public ArrayList<Integer> getMissingInstanceNums() {
 		ArrayList<Integer> missing = new ArrayList<Integer>();
-		if( lastContInstance != -1 ) {
-			
+		for( int i = this.lastContInstance + 1; i < this.largestInstanceNum; i++ ) {
+			Proposal p = this.proposals.get(i);
+			if( p == null ) {
+				missing.add(i);
+			}
 		}
-		
-		
-			
 		return missing;
 	}
 	
-	public void writeValue(int instN, String value){
-		int i = 5;
+	public int getLargestInstanceNum() {
+		return this.largestInstanceNum;
+	}
+	
+	public void writeValue( Proposal p ){
+		
 	}
 }
