@@ -200,4 +200,8 @@ public class LearnerLayer {
 			
 		return missing;
 	}
+	
+	public void writeValue(int instN, String value){
+		int i = 5;
+	}
 }
