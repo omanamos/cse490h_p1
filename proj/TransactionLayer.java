@@ -1,8 +1,6 @@
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,11 +25,6 @@ public class TransactionLayer {
 	//SERVER FIELDS
 	private Set<Integer> assumedCrashed;
 	/**
-	 * key = addr of node uploading its commit
-	 * value = list of commands received so far of the commit
-	 */
-	private Map<Integer, List<Command>> commitQueue;
-	/**
 	 * key = addr of node trying to commit
 	 * value = commit status
 	 */
@@ -48,8 +41,7 @@ public class TransactionLayer {
 		this.timeout = new TimeoutManager(5, this.n, this);
 		
 		if(this.n.addr == MASTER_NODE){
-			this.paxos = new PaxosLayer(this);
-			this.commitQueue = new HashMap<Integer, List<Command>>();
+			//TODO: connect txn layer with paxos layer this.paxos = new PaxosLayer(this);
 			this.waitingQueue = new HashMap<Integer, Commit>();
 			this.assumedCrashed = new HashSet<Integer>();
 		}
@@ -69,10 +61,10 @@ public class TransactionLayer {
 		this.RIOLayer.setHB(dest, heartbeat);
 	}
 	
-	public void onAck(int from, byte[] payload){
+	public void onAck(int from, int sessionID, byte[] payload){
 		TXNPacket pkt = TXNPacket.unpack(payload);
-		
-		this.timeout.createTimeoutListener(pkt);
+		//TODO: pass on sessionID
+		//this.timeout.createTimeoutListener(pkt);
 	}
 	
 	public void onReceive(int from, byte[] payload) {
@@ -186,20 +178,22 @@ public class TransactionLayer {
 				contents = i == contents.length() - 1 ? "" : contents.substring(i + 1);
 				f = (MasterFile)this.getFileFromCache(fileName);
 				
-				f.changePermissions(from, MasterFile.FREE);
-				if(f.getVersion() < version){
-					f.propose(contents, version, from);
-				}
-				if(!f.isWaiting()){
-					Update u = f.chooseProp(f.requestor);
-					byte[] payload = Utility.stringToByteArray(fileName + " " + u.version + " " + u.contents);
-					this.send(f.requestor, TXNProtocol.WD, payload);
-					f.changePermissions(f.requestor, MasterFile.FREE);
-					f.requestor = -1;
-					while(f.peek() != null){ //also return queued requests for the file
-						TXNPacket p = (TXNPacket)f.execute();
-						this.send(p.getSource(), TXNProtocol.WD, payload);
-						f.changePermissions(p.getSource(), MasterFile.FREE);
+				if(f.isWaiting()){
+					f.changePermissions(from, MasterFile.FREE);
+					if(f.getVersion() < version){
+						f.propose(contents, version, from);
+					}
+					if(!f.isWaiting()){
+						Update u = f.chooseProp(f.requestor);
+						byte[] payload = Utility.stringToByteArray(fileName + " " + u.version + " " + u.contents);
+						this.send(f.requestor, TXNProtocol.WD, payload);
+						f.changePermissions(f.requestor, MasterFile.FREE);
+						f.requestor = -1;
+						while(f.peek() != null){ //also return queued requests for the file
+							TXNPacket p = (TXNPacket)f.execute();
+							this.send(p.getSource(), TXNProtocol.WD, payload);
+							f.changePermissions(p.getSource(), MasterFile.FREE);
+						}
 					}
 				}
 				break;
@@ -217,30 +211,8 @@ public class TransactionLayer {
 					}
 				}
 				break;
-			case TXNProtocol.COMMIT_DATA:
-				if(!this.commitQueue.containsKey(from))
-					this.commitQueue.put(from, new ArrayList<Command>());
-				
-				contents = Utility.byteArrayToString(pkt.getPayload());
-				i = contents.indexOf(' ');
-				fileName = contents.substring(0, i);
-				lastSpace = i + 1;
-				i = contents.indexOf(' ', lastSpace);
-				int commandType = Integer.parseInt(contents.substring(lastSpace, i));
-				f = (MasterFile)this.getFileFromCache(fileName);
-				
-				Command c = null;
-				if(commandType == Command.APPEND || commandType == Command.PUT || commandType == Command.UPDATE){
-					contents = i == contents.length() ? "" : contents.substring(i + 1);
-					c = new Command(MASTER_NODE, commandType, f, contents);
-				} else {
-					c = new Command(MASTER_NODE, commandType, f);
-				}
-				
-				this.commitQueue.get(from).add(c);
-				break;
 			case TXNProtocol.COMMIT:
-				this.commit(from, Integer.parseInt(Utility.byteArrayToString(pkt.getPayload())));
+				this.commit(from, CommitPacket.unpack(pkt.getPayload(), this.cache));
 				break;
 			case TXNProtocol.CREATE:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
@@ -293,8 +265,9 @@ public class TransactionLayer {
 		}
 	}
 	
-	private void commit(int client, int size){
-		List<Command> commands = this.commitQueue.get(client);
+	private void commit(int client, CommitPacket pkt){
+		Transaction txn = pkt.getTransaction();
+		//TODO: store most recently committed txn for each client on disk on server and clients
 		
 		if(this.assumedCrashed.contains(client)){
 			this.assumedCrashed.remove(client);
@@ -303,15 +276,12 @@ public class TransactionLayer {
 				f.commit(client);
 			}
 			this.send(client, TXNProtocol.ABORT, new byte[0]);
-		}else if( commands != null && size != commands.size()){
-			this.send(client, TXNProtocol.ERROR, Utility.stringToByteArray(" " + Error.ERROR_STRINGS[Error.ERR_40]));
-		} else if( commands == null ) {
+		}else if( txn.isEmpty() ) {
 			this.send(client, TXNProtocol.COMMIT, new byte[0]);
 		}else {
-			Log log = new Log(client, commands);
+			Log log = new Log(client, txn);
 			this.commit(client, log);
 		}
-	    this.commitQueue.get(client).clear();
 	}
 	
 	private void commit(int client, Log log){
@@ -708,18 +678,8 @@ public class TransactionLayer {
 		if( assertTXNStarted() ) {
 			//Check to see if there are queued commands before committing
 			if( noQueuedCommands() ) {
-				//Send all of our commands to the master node
-				int cnt = 0;
-				for( Command c : this.txn ) {
-					String payload = c.getFileName() + " " + c.getType() + " ";
-					if( c.getType() == Command.PUT || c.getType() == Command.APPEND || c.getType() == Command.UPDATE ) {
-						payload += c.getContents();
-					}
-					this.send(MASTER_NODE, TXNProtocol.COMMIT_DATA, Utility.stringToByteArray(payload));
-					cnt++;
-				}
-				//Send the final commit message
-				this.send(MASTER_NODE, TXNProtocol.COMMIT, Utility.stringToByteArray(cnt + "") );
+				//Send txn to master node
+				this.send(MASTER_NODE, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
 			} else {
 				//set will commit to true to that the txn commits after all queued commands complete
 				this.txn.willCommit = true;

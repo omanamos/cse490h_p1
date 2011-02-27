@@ -3,24 +3,23 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.util.Map;
 
 
 
 public class CommitPacket {
 	
 	public static final int MAX_PACKET_SIZE = RIOPacket.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 5;
+	public static final int HEADER_SIZE = 4;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 
 	private int txnNum;
-	private int seqNum;
 	
 	private Transaction txn;
 	
-	public CommitPacket(Transaction txn, int seqNum){
+	public CommitPacket(Transaction txn){
 		this.txn = txn;
 		this.txnNum = txn.id;
-		this.seqNum = seqNum;
 	}
 	
 	/**
@@ -33,12 +32,8 @@ public class CommitPacket {
 	/**
 	 * @return The payload
 	 */
-	public Transaction getPayload() {
+	public Transaction getTransaction() {
 		return this.txn;
-	}
-	
-	public int getSeqNum(){
-		return this.seqNum;
 	}
 	
 	/**
@@ -55,7 +50,6 @@ public class CommitPacket {
 			DataOutputStream out = new DataOutputStream(byteStream);
 
 			out.writeInt(this.txnNum);
-			out.writeInt(this.seqNum);
 			
 			byte[] payload = this.txn.buildCommit();
 			out.write(payload, 0, payload.length);
@@ -74,18 +68,17 @@ public class CommitPacket {
 	 * @param packet String representation of the transport packet
 	 * @return RIOPacket object created or null if the byte[] representation was corrupted
 	 */
-	public static CommitPacket unpack(byte[] packet) {
+	public static CommitPacket unpack(byte[] packet, Map<String, File> cache) {
 		try {
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(packet));
 
 			int txnNum = in.readInt();
-			int seqNum = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			in.read(payload, 0, payload.length);
-			Transaction txn = Transaction.fromByteArray(txnNum, payload);
+			Transaction txn = Transaction.fromByteArray(txnNum, cache, payload);
 
-			return new CommitPacket(txn, seqNum);
+			return new CommitPacket(txn);
 		} catch (IllegalArgumentException e) {
 			// will return null
 		} catch(IOException e) {

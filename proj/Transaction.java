@@ -96,21 +96,29 @@ public class Transaction implements Iterable<Command> {
 		String payload = "";
 		
 		for(Command c : this){
-			payload += c + "#";
+			payload += c.buildCommit() + "#";
 		}
 		
 		return Utility.stringToByteArray(payload.substring(0, payload.length() - 1));
 	}
 	
-	public static Transaction fromByteArray(int txnNum, byte[] arr){
+	public static Transaction fromByteArray(int txnNum, Map<String, File> cache, byte[] arr){
 		Transaction txn = new Transaction(txnNum);
 		String payload = Utility.byteArrayToString(arr);
 		
 		for(String command : payload.split("#")){
-			
+			txn.add(Command.fromByteArray(command, cache));
 		}
 		
 		return txn;
+	}
+	
+	public int size(){
+		return this.log.size();
+	}
+	
+	public boolean isEmpty(){
+		return this.size() == 0;
 	}
 	
 }
