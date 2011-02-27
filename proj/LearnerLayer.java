@@ -163,7 +163,6 @@ public class LearnerLayer {
 			PersistentStorageWriter w = this.n.getWriter(LEARN_FILE, true);
 			w.write(instanceNum + " " + proposalNum );
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
