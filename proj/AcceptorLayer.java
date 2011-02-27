@@ -1,7 +1,10 @@
+import java.util.*;
 
 public class AcceptorLayer {
 
 	private PaxosLayer paxosLayer;
+	
+	private HashMap<Integer, HashMap<Integer, String>> promises; //instance num -> largest proposal number -> value
 
 	public AcceptorLayer(PaxosLayer paxosLayer) {
 		this.paxosLayer = paxosLayer;

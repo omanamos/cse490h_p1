@@ -104,9 +104,7 @@ public class ProposerLayer {
 		return 0;
 	}
 
-	public void fillGaps(){
-		
-	}
+
 	
 	
 }

@@ -12,8 +12,9 @@ public class LearnerLayer {
 	public static final String LEARN_FILE = ".learned";
 	
 	private PaxosLayer paxosLayer;
-	private HashMap<Integer, HashMap<Integer, Integer>> proposals; 
-	private Set<Integer> learned;
+	private HashMap<Integer, HashMap<Integer, String>> proposals; 
+	private HashMap<Integer, HashMap<Integer, Integer>> proposalCount;
+	private HashMap<Integer, Integer> learned; //instance num, proposal num
 	private DistNode n;
 	
 	public LearnerLayer(PaxosLayer paxosLayer) {
@@ -33,9 +34,17 @@ public class LearnerLayer {
 			String line = r.readLine();
 			while( line != null ) {
 				String[] entry = line.split("|");
+				int instanceNum = Integer.parseInt(entry[0]);
+				int proposalNum = Integer.parseInt(entry[1]);
+				String value = entry[2];
 				
+				HashMap<Integer, String> instanceHash = proposals.get( instanceNum );
+				if( instanceHash == null ) {
+					proposals.put( instanceNum, new HashMap<Integer, String>() );
+				}
+				//add the entry to the proposals hash map
+				proposals.get(instanceNum).put(proposalNum, value);
 			}
-			
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -60,6 +69,7 @@ public class LearnerLayer {
 	}
 	
 	public void receivedLearn(int from, PaxosPacket pkt){
+		writeToLog(pkt);
 		
 	}
 	
@@ -67,13 +77,13 @@ public class LearnerLayer {
 		
 		
 		//current number of the instance/proposal number we have seen so far
-		Integer pcount = proposals.get(pkt.getInstanceNumber()).get(pkt.getProposalNumber());
+		Integer pcount = proposalCount.get(pkt.getInstanceNumber()).get(pkt.getProposalNumber());
 		if( pcount == null ) {
 			pcount = 1;
 		} else {
 			pcount++;
 		}
-		proposals.get(pkt.getInstanceNumber()).put(pkt.getProposalNumber(), pcount);
+		proposalCount.get(pkt.getInstanceNumber()).put(pkt.getProposalNumber(), pcount);
 		
 		//if we have the majority then do stuff
 		if( pcount >= PaxosLayer.ACCEPTORS.length / 2 ) {
