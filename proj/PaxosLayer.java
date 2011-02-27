@@ -20,6 +20,10 @@ public class PaxosLayer {
 		
 	}
 	
+	public LearnerLayer getLearnerLayer(){
+		return learnLayer;
+	}
+	
 	public void onReceive(int from, byte[] payload) {
 		PaxosPacket pkt = PaxosPacket.unpack(payload);
 		switch(pkt.getProtocol()){
@@ -32,6 +36,14 @@ public class PaxosLayer {
 				this.propLayer.receivedPromise(from, pkt);
 			case PaxosProtocol.PROPOSE:
 				this.accLayer.receivedPropose(from, pkt);
+			case PaxosProtocol.RECOVERY:
+				this.accLayer.receivedRecovery(from, pkt);
+			case PaxosProtocol.RECOVERY_ACCEPTED:
+				this.propLayer.receivedRecovery(from, pkt);
+			case PaxosProtocol.RECOVERY_CHOSEN:
+				this.propLayer.receivedRecovery(from, pkt);
+			case PaxosProtocol.REJECT:
+				this.propLayer.receivedPromise(from, pkt);
 		}
 	}
 	

@@ -21,4 +21,9 @@ public class AcceptorLayer {
 	public void receivedPropose(int from, PaxosPacket pkt){
 		
 	}
+
+	public void receivedRecovery(int from, PaxosPacket pkt) {
+		// TODO Auto-generated method stub
+		
+	}
 }
