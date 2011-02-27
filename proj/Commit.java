@@ -21,31 +21,35 @@ public class Commit implements Iterable<Integer>{
 		this.abort = false;
 		this.wait = new HashSet<Integer>();
 		for(MasterFile f : log){
-			int dep = f.getDep(client);
-			if(f.getPermissions(client) == File.INV || f.getState() == File.INV || assumedCrashed.contains(dep) || dep == -1 && log.hasReads(f)){
+			Update u = log.getInitialVersion(f);
+			if(f.getPermissions(client) == File.INV || f.getState() == File.INV || assumedCrashed.contains(u.source) || u.source == -1 && log.hasReads(f)){
 				//Dep transaction aborted -> this one must also abort
 				this.abort = true;
 				return;
-			}else if(dep == -1){
+			}else if(u.source == -1){
 				//Shouldn't ever happen
-			}else if(dep > 0){
+			}else if(u.source > 0){
 				//this client didn't get its initial version from the server
-				if(log.getInitialVersion(f) > f.getVersion()){
+				if(u.version > f.getVersion()){
 					//if there are reads or writes that depend on an uncommitted and unaborted transaction
-					this.wait.add(dep);
-				}else if(log.getInitialVersion(f) == f.getVersion() && f.getLastCommitter() != dep){
+					this.wait.add(u.source);
+				}else if(u.version == f.getVersion() && f.getLastCommitter() != u.source){
 					//two nodes wrote the same version, and the one you don't depend on committed first
 					//but the node you depend on hasn't aborted yet/attempted to commit
 					this.abort = true;
-				}else if(log.getInitialVersion(f) < f.getVersion() && log.hasWrites(f)){
+				}else if(u.version < f.getVersion() && log.hasWrites(f)){
 					//the version you wrote to is old
 					this.abort = true;
 				}
-			}else if(dep == TransactionLayer.MASTER_NODE && log.getInitialVersion(f) < f.getVersion() && log.hasWrites(f)){
+			}else if(u.source == TransactionLayer.MASTER_NODE && u.version < f.getVersion() && log.hasWrites(f)){
 				//two nodes wrote same version from the master, but the other one committed first
 				this.abort = true;
 			}
 		}
+	}
+	
+	public boolean isDepOn(int addr){
+		return this.wait.contains(addr);
 	}
 	
 	public Log getLog(){

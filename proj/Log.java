@@ -7,7 +7,7 @@ import java.util.Map;
 
 public class Log implements Iterable<MasterFile>{
 	private List<MasterFile> files;
-	private Map<MasterFile, Integer> startingVersions;
+	private Map<MasterFile, Update> initialVersions;
 	private Map<MasterFile, List<Command>> lookup;
 	private Map<MasterFile, Boolean> reads;
 	private Map<MasterFile, Boolean> writes;
@@ -19,7 +19,7 @@ public class Log implements Iterable<MasterFile>{
 		reads = new HashMap<MasterFile, Boolean>();
 		writes = new HashMap<MasterFile, Boolean>();
 		lookup = new HashMap<MasterFile, List<Command>>();
-		startingVersions = new HashMap<MasterFile, Integer>();
+		initialVersions = new HashMap<MasterFile, Update>();
 		
 		for(Command c : txn){
 			MasterFile f = (MasterFile)c.getFile();
@@ -40,7 +40,7 @@ public class Log implements Iterable<MasterFile>{
 					writes.put(f, true);
 					break;
 				case Command.UPDATE:
-					startingVersions.put(f, Integer.parseInt(c.getContents()));
+					initialVersions.put(f, Update.fromPayload(c.getContents()));
 					files.add(f);
 					reads.put(f, false);
 					writes.put(f, false);
@@ -48,6 +48,7 @@ public class Log implements Iterable<MasterFile>{
 			}
 		}
 	}
+	
 	
 	public Transaction getTXN(){
 		return this.txn;
@@ -69,8 +70,8 @@ public class Log implements Iterable<MasterFile>{
 		return this.files.iterator();
 	}
 	
-	public int getInitialVersion(MasterFile f){
-		return this.startingVersions.get(f);
+	public Update getInitialVersion(MasterFile f){
+		return this.initialVersions.get(f);
 	}
 	
 	public String buildWHLog(){
