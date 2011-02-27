@@ -1,6 +1,5 @@
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.PriorityQueue;
 
 //Master Files reside on the MASTER_NODE
@@ -10,15 +9,12 @@ public class MasterFile extends File implements Iterable<Integer>{
 	
 	private int lastCommitter;
 	private boolean isWaiting;
-	public int requestor;
 	private HashMap<Integer, Integer> filePermissions;
 	/**
 	 * Requester depends on sender
 	 * key = requester
 	 * value = file state
 	 */
-	private Map<Integer, Update> initalVersions;
-	private HashMap<Integer, Integer> dependencies;
 	private PriorityQueue<Update> proposals;
 	
 	public MasterFile(String name, String contents) {
@@ -26,62 +22,26 @@ public class MasterFile extends File implements Iterable<Integer>{
 		this.lastCommitter = -1;
 		this.isWaiting = false;
 		this.filePermissions = new HashMap<Integer, Integer>();
-		this.initalVersions = new HashMap<Integer, Update>();
-		this.requestor = -1;
 		this.proposals = new PriorityQueue<Update>();
-		this.dependencies = new HashMap<Integer, Integer>();
 	}
 	
 	public void commit(int client){
 		this.lastCommitter = client;
-		this.initalVersions.remove(client);
 		this.filePermissions.remove(client);
-		this.dependencies.remove(client);
 	}
 	
 	public void abort(int client){
-		this.initalVersions.remove(client);
 		this.filePermissions.remove(client);
-		this.dependencies.remove(client);
-		for(Integer r : this.dependencies.keySet()){
-			if(this.dependencies.get(r) == client){
-				this.dependencies.remove(r);
-			}
-		}
 	}
 	
 	public int getLastCommitter(){
 		return this.lastCommitter;
 	}
 	
-	public Update getInitialVersion(int addr){
-		return this.initalVersions.get(addr);
-	}
-	
 	public Update chooseProp(int requestor){
 		Update u = this.proposals.poll();
-		while(u != null && this.initalVersions.get(u.source).version < this.version && u.version > this.initalVersions.get(u.source).version)
-			u = this.proposals.poll();
-		
-		if(u != null){
-			this.initalVersions.put(requestor, u);
-			if(this.version != u.version){
-				this.dependencies.put(requestor, u.source);
-			}
-		}
 		this.proposals.clear();
 		return u;
-	}
-	
-	public void addDep(int requestor, Update u){
-		this.dependencies.put(requestor, u.source);
-		this.initalVersions.put(requestor, u);
-	}
-	
-	public int getDep(int client){
-		if(!this.dependencies.containsKey(client))
-			return -1;
-		return this.dependencies.get(client);
 	}
 	
 	public void propose(String contents, int version, int source){

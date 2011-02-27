@@ -1,6 +1,5 @@
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -18,7 +17,7 @@ public class DistNode extends RIONode {
 	public static double getDropRate() { return 0 / 100.0; }
 	public static double getDelayRate() { return 0 / 100.0; }
 	
-	private HashSet<String> fileList;
+	private Map<String, Update> fileList;
 	
 	public boolean isMaster(){
 		return this.addr == TransactionLayer.MASTER_NODE;
@@ -26,6 +25,7 @@ public class DistNode extends RIONode {
 	/*========================================
 	 * START FILE INTERFACE METHODS
 	 *========================================*/
+	
 	public String get(String fileName) throws IOException{
 		PersistentStorageReader r = this.getReader(fileName);
 		String file = "";
@@ -41,8 +41,8 @@ public class DistNode extends RIONode {
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
 		if(fileExists(fileName) || force){
-			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.contains(fileName) && !fileName.startsWith(".")){
-				fileList.add(fileName);
+			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
+				fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
 				PersistentStorageWriter w = this.getWriter(".l", true);
 				w.write(fileName + "\n");
 				w.close();
@@ -60,8 +60,8 @@ public class DistNode extends RIONode {
 	
 	public void create(String fileName) throws IOException {
 		this.getWriter(fileName, false).write("");
-		if(this.addr == TransactionLayer.MASTER_NODE && !fileList.contains(fileName)){
-			fileList.add(fileName);
+		if(this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName)){
+			fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
 			PersistentStorageWriter w = this.getWriter(".l", true);
 			w.write(fileName + "\n");
 			w.close();
@@ -71,13 +71,9 @@ public class DistNode extends RIONode {
 	public void delete(String fileName) throws IOException {
 		if(fileExists(fileName)){
 			this.getWriter(fileName, false).delete();
-			if(this.addr == TransactionLayer.MASTER_NODE && fileList.contains(fileName)){
+			if(this.addr == TransactionLayer.MASTER_NODE && fileList.containsKey(fileName)){
 				fileList.remove(fileName);
-				String contents = "";
-				for(String file : fileList){
-					contents += file + "\n";
-				}
-				putFile(".l", contents, true);
+				this.updateFileList();
 			}
 		}else
 			throw new IOException();
@@ -90,6 +86,23 @@ public class DistNode extends RIONode {
 	/*========================================
 	 * START FILE UTILS
 	 *========================================*/
+	
+	public void updateFileVersion(String fileName, int source, int version){
+		try{
+			this.fileList.put(fileName, new Update(null, version, source));
+			this.updateFileList();
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	private void updateFileList() throws IOException{
+		String contents = "";
+		for(String file : fileList.keySet()){
+			contents += file + " " + fileList.get(file) + "\n";
+		}
+		putFile(".l", contents, true);
+	}
 	/**
 	 * Handles the special case of replacing a file's contents with PUT
 	 * @param fileName The name of the file to overwrite
@@ -234,7 +247,7 @@ public class DistNode extends RIONode {
 		}
 		
 		//CACHE RECOVERY ON MASTER NODE
-		this.fileList = new HashSet<String>();
+		this.fileList = new HashMap<String, Update>();
 		if(this.addr == TransactionLayer.MASTER_NODE){
 			if(!fileExists(".l")){
 				try {
@@ -246,10 +259,14 @@ public class DistNode extends RIONode {
 			} else {
 				try{
 					PersistentStorageReader files = getReader(".l");
-					String fileName = files.readLine();
-					while(fileName != null){
+					String line = files.readLine();
+					while(line != null){
+						String[] parts = line.split(" ");
+						String fileName = parts[0];
+						int version = Integer.parseInt(parts[1]);
+						int lastCommitter = Integer.parseInt(parts[2]);
 						if(fileExists(fileName)){
-							fileList.add(fileName);
+							fileList.put(fileName, new Update(null, version, lastCommitter));
 						}
 						fileName = files.readLine();
 					}

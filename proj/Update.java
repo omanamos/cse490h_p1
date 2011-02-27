@@ -66,4 +66,14 @@ public class Update implements Comparable<Update>{
 		}
 		return rtn;
 	}
+	
+	public static Update fromPayload(String contents){
+		StringTokenizer tok = new StringTokenizer(contents, " ");
+		int version = Integer.parseInt(tok.nextToken());
+		int source = Integer.parseInt(tok.nextToken());
+		contents = tok.nextToken();
+		while(tok.hasMoreTokens())
+			contents += tok.nextToken();
+		return new Update(contents, version, source);
+	}
 }

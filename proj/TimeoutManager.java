@@ -62,7 +62,7 @@ public class TimeoutManager {
 			for(Integer dest : this.seqNums.keySet()){
 				contents += dest + " " + this.seqNums.get(dest) + "\n";
 			}
-			this.node.write(".txnSeq", contents, false, true);
+			this.node.write(".txn_seq", contents, false, true);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
