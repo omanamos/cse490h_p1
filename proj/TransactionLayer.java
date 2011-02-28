@@ -52,6 +52,10 @@ public class TransactionLayer {
 		}
 	}
 	
+	public void initializeTimeoutSeqNums(Map<Integer, Integer> seqNums){
+		this.timeout.initializeSeqNums(seqNums);
+	}
+	
 	public void initializeLastTxnNumber(int txnID){
 		this.lastTXNnum = txnID;
 	}
@@ -63,7 +67,9 @@ public class TransactionLayer {
 	public void send(int dest, int protocol, byte[] payload) {
 		TXNPacket pkt = new TXNPacket(protocol, this.timeout.nextSeqNum(dest), payload);
 		int p = pkt.getProtocol();
-		if(p == TXNProtocol.WF || p == TXNProtocol.WQ || p == TXNProtocol.CREATE || (!this.n.isMaster() && (p == TXNProtocol.ABORT || p == TXNProtocol.COMMIT || p == TXNProtocol.START)))
+		if(p == TXNProtocol.WF || p == TXNProtocol.WQ || p == TXNProtocol.CREATE || 
+				(this.n.isMaster() && p == TXNProtocol.WD) || 
+				(!this.n.isMaster() && (p == TXNProtocol.ABORT || p == TXNProtocol.COMMIT || p == TXNProtocol.START)))
 			this.timeout.createTimeoutListener(dest, pkt);
 		this.RIOLayer.sendRIO(dest, Protocol.TXN, pkt.pack());
 	}
@@ -99,34 +105,42 @@ public class TransactionLayer {
 	 */
 	public void onRIOTimeout(int dest, byte[] payload){
 		TXNPacket pkt = TXNPacket.unpack(payload);
-		this.timeout.onRtn(dest, pkt.getSeqNum());
-		if(this.n.addr == MASTER_NODE){ //This is the server
-			if(pkt.getProtocol() == TXNProtocol.HB){
-				//This is a heartbeat that timed out, meaning either a client has crashed or we assume it has.
-				//We must tell all commits waiting on this client to abort and flag this client as crashed, so if
-				//it didn't and tries to commit, it will have to abort.
-				this.assumedCrashed.add(dest);
-				for(String fileName : this.cache.keySet()){
-					MasterFile f = (MasterFile)this.cache.get(fileName);
+		if(this.timeout.onRtn(dest, pkt.getSeqNum())){
+			if(this.n.isMaster()){ //This is the server
+				if(pkt.getProtocol() == TXNProtocol.HB){
+					//This is a heartbeat that timed out, meaning either a client has crashed or we assume it has.
+					//We must tell all commits waiting on this client to abort and flag this client as crashed, so if
+					//it didn't and tries to commit, it will have to abort.
+					this.assumedCrashed.add(dest);
+					for(String fileName : this.cache.keySet()){
+						MasterFile f = (MasterFile)this.cache.get(fileName);
+						f.changePermissions(dest, File.INV);
+					}
+					this.abortWaitingTxns(dest);
+				}else if(pkt.getProtocol() == TXNProtocol.WF){ 
+					//a write forward timed out. We should check to see if we are waiting on any other WF, if not, send a response to the requester.
+					String fileName = Utility.byteArrayToString(pkt.getPayload());
+					MasterFile f = (MasterFile)this.getFileFromCache(fileName);
 					f.changePermissions(dest, File.INV);
+					this.returnWaiting(f);
+				}else if(pkt.getProtocol() == TXNProtocol.WD)
+					if(pkt.getProtocol() == TXNProtocol.CREATE)
+						f.setState(File.INV);
+				else
+					this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
+			}else{ //this is the client and we should just print out the message
+				if(pkt.getProtocol() == TXNProtocol.START){
+					this.txn = null;
+					this.n.printError("Node " + this.n.addr + ": Error: Couldn't start transation. Server " + dest + " returned error code " + Error.ERROR_STRINGS[Error.ERR_20]);
+				}else if(pkt.getProtocol() == TXNProtocol.WQ || pkt.getProtocol() == TXNProtocol.CREATE){
+					String fileName = Utility.byteArrayToString(pkt.getPayload());
+					this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), fileName, Error.ERR_20));
+					File f = this.getFileFromCache(fileName);
+					f.execute();
+					this.txnExecute();
+					this.executeCommandQueue(f);
 				}
-				this.abortWaitingTxns(dest);
-			}else if(pkt.getProtocol() == TXNProtocol.WF){ 
-				//a write forward timed out. We should check to see if we are waiting on any other WF, if not, send a response to the requester.
-				String fileName = Utility.byteArrayToString(pkt.getPayload());
-				MasterFile f = (MasterFile)this.getFileFromCache(fileName);
-				f.changePermissions(dest, File.INV);
-				this.returnWaiting(f);
-			}else
-				this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
-		}else{ //this is the client and we should just print out the message
-			if(pkt.getProtocol() == TXNProtocol.START)
-				this.txn = null;
-			else if(pkt.getProtocol() == TXNProtocol.WD || pkt.getProtocol() == TXNProtocol.ERROR){
-				//this.rtn(dest, pkt.getProtocol(), pkt.getSeqNum(), pkt.getPayload());
-				return;
 			}
-			this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
 		}
 	}
 	
@@ -291,7 +305,6 @@ public class TransactionLayer {
 	private void commit(int client, int seqNum, CommitPacket pkt){
 		Transaction txn = pkt.getTransaction();
 		this.waitingQueue.remove(client);
-		//TODO: store most recently committed txn for each client on disk on server and clients
 		
 		if(this.txnLog.containsKey(txn.id)){
 			if(this.txnLog.get(txn.id)){
@@ -464,7 +477,7 @@ public class TransactionLayer {
 						this.n.write(fileName, contents, false, true);
 						f.setState(File.RW);
 						f.setVersion(version);
-						this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + " " + source));
+						this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + " " + source + " " + contents));
 						this.txn.add(c);
 						this.txnExecute();
 					} catch (IOException e) {

@@ -28,6 +28,10 @@ public class TimeoutManager {
 		this.seqNums = new HashMap<Integer, Integer>();
 	}
 	
+	public void initializeSeqNums(Map<Integer, Integer> seqNums){
+		this.seqNums.putAll(seqNums);
+	}
+	
 	/**
 	 * @param dest
 	 * @param seqNum
@@ -38,7 +42,7 @@ public class TimeoutManager {
 	}
 	
 	public void onTimeout(Integer dest, Integer seqNum){
-		TXNPacket pkt = this.unRtned.get(dest).remove(seqNum);
+		TXNPacket pkt = this.unRtned.get(dest).get(seqNum);
 		if(pkt != null)
 			this.txnLayer.onRIOTimeout(dest, pkt.pack());
 	}
@@ -56,6 +60,9 @@ public class TimeoutManager {
 		return seqNum;
 	}
 	
+	/**
+	 * updates the seqNums stored on disk
+	 */
 	private void updateDisk(){
 		try {
 			String contents = "";

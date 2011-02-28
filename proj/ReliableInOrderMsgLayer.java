@@ -454,7 +454,7 @@ class OutChannel {
 	 */
 	public void onTimeout(RIONode n, Integer seqNum) {
 		Integer numRetries = pktRetries.get( seqNum );
-		if(unACKedPackets.containsKey(seqNum) && ( numRetries == null || numRetries <= ReliableInOrderMsgLayer.MAX_RETRY ) ) {
+		if(unACKedPackets.containsKey(seqNum) && ( numRetries == null || numRetries < ReliableInOrderMsgLayer.MAX_RETRY ) ) {
 
 			numRetries = numRetries == null ? 0 : numRetries;
 			pktRetries.put( seqNum, numRetries + 1 );

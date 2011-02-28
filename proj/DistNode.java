@@ -246,37 +246,6 @@ public class DistNode extends RIONode {
 			}
 		}
 		
-		//CACHE RECOVERY ON MASTER NODE
-		this.fileList = new HashMap<String, Update>();
-		if(this.addr == TransactionLayer.MASTER_NODE){
-			if(!fileExists(".l")){
-				try {
-					this.getWriter(".l", false).write("");
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				
-			} else {
-				try{
-					PersistentStorageReader files = getReader(".l");
-					String line = files.readLine();
-					while(line != null){
-						String[] parts = line.split(" ");
-						String fileName = parts[0];
-						int version = Integer.parseInt(parts[1]);
-						int lastCommitter = Integer.parseInt(parts[2]);
-						if(fileExists(fileName)){
-							fileList.put(fileName, new Update(null, version, lastCommitter));
-						}
-						fileName = files.readLine();
-					}
-					
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			this.TXNLayer.setupCache(fileList);
-		}
 		//TXN ID RECOVERY
 		if(this.fileExists(".txn_id")){
 			try{
@@ -289,26 +258,79 @@ public class DistNode extends RIONode {
 			this.TXNLayer.initializeLastTxnNumber(this.addr - RIONode.NUM_NODES);
 		}
 		
-		//TXN LOG RECOVERY
-		if(this.fileExists(".txn_log")){
+		//TXN LAYER SEQNUM RECOVERY
+		if(this.fileExists(".txn_seq")){
 			try{
-				Map<Integer, Boolean> log = new HashMap<Integer, Boolean>();
-				PersistentStorageReader reader = this.getReader(".txn_log");
-				String line = reader.readLine();
+				Map<Integer, Integer> seqNums = new HashMap<Integer, Integer>();
+				PersistentStorageReader r = this.getReader(".txn_seq");
+				String line = r.readLine();
 				while(line != null){
 					String[] parts = line.split(" ");
-					log.put(Integer.parseInt(parts[0]), parts[1].equals("1"));
-					line = reader.readLine();
+					int addr = Integer.parseInt(parts[0]);
+					int seqNum = Integer.parseInt(parts[1]);
+					seqNums.put(addr, seqNum);
+					line = r.readLine();
 				}
 				
-				this.TXNLayer.initializeLog(log);
+				this.TXNLayer.initializeTimeoutSeqNums(seqNums);
+				
 			}catch(Exception e){
 				e.printStackTrace();
 			}
 		}
 		
-		//WRITE AHEAD LOG RECOVERY - ON COMMITS
-		if(this.addr == TransactionLayer.MASTER_NODE){
+		if(this.isMaster()){
+			//CACHE RECOVERY ON MASTER NODE
+			this.fileList = new HashMap<String, Update>();
+			if(this.addr == TransactionLayer.MASTER_NODE){
+				if(!fileExists(".l")){
+					try {
+						this.getWriter(".l", false).write("");
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					
+				} else {
+					try{
+						PersistentStorageReader files = getReader(".l");
+						String line = files.readLine();
+						while(line != null){
+							String[] parts = line.split(" ");
+							String fileName = parts[0];
+							int version = Integer.parseInt(parts[1]);
+							int lastCommitter = Integer.parseInt(parts[2]);
+							if(fileExists(fileName)){
+								fileList.put(fileName, new Update(null, version, lastCommitter));
+							}
+							fileName = files.readLine();
+						}
+						
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+				this.TXNLayer.setupCache(fileList);
+			}
+			
+			//TXN LOG RECOVERY
+			if(this.fileExists(".txn_log")){
+				try{
+					Map<Integer, Boolean> log = new HashMap<Integer, Boolean>();
+					PersistentStorageReader reader = this.getReader(".txn_log");
+					String line = reader.readLine();
+					while(line != null){
+						String[] parts = line.split(" ");
+						log.put(Integer.parseInt(parts[0]), parts[1].equals("1"));
+						line = reader.readLine();
+					}
+					
+					this.TXNLayer.initializeLog(log);
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+		
+			//WRITE AHEAD LOG RECOVERY - ON COMMITS
 			if(this.fileExists(".wh_log")){
 				try {
 					PersistentStorageReader reader = this.getReader(".wh_log");
