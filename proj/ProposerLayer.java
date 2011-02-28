@@ -14,8 +14,8 @@ import edu.washington.cs.cse490h.lib.Utility;
 public class ProposerLayer {
 
 	private PaxosLayer paxosLayer;
-	private HashMap<Integer, Integer> promises;
-	private HashMap<Integer, Integer> rejects;
+	private int promises;
+	private int rejects;
 	private static int MAJORITY;
 	private int proposalNumber;
 	private int instanceNumber;
@@ -31,8 +31,8 @@ public class ProposerLayer {
 
 		n = paxosLayer.n;
 		this.instanceNumber = fillGaps();
-		this.promises = new HashMap<Integer, Integer>();
-		this.rejects = new HashMap<Integer, Integer>();
+		this.promises = 0;
+		this.rejects = 0;
 	}
 	
 	public void send(int dest, PaxosPacket pkt){
@@ -46,30 +46,20 @@ public class ProposerLayer {
 			this.proposalNumber = propNumber;
 			this.values.put(pkt.getInstanceNumber(), Utility.byteArrayToString(pkt.getPayload()));
 		}
-		this.proposalNumber = (propNumber > this.proposalNumber) ? propNumber : this.proposalNumber;
+		
 		if(pkt.getProtocol() == PaxosProtocol.REJECT){
-			
-			if(rejects.containsKey(pkt.getInstanceNumber())){
-				int count = rejects.get(pkt.getInstanceNumber()) + 1;
-				if(count >= MAJORITY){
+			rejects++;
+				if(rejects >= MAJORITY){
 					//TODO: send new prepare requests!
-					rejects.clear();
 					sendPrepares();
-				} else 
-					rejects.put(pkt.getInstanceNumber(), count);
-			}else
-				rejects.put(pkt.getInstanceNumber(), 1);
+				}
+
 		} else {
-			if(promises.containsKey(pkt.getInstanceNumber())){
-				int count = promises.get(pkt.getInstanceNumber()) + 1;
-				if(count >= MAJORITY){
-					//TODO: send new prepare requests!
-					promises.clear();
-					sendPrepares();
-				} else 
-					promises.put(pkt.getInstanceNumber(), count);
-			}else
-				promises.put(pkt.getInstanceNumber(), 1);
+			promises++;
+			if(promises >= MAJORITY){
+				//TODO: send new prepare requests!
+				sendProposal();;
+			}
 		}
 			
 	}
@@ -94,9 +84,12 @@ public class ProposerLayer {
 		
 	}
 	
-	private PaxosPacket sendProposal() {
+	private void sendProposal() {
 		// TODO shouldn't pass empty byte arr, should be value
-		return new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, this.instanceNumber, this.values.get(this.instanceNUmber));
+		PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, this.instanceNumber, Utility.stringToByteArray(this.values.get(this.instanceNumber)));
+		for(int acceptor : PaxosLayer.ACCEPTORS){
+			send(acceptor, pkt);
+		}
 	}
 
 	public void recievedCommit(int from, String commit){
