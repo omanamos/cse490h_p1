@@ -1,35 +1,38 @@
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.Queue;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
+import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
+import edu.washington.cs.cse490h.lib.Utility;
 
 
 public class ProposerLayer {
 
 	private PaxosLayer paxosLayer;
 	private int promises;
-	private int majority;
-	private Queue<Commit> commits = new LinkedList<Commit>();
+	private int rejects;
+	private static int MAJORITY;
 	private int proposalNumber;
 	private int instanceNumber;
 	private DistNode n;
+	private HashMap<String, Integer> instanceValues;
+	private HashMap<Integer, String> values;
 	
 
 	public ProposerLayer(PaxosLayer paxosLayer) {
 		this.paxosLayer = paxosLayer;
-		this.promises = 0;
-		this.majority = PaxosLayer.ACCEPTORS.length / 2 + 1;
+		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
 		this.proposalNumber = 0;
-		//TODO: fill gaps!!!, read from disk!!!
+
 		n = paxosLayer.n;
-		if(n.fileExists(".pInstances"))
-			this.instanceNumber = fillGaps();
-		else{
-			//TODO: Create File
-		}
-		
+		this.instanceNumber = fillGaps();
+		this.promises = 0;
+		this.rejects = 0;
 	}
 	
 	public void send(int dest, PaxosPacket pkt){
@@ -38,70 +41,89 @@ public class ProposerLayer {
 
 	public void receivedPromise(int from, PaxosPacket pkt) {
 		//TODO: log promise?
-		promises++;
-		if(promises >= majority){
-			PaxosPacket proposal = createProposal();
-			for(int acceptor : PaxosLayer.ACCEPTORS)
-				send(acceptor, proposal);
+		int propNumber = pkt.getProposalNumber();
+		if(propNumber > this.proposalNumber){
+			this.proposalNumber = propNumber;
+			this.values.put(pkt.getInstanceNumber(), Utility.byteArrayToString(pkt.getPayload()));
+		}
+		
+		if(pkt.getProtocol() == PaxosProtocol.REJECT){
+			rejects++;
+				if(rejects >= MAJORITY){
+					//TODO: send new prepare requests!
+					sendPrepares();
+				}
+
+		} else {
+			promises++;
+			if(promises >= MAJORITY){
+				//TODO: send new prepare requests!
+				sendProposal();;
+			}
 		}
 			
 	}
 	
-	private PaxosPacket createProposal() {
+	
+	public void receivedRecovery(int from, PaxosPacket pkt){
+		if(pkt.getProtocol() == PaxosProtocol.RECOVERY_CHOSEN){
+
+			paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
+			
+		} else{
+			String payload = Utility.byteArrayToString(pkt.payload);
+			if(instanceValues.containsKey(payload)){
+				int count = instanceValues.get(payload) + 1;
+				if(count >= MAJORITY){
+					paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
+				} else 
+					instanceValues.put(payload, count);
+			}else
+				instanceValues.put(payload, 1);
+		}
+		
+	}
+	
+	private void sendProposal() {
 		// TODO shouldn't pass empty byte arr, should be value
-		return new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, this.instanceNumber, new byte[0]);
+		PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, this.instanceNumber, Utility.stringToByteArray(this.values.get(this.instanceNumber)));
+		for(int acceptor : PaxosLayer.ACCEPTORS){
+			send(acceptor, pkt);
+		}
 	}
 
-	public void recievedCommit(int from, Commit commit){
-		if(commit.isWaiting())
-			commits.add(commit);
-		else if(!commit.abort()){
-			//send prepare
-		} else {
-			n.TXNLayer.send(from, TXNProtocol.ABORT, null);			
-		}
-			
+	public void recievedCommit(int from, String commit){
+		sendPrepares();
+		this.values.put(this.instanceNumber, commit);
 	}
 	
 	public void fixHole(int instance){
-		
+		for(int acceptor : PaxosLayer.ACCEPTORS){
+			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, 0, instance, null);
+			send(acceptor, pkt);
+		}		
+	}
+	
+	public void sendPrepares(){
+		for(int acceptor : PaxosLayer.ACCEPTORS){
+			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, this.proposalNumber, this.instanceNumber, null);
+			send(acceptor, pkt);
+		}
 	}
 	
 	/**
 	 * 
-	 * @return returns the last instance of Paxos + 1
+	 * @return the current instance of paxos you should be using
 	 */
 	public int fillGaps(){
-		try {
-
-			PersistentStorageReader r = n.getReader(".pInstances");
-			String s = r.readLine();
-			int counter = 0;
-			while(s != null){
-				int current = Integer.parseInt(s);
-				if(current != counter){
-					//TODO: FIX HOLE
-					while(counter != current){
-						fixHole(counter);
-						counter++;
-					}
-					
-				}
-				counter = current;;
-				s = r.readLine();
-				
-			}
-			return counter;
+			
+			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
+			for(Integer instance : missingInst)
+				fixHole(instance);
+			int largestInst = paxosLayer.getLearnerLayer().getLargestInstanceNum();
 
 
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return 0;
+		return largestInst;
 	}
 
 

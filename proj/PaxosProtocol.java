@@ -5,6 +5,12 @@ public class PaxosProtocol {
 	public static final int PROPOSE = 8;
 	public static final int ACCEPT = 9;
 	public static final int LEARN = 10;
+	public static final int RECOVERY = 11;
+	public static final int RECOVERY_ACCEPTED = 12;
+	public static final int RECOVERY_CHOSEN = 13;
+	public static final int REJECT = 14;
+	
+	
 	
 	/**
 	 * Tests if this is a valid protocol for a Packet
@@ -18,7 +24,8 @@ public class PaxosProtocol {
 	}
 	
 	public static boolean isPaxosProtocol(int p){
-		return p == PREPARE || p == PROPOSE || p == ACCEPT || p == LEARN || p == PROMISE;
+		return p == PREPARE || p == PROPOSE || p == ACCEPT || p == LEARN || p == PROMISE || 
+		p == RECOVERY || p == RECOVERY_ACCEPTED || p == RECOVERY_CHOSEN || p == REJECT;
 	}
 
 	/**
@@ -32,11 +39,15 @@ public class PaxosProtocol {
 	 */
 	public static String protocolToString(int protocol) {
 		switch (protocol) {
-		case PREPARE: return "prepare";
-		case PROPOSE: return "propose";
-		case ACCEPT: return "accept";
-		case LEARN: return "learn";
-		case PROMISE: return "promise";
+			case PREPARE: return "prepare";
+			case PROPOSE: return "propose";
+			case ACCEPT: return "accept";
+			case LEARN: return "learn";
+			case PROMISE: return "promise";
+			case RECOVERY: return "recovery";
+			case RECOVERY_ACCEPTED: return "recovery accepted";
+			case RECOVERY_CHOSEN: return "recovery chosen";
+			case REJECT: return "reject";
 		default:
 			return Protocol.protocolToString(protocol);
 		}
