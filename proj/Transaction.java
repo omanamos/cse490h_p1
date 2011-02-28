@@ -89,7 +89,7 @@ public class Transaction implements Iterable<Command> {
 				contents = c.getContents();
 			}
 		}
-		return Utility.stringToByteArray(f.getName() + " " + version + " " + contents);
+		return Utility.stringToByteArray(f.getName() + " " + version + " " + this.id + " " + contents);
 	}
 	
 	public byte[] buildCommit(){

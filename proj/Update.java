@@ -71,9 +71,13 @@ public class Update implements Comparable<Update>{
 		StringTokenizer tok = new StringTokenizer(contents, " ");
 		int version = Integer.parseInt(tok.nextToken());
 		int source = Integer.parseInt(tok.nextToken());
-		contents = tok.nextToken();
-		while(tok.hasMoreTokens())
-			contents += tok.nextToken();
+		try{
+			contents = tok.nextToken();
+			while(tok.hasMoreTokens())
+				contents += tok.nextToken();
+		}catch(Exception e){
+			contents = "";
+		}
 		return new Update(contents, version, source);
 	}
 }

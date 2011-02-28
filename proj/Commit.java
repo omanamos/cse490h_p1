@@ -9,9 +9,13 @@ public class Commit implements Iterable<Integer>{
 	
 	private boolean abort;
 	/**
+	 * key = txn client is waiting on
+	 */
+	private Set<Integer> waitTXN;
+	/**
 	 * key = client that this commit is waiting on
 	 */
-	private Set<Integer> wait;
+	private Set<Integer> waitAddr;
 	
 	private int seqNum;
 	
@@ -19,10 +23,13 @@ public class Commit implements Iterable<Integer>{
 		this.seqNum = seqNum;
 		this.log = log;
 		this.abort = false;
-		this.wait = new HashSet<Integer>();
+		this.waitTXN = new HashSet<Integer>();
+		this.waitAddr = new HashSet<Integer>();
+		
 		for(MasterFile f : log){
 			Update u = log.getInitialVersion(f);
-			if(f.getPermissions(client) == File.INV || f.getState() == File.INV || assumedCrashed.contains(u.source) || u.source == -1 && log.hasReads(f)){
+			int addr = u.source % RIONode.NUM_NODES;
+			if(f.getPermissions(client) == File.INV || f.getState() == File.INV || assumedCrashed.contains(addr) || addr == -1 && log.hasReads(f)){
 				//Dep transaction aborted -> this one must also abort
 				this.abort = true;
 				return;
@@ -32,7 +39,8 @@ public class Commit implements Iterable<Integer>{
 				//this client didn't get its initial version from the server
 				if(u.version > f.getVersion()){
 					//if there are reads or writes that depend on an uncommitted and unaborted transaction
-					this.wait.add(u.source);
+					this.waitTXN.add(u.source);
+					this.waitAddr.add(addr);
 				}else if(u.version == f.getVersion() && f.getLastCommitter() != u.source){
 					//two nodes wrote the same version, and the one you don't depend on committed first
 					//but the node you depend on hasn't aborted yet/attempted to commit
@@ -48,8 +56,12 @@ public class Commit implements Iterable<Integer>{
 		}
 	}
 	
-	public boolean isDepOn(int addr){
-		return this.wait.contains(addr);
+	public boolean isDepOn(int txnID){
+		return this.waitTXN.contains(txnID);
+	}
+	
+	public boolean isWaitingFor(int addr){
+		return this.waitAddr.contains(addr);
 	}
 	
 	public Log getLog(){
@@ -57,15 +69,16 @@ public class Commit implements Iterable<Integer>{
 	}
 	
 	public Iterator<Integer> iterator(){
-		return this.wait.iterator();
+		return this.waitAddr.iterator();
 	}
 	
-	public void remove(Integer node){
-		this.wait.remove(node);
+	public void remove(int txnID){
+		this.waitTXN.remove(txnID);
+		this.waitAddr.remove(txnID % RIONode.NUM_NODES);
 	}
 	
 	public boolean isWaiting(){
-		return !this.wait.isEmpty();
+		return !this.waitAddr.isEmpty();
 	}
 	
 	public boolean abort(){
