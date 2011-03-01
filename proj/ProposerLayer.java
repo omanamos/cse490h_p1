@@ -70,7 +70,7 @@ public class ProposerLayer {
 			
 	}
 	
-	public void resetRP(){
+	private void resetRP(){
 		this.promises = 0;
 		this.rejects = 0;
 	}
@@ -110,7 +110,7 @@ public class ProposerLayer {
 		
 	}
 	
-	public void newInstance(String value){
+	private void newInstance(String value){
 		resetRP();
 		if(value != null)
 			this.values.put(this.instanceNumber, value);
@@ -124,7 +124,7 @@ public class ProposerLayer {
 		
 	}
 	
-	public void fixHole(int instance){
+	private void fixHole(int instance){
 		for(int acceptor : PaxosLayer.ACCEPTORS){
 			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.RECOVERY, 0, instance, null);
 			send(acceptor, pkt);
@@ -135,7 +135,7 @@ public class ProposerLayer {
 	 * Sends a prepare request to all known acceptors with the highest proposal number we have seen for the current instanceNumber
 	 * and nothing in the payload
 	 */
-	public void sendPrepares(){
+	private void sendPrepares(){
 		for(int acceptor : PaxosLayer.ACCEPTORS){
 			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, this.proposalNumber, this.instanceNumber, null);
 			send(acceptor, pkt);
@@ -146,7 +146,7 @@ public class ProposerLayer {
 	 * 
 	 * @return the current instance of paxos you should be using
 	 */
-	public int fillGaps(){
+	private int fillGaps(){
 			
 			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
 			for(Integer instance : missingInst)

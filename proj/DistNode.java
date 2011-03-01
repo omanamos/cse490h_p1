@@ -20,6 +20,7 @@ public class DistNode extends RIONode {
 	private Map<String, Update> fileList;
 	
 	public boolean isMaster(){
+		//TODO: add check for all other server nodes also
 		return this.addr == TransactionLayer.MASTER_NODE;
 	}
 	/*========================================

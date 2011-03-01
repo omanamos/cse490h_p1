@@ -9,7 +9,7 @@ public class PaxosProtocol {
 	public static final int RECOVERY_ACCEPTED = 12;
 	public static final int RECOVERY_CHOSEN = 13;
 	public static final int REJECT = 14;
-	
+	public static final int ELECT = 15;
 	
 	
 	/**
@@ -25,7 +25,8 @@ public class PaxosProtocol {
 	
 	public static boolean isPaxosProtocol(int p){
 		return p == PREPARE || p == PROPOSE || p == ACCEPT || p == LEARN || p == PROMISE || 
-		p == RECOVERY || p == RECOVERY_ACCEPTED || p == RECOVERY_CHOSEN || p == REJECT;
+		p == RECOVERY || p == RECOVERY_ACCEPTED || p == RECOVERY_CHOSEN || p == REJECT ||
+		p == ELECT;
 	}
 
 	/**
@@ -48,6 +49,7 @@ public class PaxosProtocol {
 			case RECOVERY_ACCEPTED: return "recovery accepted";
 			case RECOVERY_CHOSEN: return "recovery chosen";
 			case REJECT: return "reject";
+			case ELECT: return "elect";
 		default:
 			return Protocol.protocolToString(protocol);
 		}

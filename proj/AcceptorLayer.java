@@ -90,7 +90,7 @@ public class AcceptorLayer {
 	
 	
 	//write the acceptorRecord and promises to disk
-	public void updateState() {
+	private void updateState() {
 		try {
 			String fileContents = "";
 			for( int instanceNum : acceptorRecord.keySet() ) {
@@ -110,7 +110,7 @@ public class AcceptorLayer {
 		}
 	}
 	
-	public void readLogs() {
+	private void readLogs() {
 		PersistentStorageReader r;
 		try {
 			r = this.n.getReader(ACCEPT_FILE);
