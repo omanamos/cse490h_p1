@@ -28,6 +28,10 @@ public class Proposal {
 		return this.value;
 	}
 	
+	public PaxosPacket getPaxosPacket( int protocol ) {
+		return new PaxosPacket( protocol, this.proposalNum, this.instanceNum, Utility.stringToByteArray(this.value) );
+	}
+	
 	public String toString() {
 		return this.instanceNum + "|" + this.proposalNum + "|" + this.value;
 	}
