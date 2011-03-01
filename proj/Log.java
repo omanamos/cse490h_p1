@@ -29,13 +29,13 @@ public class Log implements Iterable<MasterFile>{
 				lookup.get(f).add(c);
 			
 			switch(c.getType()){
-				case Command.CREATE://TODO: handle creates and deletes
-				case Command.DELETE:
 				case Command.GET:
 					reads.put(f, true);
 					break;
 				case Command.APPEND:
 					reads.put(f, true);
+				case Command.CREATE:
+				case Command.DELETE:
 				case Command.PUT:
 					writes.put(f, true);
 					break;

@@ -19,7 +19,7 @@ public class Command extends Queueable{
 	private String fileName;
 	
 	public Command(int dest, int type, File f) throws IllegalArgumentException{
-		this(dest, type, f, null);
+		this(dest, type, f, "");
 	}
 	
 	public Command(int dest, int type, File f, String contents) throws IllegalArgumentException{

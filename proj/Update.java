@@ -74,10 +74,14 @@ public class Update implements Comparable<Update>{
 		try{
 			contents = tok.nextToken();
 			while(tok.hasMoreTokens())
-				contents += tok.nextToken();
+				contents += " " + tok.nextToken();
 		}catch(Exception e){
 			contents = "";
 		}
 		return new Update(contents, version, source);
+	}
+	
+	public String toString(){
+		return this.version + " " + this.source;
 	}
 }

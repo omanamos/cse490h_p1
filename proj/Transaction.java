@@ -16,6 +16,7 @@ public class Transaction implements Iterable<Command> {
 	private int numQueued;
 	public boolean willCommit;
 	public boolean isStarted;
+	public boolean willAbort;
 	
 	public Transaction(int id){
 		this.id = id;
@@ -23,6 +24,7 @@ public class Transaction implements Iterable<Command> {
 		this.fileLog = new HashMap<File, List<Command>>();
 		this.numQueued = 0;
 		this.willCommit = false;
+		this.willAbort = false;
 		isStarted = false;
 	}
 	
@@ -81,7 +83,10 @@ public class Transaction implements Iterable<Command> {
 	public byte[] getVersion(File f, String contents){
 		int version = f.getVersion();
 		for(Command c : this.getCommands(f)){
-			if(c.getType() == Command.APPEND){
+			if(c.getType() == Command.CREATE || c.getType() == Command.DELETE){
+				contents = "";
+				version++;
+			}else if(c.getType() == Command.APPEND){
 				version++;
 				contents += c.getContents();
 			}else if(c.getType() == Command.PUT){

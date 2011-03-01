@@ -11,3 +11,27 @@ time
 time
 time
 time
+1 create test
+time
+1 put test "line one\n"
+time
+1 get test
+time
+1 delete test
+time
+1 get test
+time
+2 get test
+time
+2 append test "line two\n"
+time
+time
+time
+time
+2 txcommit
+time
+time
+time
+time
+time
+1 txcommit
