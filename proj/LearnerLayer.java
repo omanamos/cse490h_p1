@@ -278,6 +278,11 @@ public class LearnerLayer {
 			e.printStackTrace();
 		}
 	}
+
+	public String getLearnedForInstance(int instanceNum) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	
 	
 	
