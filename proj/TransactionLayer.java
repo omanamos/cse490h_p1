@@ -57,13 +57,14 @@ public class TransactionLayer {
 		this.timeout = new TimeoutManager(8, this.n, this);
 		
 		if(this.n.isMaster()){
-			//this.paxos = new PaxosLayer(this, true);
+			this.paxos = new PaxosLayer(this, true);
 			this.waitingQueue = new HashMap<Integer, Commit>();
 			this.assumedCrashed = new HashSet<Integer>();
 			this.txnLog = new HashMap<Integer, Boolean>();
+			this.paxosQueue = new HashMap<Integer, Integer>();
 		}else{
-			//this.paxos = new PaxosLayer(this, false);
-			this.leader = MASTER_NODE; //= this.paxos.electLeader();
+			this.paxos = new PaxosLayer(this, false);
+			this.leader = this.paxos.electLeader();
 		}
 	}
 	
@@ -370,6 +371,7 @@ public class TransactionLayer {
 	private boolean commit(Transaction txn, int seqNum, boolean paxosFinished){
 		int client = txn.id % RIONode.NUM_NODES;
 		
+		this.setHB(client, false);
 		this.waitingQueue.remove(client);
 		
 		if(this.txnLog.containsKey(txn.id)){
@@ -466,8 +468,6 @@ public class TransactionLayer {
 			return;
 		}
 		this.rtn(client, TXNProtocol.COMMIT, seqNum, Utility.stringToByteArray(log.getTXN().id+""));
-		
-		this.setHB(client, false);
 		
 		List<Integer> canCommit = new ArrayList<Integer>();
 		//Allow any transactions dependent on this one to commit

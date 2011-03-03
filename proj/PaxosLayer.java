@@ -71,7 +71,7 @@ public class PaxosLayer {
 	}
 	
 	public void commit(Transaction txn){
-		
+		this.propLayer.receivedCommit(txn.toString());
 	}
 	
 	public int electLeader() {

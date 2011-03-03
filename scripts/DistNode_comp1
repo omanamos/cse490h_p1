@@ -1,35 +1,38 @@
 start 0
-time
 start 1
-time
 start 2
+start 3
+start 4
+start 5
+start 6
+start 7
 time
-1 txstart
-2 txstart
-time
-time
-time
-time
-time
-time
-time
-1 create test
-time
-1 put test "line one\n"
-time
-1 get test
-time
-2 get test
-time
-2 append test "line two\n"
-time
-time
-time
-time
-2 txcommit
+6 txstart
+7 txstart
 time
 time
 time
 time
 time
-1 txcommit
+time
+time
+6 create test
+time
+6 put test "line one\n"
+time
+6 get test
+time
+7 get test
+time
+7 append test "line two\n"
+time
+time
+time
+time
+7 txcommit
+time
+time
+time
+time
+time
+6 txcommit

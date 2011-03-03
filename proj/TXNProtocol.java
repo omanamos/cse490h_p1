@@ -25,7 +25,7 @@ public class TXNProtocol extends Protocol {
 	
 	public static boolean isTXNProtocol(int p){
 		return p == WQ || p == WD || p == WF || p == COMMIT || p == ABORT || p == COMMIT_DATA || p == ERROR
-			|| p == CREATE || p == HB || p == START;
+			|| p == CREATE || p == HB || p == START || p == PAXOS;
 	}
 
 	/**
@@ -49,6 +49,7 @@ public class TXNProtocol extends Protocol {
 		case CREATE: return "create";
 		case HB: return "heartbeat";
 		case START: return "start";
+		case PAXOS: return "paxos";
 		default:
 			return Protocol.protocolToString(protocol);
 		}

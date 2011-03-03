@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 
 import edu.washington.cs.cse490h.lib.Utility;
@@ -14,12 +15,16 @@ public class ProposerLayer {
 	private static int MAJORITY;
 	private int proposalNumber;
 	private int instanceNumber;
-	private HashMap<String, Integer> instanceValues;
-	private HashMap<Integer, String> values;
-	private Queue<String> commits = new LinkedList<String>();
+	private Map<String, Integer> instanceValues;
+	private Map<Integer, String> values;
+	private Queue<String> commits;
 	
 
 	public ProposerLayer(PaxosLayer paxosLayer) {
+		this.commits = new LinkedList<String>();
+		this.instanceValues = new HashMap<String, Integer>();
+		this.values = new HashMap<Integer, String>();
+		
 		this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
 		this.proposalNumber = 0;
@@ -93,11 +98,11 @@ public class ProposerLayer {
 		}
 	}
 
-	public void receivedCommit(int from, String commit){
+	public void receivedCommit(String commit){
 		commits.add(commit);
 		if(commits.size() == 1)
 			newInstance(commit);
-		
+		this.sendPrepares();
 	}
 	
 	private void newInstance(String value){
@@ -107,7 +112,6 @@ public class ProposerLayer {
 		if(commits.size() > 0){
 			if(value == commits.peek())
 				commits.remove();
-	
 			this.instanceNumber++;
 			this.values.put(this.instanceNumber, commits.peek());
 		}	
@@ -116,7 +120,7 @@ public class ProposerLayer {
 	
 	private void fixHole(int instance){
 		for(int acceptor : PaxosLayer.ACCEPTORS){
-			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.RECOVERY, 0, instance, null);
+			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.RECOVERY, 0, instance, new byte[0]);
 			send(acceptor, pkt);
 		}		
 	}
@@ -127,7 +131,7 @@ public class ProposerLayer {
 	 */
 	private void sendPrepares(){
 		for(int acceptor : PaxosLayer.ACCEPTORS){
-			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, this.proposalNumber, this.instanceNumber, null);
+			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, this.proposalNumber, this.instanceNumber, new byte[0]);
 			send(acceptor, pkt);
 		}
 	}

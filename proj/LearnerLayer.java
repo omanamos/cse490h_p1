@@ -3,7 +3,6 @@ import java.io.IOException;
 import java.util.*;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
-import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class LearnerLayer {
@@ -102,7 +101,7 @@ public class LearnerLayer {
 	
 	private boolean  commit( Transaction txn ) {
 		//call the transaction layer to see if we can commit
-		return this.paxosLayer.getTransactionLayer().commit(txn);
+		return this.paxosLayer.getTransactionLayer().paxosFinished(txn);
 	}
 	
 	
