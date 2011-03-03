@@ -13,6 +13,7 @@ public class LearnerLayer {
 	private PaxosLayer paxosLayer;
 	private HashMap<Integer, Proposal> proposals; //these are accepted proposals that haven't been processed, instance num, pro num, transaction string
 	private HashMap<Integer, HashMap<Integer, Integer>> proposalCount; //instance num, proposal num, proposal count
+	private HashMap<Integer, Proposal> outOfOrder;
 	
 	//TODO: SEND TO TXN LAYER WHEN ADDED TO THIS MAP, ALSO DETERMINE IF ABORT OR COMMIT ON THIS LAYER
 	private HashMap<Integer, Proposal> learned; //instance num, proposal num
@@ -25,6 +26,10 @@ public class LearnerLayer {
 		this.n = this.paxosLayer.n;
 		this.lastContInstance = -1;
 		this.largestInstanceNum = -1;
+		
+		this.proposals = new HashMap<Integer, Proposal>();
+		this.proposalCount = new HashMap<Integer, HashMap<Integer,Integer>>();
+		this.outOfOrder = new HashMap<Integer, Proposal>();
 	}
 	
 	public void start() {
@@ -67,19 +72,22 @@ public class LearnerLayer {
 			
 			//add to our learned
 			learned.put( iNum, p );
+			this.outOfOrder.remove( iNum );
 			writeToLog( p );
 			
 			//now see if we can execute more proposals 
 			this.executeNextLearnedProposal();
 		} else if( iNum > this.lastContInstance + 1 ) {
 			//ok we are missing something so write this proposal to the out of order log
+			this.outOfOrder.put( iNum, p );
 			writeOutOfOrder( p );
 		}
 	}
 	
 	private void executeNextLearnedProposal() {
 		Proposal p = proposals.get(this.lastContInstance + 1); //the next higher instance
-		executeProposal( p );
+		if( p != null )
+			executeProposal( p );
 	}
 	
 	private void pushProposalValueToDisk( Proposal p ) {
@@ -239,10 +247,15 @@ public class LearnerLayer {
 		}
 	}
 	
-	private void writeToLog( Proposal p ) {
+	private void writeToLearnedLog() {
+		String learnContent = "";
+		for( Integer iNum : this.learned.keySet() ) {
+			
+			
+		}
+		
 		try {
-			PersistentStorageWriter w = this.n.getWriter(LEARN_FILE, true);
-			w.write(p.toString());
+			this.n.write(LEARN_FILE, learnContent, false, true);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -259,6 +272,7 @@ public class LearnerLayer {
 				String value = entry[2];
 				Proposal p = new Proposal( instanceNum, proposalNum, value );
 				proposals.put( instanceNum, p);
+				outOfOrder.put( instanceNum, p);
 				updateLargestInstanceNum( instanceNum );
 			}
 		} catch (FileNotFoundException e) {
@@ -270,10 +284,14 @@ public class LearnerLayer {
 		}
 	}
 	
-	private void writeOutOfOrder( Proposal p ) {
+	private void writeOutOfOrder() {
+		String outoforderContent = "";
+		for( Integer iNum : this.outOfOrder.keySet() ) {
+			Proposal p = this.outOfOrder.get( iNum );
+			outoforderContent += p.toString() + "\n";
+		}
 		try {
-			PersistentStorageWriter w = this.n.getWriter(OUT_OF_ORDER, true);
-			w.write(p.toString());
+			this.n.write(OUT_OF_ORDER, outoforderContent, false, true);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
