@@ -91,13 +91,12 @@ public class LearnerLayer {
 	}
 	
 	private void pushProposalValueToDisk( Proposal p ) {
-		Transaction txn = Transaction.fromString( p.getValue() );
-		if( commit( txn ) ) {
-			//write the transaction to disk
-		} else {
-			//write an abort to the log
-			
-			
+		Transaction txn = Transaction.fromString( p.getValue(), this.paxosLayer.getTransactionLayer().cache );
+		boolean committed = commit( txn );
+
+		if( !committed ) {
+			//replace value of this proposal with txid followed by ABORT
+			p.setValue( txn.id + "#ABORT" );
 		}
 	}
 	

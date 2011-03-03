@@ -28,6 +28,10 @@ public class Proposal {
 		return this.value;
 	}
 	
+	public void setValue( String value ) {
+		this.value = value;
+	}
+	
 	public PaxosPacket getPaxosPacket( int protocol ) {
 		return new PaxosPacket( protocol, this.proposalNum, this.instanceNum, Utility.stringToByteArray(this.value) );
 	}
