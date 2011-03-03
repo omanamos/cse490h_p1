@@ -1,5 +1,3 @@
-import edu.washington.cs.cse490h.lib.Utility;
-
 
 public class PaxosLayer {
 	

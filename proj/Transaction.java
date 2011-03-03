@@ -16,6 +16,7 @@ public class Transaction implements Iterable<Command> {
 	private int numQueued;
 	public boolean willCommit;
 	public boolean isStarted;
+	public boolean willStart;
 	public boolean willAbort;
 	
 	public Transaction(int id){
@@ -25,7 +26,8 @@ public class Transaction implements Iterable<Command> {
 		this.numQueued = 0;
 		this.willCommit = false;
 		this.willAbort = false;
-		isStarted = false;
+		this.isStarted = false;
+		this.willStart = true;
 	}
 	
 	public void add(Command c){
