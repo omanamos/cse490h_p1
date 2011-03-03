@@ -1,13 +1,8 @@
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.Queue;
 
-import edu.washington.cs.cse490h.lib.PersistentStorageReader;
-import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 import edu.washington.cs.cse490h.lib.Utility;
 
 
@@ -19,27 +14,22 @@ public class ProposerLayer {
 	private static int MAJORITY;
 	private int proposalNumber;
 	private int instanceNumber;
-	private DistNode n;
 	private HashMap<String, Integer> instanceValues;
 	private HashMap<Integer, String> values;
 	private Queue<String> commits = new LinkedList<String>();
 	
 
 	public ProposerLayer(PaxosLayer paxosLayer) {
-		//this.paxosLayer = paxosLayer;
+		this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
 		this.proposalNumber = 0;
 
-		n = paxosLayer.n;
-		this.instanceNumber = fillGaps();
 		this.promises = 0;
 		this.rejects = 0;
 	}
 	
-	public void start(PaxosLayer paxosLayer){
-
+	public void start(){
 		this.instanceNumber = fillGaps();
-
 	}
 	
 	public void send(int dest, PaxosPacket pkt){
@@ -106,7 +96,7 @@ public class ProposerLayer {
 	public void receivedCommit(int from, String commit){
 		commits.add(commit);
 		if(commits.size() == 1)
-			newInstance(null);
+			newInstance(commit);
 		
 	}
 	

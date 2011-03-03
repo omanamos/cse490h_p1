@@ -82,7 +82,10 @@ public class Command extends Queueable{
 	public static Command fromByteArray(String str, Map<String, File> cache){
 		String[] command = str.split(" ");
 		int type = Integer.parseInt(command[0]);
+		
 		String fileName = command[1];
+		if(!cache.containsKey(fileName))
+			cache.put(fileName, new File(File.RW, fileName));
 		
 		String bytes = command[2].substring(1, command[2].length() - 1);
 		if(!bytes.isEmpty()){

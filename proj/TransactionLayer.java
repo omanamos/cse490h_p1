@@ -150,14 +150,16 @@ public class TransactionLayer {
 					this.n.printError("Node " + this.n.addr + ": Error: Couldn't start transation. Server " + dest + " returned error code " + Error.ERROR_STRINGS[Error.ERR_20]);
 					//TODO: elect a new leader
 				}else if(pkt.getProtocol() == TXNProtocol.COMMIT){
-					if(this.txn != null){
+					CommitPacket p = CommitPacket.unpack(pkt.getPayload(), this.cache);
+					if(this.txn != null && this.txn.id == p.getTxnNum()){
 						this.txn.willCommit = false;
 						this.n.printError("Node " + this.n.addr + ": Error: Couldn't commit transation. Server " + dest + 
 								" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
 						//TODO: elect new leader
 					}
 				}else if(pkt.getProtocol() == TXNProtocol.ABORT){
-					if(this.txn != null){
+					CommitPacket p = CommitPacket.unpack(pkt.getPayload(), this.cache);
+					if(this.txn != null && this.txn.id == p.getTxnNum()){
 						this.txn.willAbort = false;
 						this.n.printError("Node " + this.n.addr + ": Error: Couldn't abort transation. Server " + dest + 
 								" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
@@ -255,7 +257,8 @@ public class TransactionLayer {
 				}
 				break;
 			case TXNProtocol.COMMIT:
-				this.commit(from, pkt.getSeqNum(), CommitPacket.unpack(pkt.getPayload(), this.cache));
+				//this.commit(from, pkt.getSeqNum(), CommitPacket.unpack(pkt.getPayload(), this.cache));
+				this.paxos.commit(CommitPacket.unpack(pkt.getPayload(), this.cache).getTransaction());
 				break;
 			case TXNProtocol.CREATE:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
@@ -345,6 +348,11 @@ public class TransactionLayer {
 		for(Integer committer : toRemove){
 			this.waitingQueue.remove(committer);
 		}
+	}
+	
+	public boolean commit(Transaction txn){
+		//TODO: FILL IN
+		return false;
 	}
 	
 	private void commit(int client, int seqNum, CommitPacket pkt){

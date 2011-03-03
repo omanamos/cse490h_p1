@@ -73,14 +73,14 @@ public class LearnerLayer {
 			//add to our learned
 			learned.put( iNum, p );
 			this.outOfOrder.remove( iNum );
-			writeToLog( p );
+			writeToLearnedLog();
 			
 			//now see if we can execute more proposals 
 			this.executeNextLearnedProposal();
 		} else if( iNum > this.lastContInstance + 1 ) {
 			//ok we are missing something so write this proposal to the out of order log
 			this.outOfOrder.put( iNum, p );
-			writeOutOfOrder( p );
+			writeOutOfOrder( );
 		}
 	}
 	
