@@ -91,17 +91,19 @@ public class LearnerLayer {
 	}
 	
 	private void pushProposalValueToDisk( Proposal p ) {
-		if( canCommit( p ) ) {
+		Transaction txn = Transaction.fromString( p.getValue() );
+		if( commit( txn ) ) {
 			//write the transaction to disk
 		} else {
 			//write an abort to the log
 			
+			
 		}
 	}
 	
-	private boolean canCommit( Proposal p ) {
-		//call something on the transaction layer to see if we can commit
-		return true;
+	private boolean  commit( Transaction txn ) {
+		//call the transaction layer to see if we can commit
+		return this.paxosLayer.getTransactionLayer().commit(txn);
 	}
 	
 	
@@ -276,10 +278,8 @@ public class LearnerLayer {
 				updateLargestInstanceNum( instanceNum );
 			}
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

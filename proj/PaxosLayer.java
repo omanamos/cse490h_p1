@@ -33,6 +33,10 @@ public class PaxosLayer {
 		return learnLayer;
 	}
 	
+	public TransactionLayer getTransactionLayer() {
+		return this.txnLayer;
+	}
+	
 	public void onReceive(int from, byte[] payload) {
 		PaxosPacket pkt = PaxosPacket.unpack(payload);
 		switch(pkt.getProtocol()){
