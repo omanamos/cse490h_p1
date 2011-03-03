@@ -127,21 +127,32 @@ public class Transaction implements Iterable<Command> {
 		String payload = Utility.byteArrayToString(arr);
 		if(payload.isEmpty())
 			return txn;
-		for(String command : payload.split("#")){
+		for(String command : payload.split("#"))
 			txn.add(Command.fromByteArray(command, cache));
-		}
 		
 		return txn;
 	}
 	
-	public static Transaction fromString(String txn){
-		return null;
-		//TODO: IMPL
+	public static Transaction fromString(String str, Map<String, File> cache){
+		String[] parts = str.split("#");
+		int id = Integer.parseInt(parts[0]);
+		Transaction txn = new Transaction(id);
+		
+		for(int i = 1; i < parts.length; i++)
+			if(!parts[i].isEmpty())
+				txn.add(Command.fromByteArray(str, cache));
+		
+		return txn;
 	}
 	
 	public String toString(){
-		return null;
-		//TODO: IMPL
+		String rtn = this.id + "#";
+		
+		for(Command c : this){
+			rtn += c.buildCommit() + "#";
+		}
+		
+		return rtn.substring(0, rtn.length() - 1);
 	}
 	
 	public int size(){

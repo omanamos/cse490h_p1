@@ -17,7 +17,7 @@ public class TransactionLayer {
 	private ReliableInOrderMsgLayer RIOLayer;
 	private PaxosLayer paxos;
 	
-	private Map<String, File> cache;
+	public Map<String, File> cache;
 	
 	//CLIENT FIELD
 	private int lastTXNnum;
@@ -26,11 +26,19 @@ public class TransactionLayer {
 	
 	//SERVER FIELDS
 	private Set<Integer> assumedCrashed;
+	
 	/**
 	 * key = addr of node trying to commit
 	 * value = commit status
 	 */
 	private Map<Integer, Commit> waitingQueue;
+	
+	/**
+	 * Stores the seqNums received from clients so when paxos finishes
+	 * the server can respond with the correct seqNum
+	 * txnID -> seqNum
+	 */
+	private Map<Integer, Integer> paxosQueue;
 
 	private TimeoutManager timeout;
 	
@@ -351,12 +359,10 @@ public class TransactionLayer {
 	}
 	
 	public boolean commit(Transaction txn){
-		//TODO: FILL IN
-		return false;
+		return this.commit(txn.id % RIONode.NUM_NODES, this.paxosQueue.get(txn.id), txn);
 	}
 	
-	private void commit(int client, int seqNum, CommitPacket pkt){
-		Transaction txn = pkt.getTransaction();
+	private boolean commit(int client, int seqNum, Transaction txn){
 		this.waitingQueue.remove(client);
 		
 		if(this.txnLog.containsKey(txn.id)){
