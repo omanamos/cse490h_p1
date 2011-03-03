@@ -36,3 +36,28 @@
 					//I am a slave node
 				}
 		}
+		
+		
+	private boolean commit(int client, int seqNum, Transaction txn){
+		this.waitingQueue.remove(client);
+		
+		if(this.txnLog.containsKey(txn.id)){
+			if(this.txnLog.get(txn.id)){
+				this.send(client, TXNProtocol.COMMIT, Utility.stringToByteArray(txn.id+""));
+			}else{
+				this.send(client, TXNProtocol.ABORT, Utility.stringToByteArray(txn.id+""));
+			}
+		}else if(this.assumedCrashed.contains(client)){
+			this.assumedCrashed.remove(client);
+			for(String fName : this.cache.keySet()){
+				MasterFile f = (MasterFile)this.cache.get(fName);
+				f.abort(client);
+			}
+			this.send(client, TXNProtocol.ABORT, Utility.stringToByteArray(txn.id+""));
+		}else if( txn.isEmpty() ) {
+			this.send(client, TXNProtocol.COMMIT, Utility.stringToByteArray(txn.id+""));
+		}else {
+			Log log = new Log(client, txn);
+			this.commit(client, seqNum, log);
+		}
+	}

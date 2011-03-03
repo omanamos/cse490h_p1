@@ -42,6 +42,9 @@ public class TransactionLayer {
 
 	private TimeoutManager timeout;
 	
+	/**
+	 * txnID -> true if txn committed, false if it aborted
+	 */
 	private Map<Integer, Boolean> txnLog;
 	
 	private int leader;
@@ -266,7 +269,9 @@ public class TransactionLayer {
 				break;
 			case TXNProtocol.COMMIT:
 				//this.commit(from, pkt.getSeqNum(), CommitPacket.unpack(pkt.getPayload(), this.cache));
-				this.paxos.commit(CommitPacket.unpack(pkt.getPayload(), this.cache).getTransaction());
+				Transaction txn = CommitPacket.unpack(pkt.getPayload(), this.cache).getTransaction();
+				this.paxosQueue.put(txn.id, pkt.getSeqNum());
+				this.commit(txn, pkt.getSeqNum(), false);
 				break;
 			case TXNProtocol.CREATE:
 				fileName = Utility.byteArrayToString(pkt.getPayload());
@@ -358,18 +363,22 @@ public class TransactionLayer {
 		}
 	}
 	
-	public boolean commit(Transaction txn){
-		return this.commit(txn.id % RIONode.NUM_NODES, this.paxosQueue.get(txn.id), txn);
+	public boolean paxosFinished(Transaction txn){
+		return this.commit(txn, this.paxosQueue.remove(txn.id), true);
 	}
 	
-	private boolean commit(int client, int seqNum, Transaction txn){
+	private boolean commit(Transaction txn, int seqNum, boolean paxosFinished){
+		int client = txn.id % RIONode.NUM_NODES;
+		
 		this.waitingQueue.remove(client);
 		
 		if(this.txnLog.containsKey(txn.id)){
 			if(this.txnLog.get(txn.id)){
-				this.send(client, TXNProtocol.COMMIT, Utility.stringToByteArray(txn.id+""));
+				this.rtn(client, TXNProtocol.COMMIT, seqNum, Utility.stringToByteArray(txn.id+""));
+				return true;
 			}else{
-				this.send(client, TXNProtocol.ABORT, Utility.stringToByteArray(txn.id+""));
+				this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(txn.id+""));
+				return false;
 			}
 		}else if(this.assumedCrashed.contains(client)){
 			this.assumedCrashed.remove(client);
@@ -377,86 +386,103 @@ public class TransactionLayer {
 				MasterFile f = (MasterFile)this.cache.get(fName);
 				f.abort(client);
 			}
-			this.send(client, TXNProtocol.ABORT, Utility.stringToByteArray(txn.id+""));
+			this.updateLog(txn.id, false);
+			this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(txn.id+""));
+			return false;
 		}else if( txn.isEmpty() ) {
-			this.send(client, TXNProtocol.COMMIT, Utility.stringToByteArray(txn.id+""));
+			this.rtn(client, TXNProtocol.COMMIT, seqNum, Utility.stringToByteArray(txn.id+""));
+			this.updateLog(txn.id, true);
+			return true;
 		}else {
 			Log log = new Log(client, txn);
-			this.commit(client, seqNum, log);
+			Commit c = new Commit(client, log, this.txnLog, seqNum);
+			
+			if(c.abort()){
+				//txn should abort
+				for(MasterFile f : log)
+					f.abort(client);
+				this.updateLog(txn.id, false);
+				this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(txn.id+""));
+				return false;
+			}else if(c.isWaiting()){
+				//add commit to queue and send heartbeat to nodes that the commit is waiting for
+				if(!paxosFinished){
+					for(Integer addr : c){
+						this.setHB(addr, true);
+					}
+					this.waitingQueue.put(client, c);
+					return false;
+				}else{
+					this.updateLog(txn.id, false);
+					this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(txn.id + ""));
+					return false;
+				}
+			}else{
+				if(paxosFinished)
+					this.commit(client, seqNum, log);
+				else
+					this.paxos.commit(txn);
+				return true;
+			}
 		}
 	}
 	
-	private void commit(int client, int seqNum,  Log log){
-		Commit c = new Commit(client, log, this.txnLog, seqNum);
-		
-		if(c.abort()){
-			for(MasterFile f : log)
-				f.abort(client);
-			this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(log.getTXN().id+""));
-		}else if(c.isWaiting()){
-			//add commit to queue and send heartbeat to nodes that the commit is waiting for
-			for(Integer addr : c){
-				this.setHB(addr, true);
-			}
-			this.waitingQueue.put(client, c);
-		}else{
-			//push changes to disk and put most recent version in memory in MasterFile
-			try{
-				Map<MasterFile, Update> updates = new HashMap<MasterFile, Update>();
-				for(MasterFile f : log){
-						int version = f.getVersion();
-						Update u = log.getInitialVersion(f);
-						String contents = u.contents;
-						boolean deleted = false;
-						
-						for(Command cmd : log.getCommands(f)){
-							 if(cmd.getType() == Command.CREATE){
-								 contents = "";
-								 deleted = false;
-								 version++;
-							 }else if(cmd.getType() == Command.APPEND){
-								contents += cmd.getContents();
-								version++;
-							}else if(cmd.getType() == Command.PUT){
-								contents = cmd.getContents();
-								version++;
-							} else if(cmd.getType() == Command.DELETE ) {
-								version++;
-								contents = "";
-								deleted = true;
-							}
+	private void commit(int client, int seqNum, Log log){
+		try{
+			Map<MasterFile, Update> updates = new HashMap<MasterFile, Update>();
+			for(MasterFile f : log){
+					int version = f.getVersion();
+					Update u = log.getInitialVersion(f);
+					String contents = u.contents;
+					boolean deleted = false;
+					
+					for(Command cmd : log.getCommands(f)){
+						 if(cmd.getType() == Command.CREATE){
+							 contents = "";
+							 deleted = false;
+							 version++;
+						 }else if(cmd.getType() == Command.APPEND){
+							contents += cmd.getContents();
+							version++;
+						}else if(cmd.getType() == Command.PUT){
+							contents = cmd.getContents();
+							version++;
+						} else if(cmd.getType() == Command.DELETE ) {
+							version++;
+							contents = "";
+							deleted = true;
 						}
-						if(!deleted)
-							updates.put(f, new Update(contents, version, client));
-						else
-							updates.put(f, new Update("", version, -1));
-						
-				}
-				this.n.write(".wh_log", log.getTXN().id + "\n" + Update.toString(updates), true, true);
-				this.pushUpdatesToDisk(log.getTXN().id, updates);
-			}catch(IOException e){
-				e.printStackTrace();
-				return;
-			}
-			this.rtn(client, TXNProtocol.COMMIT, seqNum, Utility.stringToByteArray(log.getTXN().id+""));
-			
-			this.setHB(client, false);
-			
-			List<Integer> canCommit = new ArrayList<Integer>();
-			//Allow any transactions dependent on this one to commit
-			for(Integer committer : waitingQueue.keySet()){
-				Commit com = waitingQueue.get(committer);
-				if(com.isDepOn(log.getTXN().id)){
-					com.remove(log.getTXN().id);
-					if(!com.isWaiting()){
-						canCommit.add(committer);
 					}
+					if(!deleted)
+						updates.put(f, new Update(contents, version, client));
+					else
+						updates.put(f, new Update("", version, -1));
+					
+			}
+			this.n.write(".wh_log", log.getTXN().id + "\n" + Update.toString(updates), true, true);
+			this.pushUpdatesToDisk(log.getTXN().id, updates);
+		}catch(IOException e){
+			e.printStackTrace();
+			return;
+		}
+		this.rtn(client, TXNProtocol.COMMIT, seqNum, Utility.stringToByteArray(log.getTXN().id+""));
+		
+		this.setHB(client, false);
+		
+		List<Integer> canCommit = new ArrayList<Integer>();
+		//Allow any transactions dependent on this one to commit
+		for(Integer committer : waitingQueue.keySet()){
+			Commit com = waitingQueue.get(committer);
+			if(com.isDepOn(log.getTXN().id)){
+				com.remove(log.getTXN().id);
+				if(!com.isWaiting()){
+					canCommit.add(committer);
 				}
 			}
-			for(Integer addr : canCommit){
-				Commit com = this.waitingQueue.remove(addr);
-				this.commit(addr, com.getSeqNum(), com.getLog());
-			}
+		}
+		for(Integer addr : canCommit){
+			Commit com = this.waitingQueue.remove(addr);
+			this.commit(com.getLog().getTXN(), com.getSeqNum(), false);
 		}
 	}
 	
