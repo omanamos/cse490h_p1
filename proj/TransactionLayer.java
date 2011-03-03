@@ -38,7 +38,6 @@ public class TransactionLayer {
 	
 	private int leader;
 	
-	
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
 		this.cache = new HashMap<String, File>();
 		this.n = (DistNode)n;
@@ -75,8 +74,11 @@ public class TransactionLayer {
 	
 	public void elect(int newLeader, int instanceNum){
 		this.leader = newLeader;
-		//TODO: keep track of instanceNum and send that with every commit
-		//TODO: check for txn commit or abort once election is finished
+		if(this.txn.willAbort){
+			this.commit();
+		}else if(this.txn.willCommit){
+			this.abort(false);
+		}
 	}
 	
 	public void send(int dest, int protocol, byte[] payload) {
@@ -144,6 +146,7 @@ public class TransactionLayer {
 				if(pkt.getProtocol() == TXNProtocol.START){
 					this.txn = null;
 					this.n.printError("Node " + this.n.addr + ": Error: Couldn't start transation. Server " + dest + " returned error code " + Error.ERROR_STRINGS[Error.ERR_20]);
+					//TODO: elect a new leader
 				}else if(pkt.getProtocol() == TXNProtocol.COMMIT){
 					this.txn.willCommit = false;
 					this.n.printError("Node " + this.n.addr + ": Error: Couldn't commit transation. Server " + dest + 
@@ -161,6 +164,7 @@ public class TransactionLayer {
 					f.execute();
 					this.txnExecute();
 					this.executeCommandQueue(f);
+					//TODO: elect a new leader
 				}
 			}
 		}

@@ -1,4 +1,3 @@
-import edu.washington.cs.cse490h.lib.Utility;
 
 
 public class PaxosLayer {
@@ -62,6 +61,17 @@ public class PaxosLayer {
 		return PaxosLayer.ACCEPTORS.length;
 	}
 	
+	public void commit(Transaction txn){
+		
+	}
+	
+	public int electLeader() {
+		this.e = new Election(this.size());
+		for(int addr : ACCEPTORS)
+			this.send(addr, new PaxosPacket(PaxosProtocol.ELECT, -1, -1, new byte[0]));
+		return -1;
+	}
+	
 	private void receivedElect(int from, PaxosPacket pkt){
 		if(isServer){
 			this.send(from, new PaxosPacket(PaxosProtocol.ELECT, -1, this.learnLayer.getLargestInstanceNum(), new byte[0]));
@@ -73,12 +83,5 @@ public class PaxosLayer {
 				this.e = null;
 			}
 		}
-	}
-
-	public int electLeader() {
-		this.e = new Election(this.size());
-		for(int addr : ACCEPTORS)
-			this.send(addr, new PaxosPacket(PaxosProtocol.ELECT, -1, -1, new byte[0]));
-		return -1;
 	}
 }
