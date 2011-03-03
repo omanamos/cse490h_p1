@@ -22,10 +22,11 @@ public class ProposerLayer {
 	private DistNode n;
 	private HashMap<String, Integer> instanceValues;
 	private HashMap<Integer, String> values;
+	private Queue<String> commits = new LinkedList<String>();
 	
 
 	public ProposerLayer(PaxosLayer paxosLayer) {
-		this.paxosLayer = paxosLayer;
+		//this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
 		this.proposalNumber = 0;
 
@@ -35,12 +36,17 @@ public class ProposerLayer {
 		this.rejects = 0;
 	}
 	
+	public void start(PaxosLayer paxosLayer){
+
+		this.instanceNumber = fillGaps();
+
+	}
+	
 	public void send(int dest, PaxosPacket pkt){
 		this.paxosLayer.send(dest, pkt);
 	}
 
 	public void receivedPromise(int from, PaxosPacket pkt) {
-		//TODO: log promise?
 		int propNumber = pkt.getProposalNumber();
 		if(propNumber > this.proposalNumber){
 			this.proposalNumber = propNumber;
@@ -49,19 +55,24 @@ public class ProposerLayer {
 		
 		if(pkt.getProtocol() == PaxosProtocol.REJECT){
 			rejects++;
-				if(rejects >= MAJORITY){
-					//TODO: send new prepare requests!
-					sendPrepares();
-				}
+			if(rejects >= MAJORITY){
+				sendPrepares();
+				resetRP();
+			}
 
 		} else {
 			promises++;
 			if(promises >= MAJORITY){
-				//TODO: send new prepare requests!
-				sendProposal();;
+				sendProposal();
+				resetRP();
 			}
 		}
 			
+	}
+	
+	private void resetRP(){
+		this.promises = 0;
+		this.rejects = 0;
 	}
 	
 	
@@ -85,26 +96,46 @@ public class ProposerLayer {
 	}
 	
 	private void sendProposal() {
-		// TODO shouldn't pass empty byte arr, should be value
-		PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, this.instanceNumber, Utility.stringToByteArray(this.values.get(this.instanceNumber)));
+		PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, 
+				this.instanceNumber, Utility.stringToByteArray(this.values.get(this.instanceNumber)));
 		for(int acceptor : PaxosLayer.ACCEPTORS){
 			send(acceptor, pkt);
 		}
 	}
 
-	public void recievedCommit(int from, String commit){
-		sendPrepares();
-		this.values.put(this.instanceNumber, commit);
+	public void receivedCommit(int from, String commit){
+		commits.add(commit);
+		if(commits.size() == 1)
+			newInstance(null);
+		
 	}
 	
-	public void fixHole(int instance){
+	private void newInstance(String value){
+		resetRP();
+		if(value != null)
+			this.values.put(this.instanceNumber, value);
+		if(commits.size() > 0){
+			if(value == commits.peek())
+				commits.remove();
+	
+			this.instanceNumber++;
+			this.values.put(this.instanceNumber, commits.peek());
+		}	
+		
+	}
+	
+	private void fixHole(int instance){
 		for(int acceptor : PaxosLayer.ACCEPTORS){
-			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, 0, instance, null);
+			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.RECOVERY, 0, instance, null);
 			send(acceptor, pkt);
 		}		
 	}
 	
-	public void sendPrepares(){
+	/**
+	 * Sends a prepare request to all known acceptors with the highest proposal number we have seen for the current instanceNumber
+	 * and nothing in the payload
+	 */
+	private void sendPrepares(){
 		for(int acceptor : PaxosLayer.ACCEPTORS){
 			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, this.proposalNumber, this.instanceNumber, null);
 			send(acceptor, pkt);
@@ -115,7 +146,7 @@ public class ProposerLayer {
 	 * 
 	 * @return the current instance of paxos you should be using
 	 */
-	public int fillGaps(){
+	private int fillGaps(){
 			
 			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
 			for(Integer instance : missingInst)

@@ -473,8 +473,10 @@ class OutChannel {
 				} else
 					lastSequence = true;
 			}
-			establishSession();
-			n.TXNLayer.onRIOTimeout(this.destAddr, pkt.getPayload());
+			if(pkt.getProtocol() != Protocol.SESSION){
+				establishSession();
+				n.TXNLayer.onRIOTimeout(this.destAddr, pkt.getPayload());
+			}
 		}
 	}
 	

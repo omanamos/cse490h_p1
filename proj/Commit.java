@@ -1,5 +1,6 @@
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 
@@ -19,7 +20,7 @@ public class Commit implements Iterable<Integer>{
 	
 	private int seqNum;
 	
-	public Commit(int client, Log log, Set<Integer> assumedCrashed, int seqNum){
+	public Commit(int client, Log log, Map<Integer, Boolean> txnLog, int seqNum){
 		this.seqNum = seqNum;
 		this.log = log;
 		this.abort = false;
@@ -29,7 +30,7 @@ public class Commit implements Iterable<Integer>{
 		for(MasterFile f : log){
 			Update u = log.getInitialVersion(f);
 			int addr = u.source % RIONode.NUM_NODES;
-			if(f.getPermissions(client) == File.INV || f.getState() == File.INV || assumedCrashed.contains(addr) || addr == -1 && log.hasReads(f)){
+			if(f.getState() == File.INV || (txnLog.containsKey(u.source) && !txnLog.get(u.source)) || addr == -1 && log.hasReads(f)){
 				//Dep transaction aborted -> this one must also abort
 				this.abort = true;
 				return;
@@ -37,14 +38,14 @@ public class Commit implements Iterable<Integer>{
 				//Shouldn't ever happen
 			}else if(u.source > 0){
 				//this client didn't get its initial version from the server
-				if(u.version > f.getVersion()){
-					//if there are reads or writes that depend on an uncommitted and unaborted transaction
-					this.waitTXN.add(u.source);
-					this.waitAddr.add(addr);
-				}else if(u.version == f.getVersion() && f.getLastCommitter() != u.source){
+				if(u.version == f.getVersion() && f.getLastCommitter() != u.source){
 					//two nodes wrote the same version, and the one you don't depend on committed first
 					//but the node you depend on hasn't aborted yet/attempted to commit
 					this.abort = true;
+				}else if(!txnLog.containsKey(u.source)){
+					//if there are reads or writes that depend on an uncommitted and unaborted transaction
+					this.waitTXN.add(u.source);
+					this.waitAddr.add(addr);
 				}else if(u.version < f.getVersion() && log.hasWrites(f)){
 					//the version you wrote to is old
 					this.abort = true;

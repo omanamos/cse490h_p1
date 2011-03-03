@@ -20,6 +20,7 @@ public class DistNode extends RIONode {
 	private Map<String, Update> fileList;
 	
 	public boolean isMaster(){
+		//TODO: add check for all other server nodes also
 		return this.addr == TransactionLayer.MASTER_NODE;
 	}
 	/*========================================
@@ -68,14 +69,14 @@ public class DistNode extends RIONode {
 		}
 	}
 	
-	public void delete(String fileName) throws IOException {
+	public void delete(String fileName, boolean quiet) throws IOException {
 		if(fileExists(fileName)){
 			this.getWriter(fileName, false).delete();
 			if(this.addr == TransactionLayer.MASTER_NODE && fileList.containsKey(fileName)){
 				fileList.remove(fileName);
 				this.updateFileList();
 			}
-		}else
+		}else if(!quiet)
 			throw new IOException();
 	}
 	
@@ -89,7 +90,7 @@ public class DistNode extends RIONode {
 	
 	public void updateFileVersion(String fileName, int source, int version){
 		try{
-			this.fileList.put(fileName, new Update(null, version, source));
+			this.fileList.put(fileName, new Update("", version, source));
 			this.updateFileList();
 		}catch(Exception e){
 			e.printStackTrace();
@@ -300,9 +301,9 @@ public class DistNode extends RIONode {
 							int version = Integer.parseInt(parts[1]);
 							int lastCommitter = Integer.parseInt(parts[2]);
 							if(fileExists(fileName)){
-								fileList.put(fileName, new Update(null, version, lastCommitter));
+								fileList.put(fileName, new Update("", version, lastCommitter));
 							}
-							fileName = files.readLine();
+							line = files.readLine();
 						}
 						
 					} catch (IOException e) {

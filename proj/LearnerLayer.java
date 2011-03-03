@@ -30,7 +30,7 @@ public class LearnerLayer {
 		this.readOutOfOrder();
 	}
 	
-	public void updateLargestInstanceNum( int instanceNum ) {
+	private void updateLargestInstanceNum( int instanceNum ) {
 		if( instanceNum > this.largestInstanceNum ) {
 			this.largestInstanceNum = instanceNum;
 		}

@@ -25,9 +25,9 @@ public class MasterFile extends File implements Iterable<Integer>{
 		this.proposals = new PriorityQueue<Update>();
 	}
 	
-	public void commit(int client){
-		this.lastCommitter = client;
-		this.filePermissions.remove(client);
+	public void commit(int txnID){
+		this.lastCommitter = txnID;
+		this.filePermissions.remove(txnID % RIONode.NUM_NODES);
 	}
 	
 	public void abort(int client){

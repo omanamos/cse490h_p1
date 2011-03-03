@@ -36,19 +36,24 @@ public class TransactionLayer {
 	
 	private Map<Integer, Boolean> txnLog;
 	
+	private int leader;
+	
 	
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
 		this.cache = new HashMap<String, File>();
 		this.n = (DistNode)n;
 		this.RIOLayer = RIOLayer;
 		this.lastTXNnum = this.n.addr;
-		this.timeout = new TimeoutManager(7, this.n, this);
+		this.timeout = new TimeoutManager(8, this.n, this);
 		
-		if(this.n.addr == MASTER_NODE){
-			//TODO: connect txn layer with paxos layer this.paxos = new PaxosLayer(this);
+		if(this.n.isMaster()){
+			this.paxos = new PaxosLayer(this, true);
 			this.waitingQueue = new HashMap<Integer, Commit>();
 			this.assumedCrashed = new HashSet<Integer>();
 			this.txnLog = new HashMap<Integer, Boolean>();
+		}else{
+			this.paxos = new PaxosLayer(this, false);
+			this.leader = this.paxos.electLeader();
 		}
 	}
 	
@@ -62,6 +67,16 @@ public class TransactionLayer {
 	
 	public void initializeLog(Map<Integer, Boolean> txnLog){
 		this.txnLog.putAll(txnLog);
+	}
+	
+	public boolean isElection(){
+		return this.leader == -1;
+	}
+	
+	public void elect(int newLeader, int instanceNum){
+		this.leader = newLeader;
+		//TODO: keep track of instanceNum and send that with every commit
+		//TODO: check for txn commit or abort once election is finished
 	}
 	
 	public void send(int dest, int protocol, byte[] payload) {
@@ -92,7 +107,7 @@ public class TransactionLayer {
 		TXNPacket packet = TXNPacket.unpack(payload);
 		if(packet.getProtocol() == TXNProtocol.PAXOS){
 			this.paxos.onReceive(from, packet.getPayload());
-		}else if(this.n.addr == MASTER_NODE){
+		}else if(this.n.isMaster()){
 			masterReceive(from, packet);
 		}else
 			slaveReceive(from, packet);
@@ -105,7 +120,7 @@ public class TransactionLayer {
 	 */
 	public void onRIOTimeout(int dest, byte[] payload){
 		TXNPacket pkt = TXNPacket.unpack(payload);
-		if(this.timeout.onRtn(dest, pkt.getSeqNum())){
+		if(pkt.getProtocol() == TXNProtocol.HB || this.timeout.onRtn(dest, pkt.getSeqNum())){
 			if(this.n.isMaster()){ //This is the server
 				if(pkt.getProtocol() == TXNProtocol.HB){
 					//This is a heartbeat that timed out, meaning either a client has crashed or we assume it has.
@@ -129,6 +144,16 @@ public class TransactionLayer {
 				if(pkt.getProtocol() == TXNProtocol.START){
 					this.txn = null;
 					this.n.printError("Node " + this.n.addr + ": Error: Couldn't start transation. Server " + dest + " returned error code " + Error.ERROR_STRINGS[Error.ERR_20]);
+				}else if(pkt.getProtocol() == TXNProtocol.COMMIT){
+					this.txn.willCommit = false;
+					this.n.printError("Node " + this.n.addr + ": Error: Couldn't commit transation. Server " + dest + 
+							" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
+					//TODO: elect new leader
+				}else if(pkt.getProtocol() == TXNProtocol.ABORT){
+					this.txn.willAbort = false;
+					this.n.printError("Node " + this.n.addr + ": Error: Couldn't abort transation. Server " + dest + 
+							" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
+					//TODO: elect new leader
 				}else if(pkt.getProtocol() == TXNProtocol.WQ || pkt.getProtocol() == TXNProtocol.CREATE){
 					String fileName = Utility.byteArrayToString(pkt.getPayload());
 					this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), fileName, Error.ERR_20));
@@ -252,10 +277,23 @@ public class TransactionLayer {
 					f = (MasterFile)this.cache.get(fName);
 					f.abort(from);
 				}
+				if(this.waitingQueue.containsKey(from)){ //This transaction tried to commit, but the client timed out on the return message
+					Commit c = this.waitingQueue.remove(from);
+					for(Integer dep : c){
+						boolean othersAreDep = false;
+						for(Integer committer : waitingQueue.keySet())
+							if(waitingQueue.get(committer).isWaitingFor(committer))
+								othersAreDep = true;
+						if(!othersAreDep)
+							this.setHB(dep, false);
+					}
+				}
+				this.setHB(from, false);
+				//Try to commit the transactions dependent on this one (they should all abort b/c the txnlog is updated)
 				for(Integer committer : waitingQueue.keySet()){
 					Commit com = waitingQueue.get(committer);
 					if(com.isDepOn(txnID)){
-						this.commit(committer, pkt.getSeqNum(), com.getLog());
+						this.commit(committer, com.getSeqNum(), com.getLog());
 					}
 				}
 				this.rtn(from, TXNProtocol.ABORT, pkt.getSeqNum(), Utility.stringToByteArray(txnID+""));
@@ -325,7 +363,7 @@ public class TransactionLayer {
 	}
 	
 	private void commit(int client, int seqNum,  Log log){
-		Commit c = new Commit(client, log, this.assumedCrashed, seqNum);
+		Commit c = new Commit(client, log, this.txnLog, seqNum);
 		
 		if(c.abort()){
 			for(MasterFile f : log)
@@ -379,47 +417,52 @@ public class TransactionLayer {
 			this.rtn(client, TXNProtocol.COMMIT, seqNum, Utility.stringToByteArray(log.getTXN().id+""));
 			
 			this.setHB(client, false);
+			
+			List<Integer> canCommit = new ArrayList<Integer>();
 			//Allow any transactions dependent on this one to commit
 			for(Integer committer : waitingQueue.keySet()){
 				Commit com = waitingQueue.get(committer);
 				if(com.isDepOn(log.getTXN().id)){
 					com.remove(log.getTXN().id);
 					if(!com.isWaiting()){
-						this.waitingQueue.remove(committer);
-						this.commit(committer, com.getSeqNum(), com.getLog());
+						canCommit.add(committer);
 					}
 				}
+			}
+			for(Integer addr : canCommit){
+				Commit com = this.waitingQueue.remove(addr);
+				this.commit(addr, com.getSeqNum(), com.getLog());
 			}
 		}
 	}
 	
-	public void pushUpdatesToDisk(int txID, Map<MasterFile, Update> updates) throws IOException{
+	public void pushUpdatesToDisk(int txnID, Map<MasterFile, Update> updates) throws IOException{
 		for(MasterFile f : updates.keySet()){
 			Update u = updates.get(f);
 			if(u.source == -1){
 				f.setState(File.INV);
-				this.n.delete(f.getName());
+				this.n.delete(f.getName(), true);
 			}else{
 				f.setState(File.RW);
 				this.n.write(f.getName(), u.contents, false, true);
 			}
-			this.updateFileVersion(f, u.source, u.version);
+			this.updateFileVersion(f, txnID, u.source, u.version);
 		}
-		this.updateLog(txID, true);
-		this.n.delete(".wh_log");
+		this.updateLog(txnID, true);
+		this.n.delete(".wh_log", true);
 	}
 	
-	public void updateFileVersion(MasterFile f, int source, int version){
-		f.commit(source);
+	public void updateFileVersion(MasterFile f, int txnID, int source, int version){
+		f.commit(txnID);
 		f.setVersion(version);
-		this.n.updateFileVersion(f.getName(), source, version);
+		this.n.updateFileVersion(f.getName(), txnID, version);
 	}
 	
 	private void updateLog(int txID, boolean committed){
 		this.txnLog.put(txID, committed);
 		String contents = "";
 		for(Integer id : this.txnLog.keySet()){
-			contents += id + " " + (this.txnLog.get(id) ? 1 : 0);
+			contents += id + " " + (this.txnLog.get(id) ? 1 : 0) + "\n";
 		}
 		try {
 			this.n.write(".txn_log", contents, false, true);
@@ -440,14 +483,14 @@ public class TransactionLayer {
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = this.getFileFromCache(fileName);
 				
-				if(f.getState() == File.INV){
-					this.rtn(MASTER_NODE, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(fileName + " " + Error.ERR_10));
+				if(this.txn.isDeleted(f)){
+					this.rtn(from, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(fileName + " " + Error.ERR_10));
 				}else{
 					try {
 						byte[] payload = this.txn.getVersion(f, this.n.get(fileName));
-						this.rtn(MASTER_NODE, TXNProtocol.WD, pkt.getSeqNum(), payload);
+						this.rtn(from, TXNProtocol.WD, pkt.getSeqNum(), payload);
 					} catch (IOException e) {
-						this.rtn(MASTER_NODE, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(fileName + " " + Error.ERR_10));
+						this.rtn(from, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(fileName + " " + Error.ERR_10));
 					}
 				}
 				break;
@@ -538,7 +581,7 @@ public class TransactionLayer {
 					this.n.write(c.getFileName(), c.getContents(), false, false);
 					break;
 				case Command.DELETE:
-					this.n.delete(c.getFileName());
+					this.n.delete(c.getFileName(), false);
 					break;
 				}
 			} catch(IOException e) {
@@ -577,7 +620,6 @@ public class TransactionLayer {
 		}
 	}
 
-
 	
 
 	/*=====================================================
@@ -586,11 +628,11 @@ public class TransactionLayer {
 	 *=====================================================*/
 	
 	public boolean get(String fileName){
-		if( assertTXNStarted() && notCommited() ) {
+		if( assertTXNStarted() && notCommited() && notAborted() ) {
 			File f = this.getFileFromCache(fileName);
 			Command c = new Command(MASTER_NODE, Command.GET, f);
 			
-			if(f.execute(c)){
+			if(f.execute(c) && !this.isElection()){
 				return get(c, f);
 			}
 		}
@@ -599,7 +641,7 @@ public class TransactionLayer {
 	
 	private boolean get(Command c, File f){
 		if(f.getState() == File.INV){
-			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName()));
+			this.send(this.leader, TXNProtocol.WQ, Utility.stringToByteArray(f.getName()));
 			return false;
 		}else{
 			f.execute();
@@ -614,11 +656,11 @@ public class TransactionLayer {
 
 	public boolean create(String filename){
 		boolean rtn = false;
-		if( assertTXNStarted() && notCommited() ) {
+		if( assertTXNStarted() && notCommited() && notAborted() ) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.CREATE, f, "");
 			
-			if(f.execute(c)){
+			if(f.execute(c) && !this.isElection()){
 				return create(c, f);
 			}
 		}
@@ -627,7 +669,7 @@ public class TransactionLayer {
 	
 	private boolean create(Command c, File f){
 		if(f.getState() == File.INV && !this.txn.isDeleted(f)){
-			this.send(MASTER_NODE, TXNProtocol.CREATE, Utility.stringToByteArray(f.getName()));
+			this.send(this.leader, TXNProtocol.CREATE, Utility.stringToByteArray(f.getName()));
 			return false;
 		}else{
 			f.execute();
@@ -642,11 +684,11 @@ public class TransactionLayer {
 	}
 
 	public boolean put(String filename, String content){
-		if( assertTXNStarted() && notCommited() ) {
+		if( assertTXNStarted() && notCommited() && notAborted() ) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.PUT, f, content);
 			
-			if(f.execute(c)){
+			if(f.execute(c) && !this.isElection()){
 				return put(c, f);
 			}
 		}
@@ -655,7 +697,7 @@ public class TransactionLayer {
 	
 	private boolean put(Command c, File f){
 		if(f.getState() == File.INV){
-			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName())); //WQ
+			this.send(this.leader, TXNProtocol.WQ, Utility.stringToByteArray(f.getName())); //WQ
 			return false;
 		}else{
 			f.execute();
@@ -671,11 +713,11 @@ public class TransactionLayer {
 	}
 
 	public boolean append(String filename, String content){
-		if( assertTXNStarted() && notCommited() ) {
+		if( assertTXNStarted() && notCommited() && notAborted() ) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.APPEND, f, content);
 			
-			if(f.execute(c)) {
+			if(f.execute(c) && !this.isElection()) {
 				return append(c, f);
 			}
 		}
@@ -683,8 +725,8 @@ public class TransactionLayer {
 	}
 	
 	private boolean append(Command c, File f){
-		if(f.getState() != File.RW) {
-			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName())); //WQ
+		if(f.getState() == File.INV) {
+			this.send(this.leader, TXNProtocol.WQ, Utility.stringToByteArray(f.getName())); //WQ
 			return false;
 		}else{
 			f.execute();
@@ -701,11 +743,11 @@ public class TransactionLayer {
 	}
 
 	public boolean delete(String filename){
-		if( assertTXNStarted() && notCommited() ) {
+		if( assertTXNStarted() && notCommited() && notAborted()) {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.DELETE, f);
 		
-			if(f.execute(c)) {
+			if(f.execute(c) && !this.isElection()) {
 				return delete(c, f);
 			}
 		}
@@ -714,11 +756,11 @@ public class TransactionLayer {
 	
 	private boolean delete(Command c, File f){
 		if(f.getState() != File.RW) {
-			this.send(MASTER_NODE, TXNProtocol.WQ, Utility.stringToByteArray(f.getName()));
+			this.send(this.leader, TXNProtocol.WQ, Utility.stringToByteArray(f.getName()));
 			return false;//WQ
 		} else {
 			f.execute();
-			f.setState(File.INV);
+			//f.setState(File.INV);
 			this.txn.add(c);
 			txnExecute();
 			return true;
@@ -729,13 +771,17 @@ public class TransactionLayer {
 	public void abort(boolean notifyServer) {
 		if( (this.txn == null || !this.txn.isStarted) && notifyServer ){
 			this.assertTXNStarted();
+		}else if(this.notCommited() || this.notAborted()){
+			//^ prints out error message
+		}else if(this.isElection()){
+			this.txn.willAbort = true;
 		}else{
-			this.txn = null;
-			this.cache.clear();
 			if(notifyServer)
-				this.send(MASTER_NODE, TXNProtocol.ABORT, new byte[0]);
-			else
+				this.send(this.leader, TXNProtocol.ABORT, Utility.stringToByteArray(this.txn.id+""));
+			else{
 				this.n.printError("Node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
+				this.txn = null;
+			}
 		}
 	}
 	
@@ -750,14 +796,14 @@ public class TransactionLayer {
 
 	public void commit() {
 
-		if( assertTXNStarted() ) {
+		if( this.assertTXNStarted() && this.notAborted() && this.notCommited()) {
 			//Check to see if there are queued commands before committing
-			if( noQueuedCommands() ) {
-				//Send txn to master node
-				this.send(MASTER_NODE, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
-			} else {
+			if( !noQueuedCommands() || this.isElection()) {
 				//set will commit to true to that the txn commits after all queued commands complete
 				this.txn.willCommit = true;
+			} else {
+				//Send txn to master node
+				this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
 			}
 		}
 	}
@@ -780,6 +826,7 @@ public class TransactionLayer {
 	}
 
 	public void start() {
+		//TODO: handle leader election queuing and queuing while txn is starting
 		if( this.txn == null ) {
 			try{
 				int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
@@ -787,7 +834,7 @@ public class TransactionLayer {
 				
 				//start a new transaction by creating a new transaction object
 				this.txn = new Transaction( newTXNnum );
-				this.send(MASTER_NODE, TXNProtocol.START, new byte[0]);
+				this.send(this.leader, TXNProtocol.START, new byte[0]);
 			}catch(Exception e){
 				e.printStackTrace();
 			}
@@ -809,7 +856,15 @@ public class TransactionLayer {
 	
 	public boolean notCommited() {
 		if( this.txn.willCommit ) {
-			this.n.printError("ERROR: Current transaction to be commited on node " + this.n.addr + " : please start new transaction");
+			this.n.printError("ERROR: Current transaction to be commited on node " + this.n.addr + ". Please wait for it to finish and then start a new transaction.");
+			return false;
+		}
+		return true;
+	}
+	
+	public boolean notAborted() {
+		if( this.txn.willAbort ) {
+			this.n.printError("ERROR: Current transaction to be aborted on node " + this.n.addr + ". Please wait for it to finish and then start a new transaction.");
 			return false;
 		}
 		return true;
