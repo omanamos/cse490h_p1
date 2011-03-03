@@ -20,6 +20,8 @@ public class AcceptorLayer {
 	public AcceptorLayer(PaxosLayer paxosLayer) {
 		this.paxosLayer = paxosLayer;
 		this.n = this.paxosLayer.n;
+		this.acceptorRecord = new HashMap<Integer, Proposal>();
+		this.promised = new HashMap<Integer, Integer>();
 	}
 	
 	public void start() {
@@ -53,7 +55,6 @@ public class AcceptorLayer {
 		} else {
 			//REJECTION OOOOHHHH BURRRRNNN
 			response = reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal );
-			
 		}
 		
 		//send the response
@@ -62,7 +63,6 @@ public class AcceptorLayer {
 	
 	public void receivedPropose(int from, PaxosPacket pkt){
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
-		
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
 		if( acceptedProposal == null && ( promisedValue == null || pkt.getProposalNumber() >= promisedValue ) ) {
@@ -78,7 +78,6 @@ public class AcceptorLayer {
 			//REJECTION DAMNNN
 			this.send(from, reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal ));
 		}
-		
 	}
 	
 	public PaxosPacket reject(int instanceNum, int promisedValue, Proposal acceptedProposal ) {
@@ -154,11 +153,6 @@ public class AcceptorLayer {
 			e.printStackTrace();
 		}
 	}
-	
-	
-	
-	
-	
 	
 	
 	
