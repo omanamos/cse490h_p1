@@ -1,5 +1,4 @@
 
-
 public class PaxosLayer {
 	
 	public static final int[] ACCEPTORS = {0,1,2,3,4};

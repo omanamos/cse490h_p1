@@ -37,6 +37,13 @@ public class Command extends Queueable{
 		this.contents = contents;
 	}
 	
+	public void setContents(String contents){
+		if(contents.charAt(0) == '"' && contents.charAt(contents.length() - 1) == '"')
+			contents = contents.substring(1, contents.length() - 1);
+		contents = contents.replaceAll("\\\\n", "\n");
+		this.contents = contents;
+	}
+	
 	public int getType(){
 		return this.type;
 	}

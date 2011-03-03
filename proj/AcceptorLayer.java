@@ -4,18 +4,17 @@ import java.util.*;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
+import edu.washington.cs.cse490h.lib.Utility;
 
 public class AcceptorLayer {
 
 	private static final String ACCEPT_FILE = ".acceptor_record";
 	private static final String PROMISE_FILE = ".promises";
-	
-	//TODO HANDLE CRASHES
-	
+		
 	
 	private PaxosLayer paxosLayer;
 	
-	private HashMap<Integer, Proposal> acceptorRecord; //instance num -> accepted proposal number -> value
+	private HashMap<Integer, Proposal> acceptorRecord; //instance num -> accepted proposal
 	private HashMap<Integer, Integer> promised; //instance num -> highest promised or accepted proposal number
 	private DistNode n;
 	
@@ -36,7 +35,6 @@ public class AcceptorLayer {
 		
 		int newProposalNum = pkt.getProposalNumber();
 		
-		Proposal existing = acceptorRecord.get( pkt.getInstanceNumber() );
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
@@ -52,14 +50,11 @@ public class AcceptorLayer {
 			
 			//write to disk before our response
 			updateState();
+			
 		} else {
 			//REJECTION OOOOHHHH BURRRRNNN
+			response = reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal );
 			
-			if( acceptedProposal == null ) {
-				response = new PaxosPacket(PaxosProtocol.REJECT, promisedValue, pkt.getInstanceNumber(), new byte[0]);
-			} else {
-				response = acceptedProposal.getPaxosPacket(PaxosProtocol.REJECT);
-			}
 		}
 		
 		//send the response
@@ -71,21 +66,48 @@ public class AcceptorLayer {
 		
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
-		if( promisedValue == null || pkt.getProposalNumber() >= promisedValue ) {
+		if( acceptedProposal == null && ( promisedValue == null || pkt.getProposalNumber() >= promisedValue ) ) {
+			acceptedProposal = new Proposal( pkt );
+			acceptorRecord.put( pkt.getInstanceNumber(), acceptedProposal );
+			promised.put( pkt.getInstanceNumber(), pkt.getProposalNumber() );
+			
+			updateState();
+			
+			this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.ACCEPT));
 			
 		} else {
 			//REJECTION DAMNNN
-			
-			
+			this.send(from, reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal ));
 		}
 		
-		
-		
+	}
+	
+	public PaxosPacket reject(int instanceNum, int promisedValue, Proposal acceptedProposal ) {
+		PaxosPacket response;
+		if( acceptedProposal == null ) {
+			response = new PaxosPacket(PaxosProtocol.REJECT, promisedValue, instanceNum, new byte[0]);
+		} else {
+			response = acceptedProposal.getPaxosPacket(PaxosProtocol.REJECT);
+		}
+		return response;
 	}
 
 	public void receivedRecovery(int from, PaxosPacket pkt) {
-		// TODO Auto-generated method stub
+		int instanceNum = pkt.getInstanceNumber();
 		
+		String response = this.paxosLayer.getLearnerLayer().getLearnedForInstance( instanceNum );
+		if( response == null ) {
+			Proposal acceptedProposal = this.acceptorRecord.get(instanceNum);
+			if( acceptedProposal == null ) {
+				//not quite sure
+			} else {
+				this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.RECOVERY_ACCEPTED));
+			}
+			
+		} else {
+			PaxosPacket chosen = new PaxosPacket( PaxosProtocol.RECOVERY_CHOSEN, -1, instanceNum, Utility.stringToByteArray(response));
+			this.send( from, chosen );
+		}
 	}
 	
 	

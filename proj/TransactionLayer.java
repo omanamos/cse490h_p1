@@ -46,13 +46,13 @@ public class TransactionLayer {
 		this.timeout = new TimeoutManager(8, this.n, this);
 		
 		if(this.n.isMaster()){
-			this.paxos = new PaxosLayer(this, true);
+			//this.paxos = new PaxosLayer(this, true);
 			this.waitingQueue = new HashMap<Integer, Commit>();
 			this.assumedCrashed = new HashSet<Integer>();
 			this.txnLog = new HashMap<Integer, Boolean>();
 		}else{
-			this.paxos = new PaxosLayer(this, false);
-			this.leader = this.paxos.electLeader();
+			//this.paxos = new PaxosLayer(this, false);
+			this.leader = MASTER_NODE; //= this.paxos.electLeader();
 		}
 	}
 	
@@ -74,10 +74,12 @@ public class TransactionLayer {
 	
 	public void elect(int newLeader, int instanceNum){
 		this.leader = newLeader;
-		if(this.txn.willAbort){
-			this.commit();
+		if(this.txn.willStart){
+			this.start();
+		}else if(this.txn.willAbort){
+			this.abort(true);
 		}else if(this.txn.willCommit){
-			this.abort(false);
+			this.commit();
 		}
 	}
 	
@@ -148,15 +150,19 @@ public class TransactionLayer {
 					this.n.printError("Node " + this.n.addr + ": Error: Couldn't start transation. Server " + dest + " returned error code " + Error.ERROR_STRINGS[Error.ERR_20]);
 					//TODO: elect a new leader
 				}else if(pkt.getProtocol() == TXNProtocol.COMMIT){
-					this.txn.willCommit = false;
-					this.n.printError("Node " + this.n.addr + ": Error: Couldn't commit transation. Server " + dest + 
-							" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
-					//TODO: elect new leader
+					if(this.txn != null){
+						this.txn.willCommit = false;
+						this.n.printError("Node " + this.n.addr + ": Error: Couldn't commit transation. Server " + dest + 
+								" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
+						//TODO: elect new leader
+					}
 				}else if(pkt.getProtocol() == TXNProtocol.ABORT){
-					this.txn.willAbort = false;
-					this.n.printError("Node " + this.n.addr + ": Error: Couldn't abort transation. Server " + dest + 
-							" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
-					//TODO: elect new leader
+					if(this.txn != null){
+						this.txn.willAbort = false;
+						this.n.printError("Node " + this.n.addr + ": Error: Couldn't abort transation. Server " + dest + 
+								" returned error code " + Error.ERROR_STRINGS[Error.ERR_20] + ". Please try again.");
+						//TODO: elect new leader
+					}
 				}else if(pkt.getProtocol() == TXNProtocol.WQ || pkt.getProtocol() == TXNProtocol.CREATE){
 					String fileName = Utility.byteArrayToString(pkt.getPayload());
 					this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), fileName, Error.ERR_20));
@@ -518,6 +524,8 @@ public class TransactionLayer {
 						f.setState(File.RW);
 						f.setVersion(version);
 						this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + " " + sourceTxn + " " + contents));
+						if(c.getType() == Command.GET)
+							c.setContents(contents);
 						this.txn.add(c);
 						this.txnExecute();
 					} catch (IOException e) {
@@ -564,6 +572,8 @@ public class TransactionLayer {
 				if(this.timeout.onRtn(from, pkt.getSeqNum())){
 					this.txn.isStarted = true;
 					this.n.printData("Success: Transaction #" + this.txn.id + " Started on Node " + this.n.addr);
+					for(File f1 : this.cache.values())
+						this.executeCommandQueue(f1);
 				}
 				break;
 		}
@@ -576,7 +586,8 @@ public class TransactionLayer {
 				int type = c.getType();
 				switch( type ) {
 				case Command.GET :
-					this.n.printData(this.n.get(c.getFileName() ));
+					this.n.printSuccess(c);
+					this.n.printData(c.getContents());
 					break;
 				case Command.APPEND:
 					this.n.write(c.getFileName(), c.getContents(), true, false);
@@ -591,7 +602,7 @@ public class TransactionLayer {
 			} catch(IOException e) {
 				this.n.printError("Fatal Error: When applying commit locally on: " + c.getFileName() + "  command: " + c ) ;
 			}
-			if(c.getType() != Command.UPDATE)
+			if(c.getType() != Command.UPDATE && c.getType() != Command.GET)
 				this.n.printSuccess(c);
 		}
 		
@@ -651,8 +662,14 @@ public class TransactionLayer {
 			f.execute();
 			if(this.txn.isDeleted(f))
 				this.n.printError(c, Error.ERR_10);
-			else
-				this.txn.add( c );
+			else{
+				try{
+					c.setContents(this.txn.getVersionContents(f, this.n.get(f.getName())));
+					this.txn.add( c );
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
 			txnExecute();
 			return true;
 		}
@@ -773,9 +790,9 @@ public class TransactionLayer {
 	}
 
 	public void abort(boolean notifyServer) {
-		if( (this.txn == null || !this.txn.isStarted) && notifyServer ){
+		if( (this.txn == null || !this.txn.isStarted)&& notifyServer ){
 			this.assertTXNStarted();
-		}else if(this.notCommited() || this.notAborted()){
+		}else if(!this.notCommited() || !this.notAborted()){
 			//^ prints out error message
 		}else if(this.isElection()){
 			this.txn.willAbort = true;
@@ -790,7 +807,12 @@ public class TransactionLayer {
 	}
 	
 	public void txnExecute() {
-		if( this.txn.willCommit ) {
+		if(this.txn.willAbort){
+			this.txn.decrementNumQueued();
+			if( this.txn.getNumQueued() == 0 ) {
+				this.abort(true);
+			}
+		}else if( this.txn.willCommit ) {
 			this.txn.decrementNumQueued();
 			if( this.txn.getNumQueued() == 0 ) {
 				this.commit();
@@ -802,7 +824,7 @@ public class TransactionLayer {
 
 		if( this.assertTXNStarted() && this.notAborted() && this.notCommited()) {
 			//Check to see if there are queued commands before committing
-			if( !noQueuedCommands() || this.isElection()) {
+			if( !noQueuedCommands() || this.isElection() || !this.txn.isStarted) {
 				//set will commit to true to that the txn commits after all queued commands complete
 				this.txn.willCommit = true;
 			} else {
@@ -830,8 +852,9 @@ public class TransactionLayer {
 	}
 
 	public void start() {
-		//TODO: handle leader election queuing and queuing while txn is starting
-		if( this.txn == null ) {
+		if(this.isElection()){
+			this.n.printData("Delay: Election currently in progress, start command queued, will be sent when election is finished.");
+		}else if( this.txn == null ) {
 			try{
 				int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
 				this.n.write(".txn_id", newTXNnum + "", false, true);

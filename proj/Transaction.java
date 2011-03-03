@@ -16,6 +16,7 @@ public class Transaction implements Iterable<Command> {
 	private int numQueued;
 	public boolean willCommit;
 	public boolean isStarted;
+	public boolean willStart;
 	public boolean willAbort;
 	
 	public Transaction(int id){
@@ -25,7 +26,8 @@ public class Transaction implements Iterable<Command> {
 		this.numQueued = 0;
 		this.willCommit = false;
 		this.willAbort = false;
-		isStarted = false;
+		this.isStarted = false;
+		this.willStart = true;
 	}
 	
 	public void add(Command c){
@@ -97,6 +99,19 @@ public class Transaction implements Iterable<Command> {
 		return Utility.stringToByteArray(f.getName() + " " + version + " " + this.id + " " + contents);
 	}
 	
+	public String getVersionContents(File f, String contents){
+		for(Command c : this.getCommands(f)){
+			if(c.getType() == Command.CREATE || c.getType() == Command.DELETE){
+				contents = "";
+			}else if(c.getType() == Command.APPEND){
+				contents += c.getContents();
+			}else if(c.getType() == Command.PUT){
+				contents = c.getContents();
+			}
+		}
+		return contents;
+	}
+	
 	public byte[] buildCommit(){
 		String payload = "";
 		
@@ -104,13 +119,14 @@ public class Transaction implements Iterable<Command> {
 			payload += c.buildCommit() + "#";
 		}
 		
-		return Utility.stringToByteArray(payload.substring(0, payload.length() - 1));
+		return Utility.stringToByteArray(payload.isEmpty() ? "" : payload.substring(0, payload.length() - 1));
 	}
 	
 	public static Transaction fromByteArray(int txnNum, Map<String, File> cache, byte[] arr){
 		Transaction txn = new Transaction(txnNum);
 		String payload = Utility.byteArrayToString(arr);
-		
+		if(payload.isEmpty())
+			return txn;
 		for(String command : payload.split("#")){
 			txn.add(Command.fromByteArray(command, cache));
 		}

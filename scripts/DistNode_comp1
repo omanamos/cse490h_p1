@@ -1,5 +1,7 @@
 start 0
+time
 start 1
+time
 start 2
 time
 1 txstart
@@ -14,10 +16,6 @@ time
 1 create test
 time
 1 put test "line one\n"
-time
-1 get test
-time
-1 delete test
 time
 1 get test
 time
