@@ -13,7 +13,7 @@ public class LearnerLayer {
 	private PaxosLayer paxosLayer;
 	private HashMap<Integer, Proposal> proposals; //these are accepted proposals that haven't been processed, instance num, pro num, transaction string
 	private HashMap<Integer, HashMap<Integer, Integer>> proposalCount; //instance num, proposal num, proposal count
-	private HashMap<Integer, Integer> learned; //instance num, proposal num
+	private HashMap<Integer, Proposal> learned; //instance num, proposal num
 	private DistNode n;
 	private int lastContInstance;
 	private int largestInstanceNum;
@@ -64,7 +64,7 @@ public class LearnerLayer {
 			this.pushProposalValueToDisk(p);
 			
 			//add to our learned
-			learned.put( iNum, p.getProposalNum() );
+			learned.put( iNum, p );
 			writeToLog( p );
 			
 			//now see if we can execute more proposals 
@@ -173,17 +173,16 @@ public class LearnerLayer {
 				PersistentStorageReader r = this.n.getReader(LEARN_FILE);
 				String line = r.readLine();
 				while( line != null ) {
-					String[] entry = line.split(" ");
+					String[] entry = line.split("|");
 					int instanceNum = Integer.parseInt(entry[0]);
 					int proposalNum = Integer.parseInt(entry[1]);
-					learned.put( instanceNum, proposalNum );
+					String value = entry[2];
+					learned.put( instanceNum, new Proposal( instanceNum, proposalNum, value ) );
 					updateLargestInstanceNum( instanceNum );
 				}
 			} catch (FileNotFoundException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		for( int i = this.lastContInstance + 1; i < this.largestInstanceNum; i++ ) {
@@ -204,7 +203,7 @@ public class LearnerLayer {
 	}
 	
 	public int learnedProposalNumForInstance( int instanceNum ) {
-		return this.learned.get( instanceNum );
+		return this.learned.get( instanceNum ).getProposalNum();
 	}
 	
 	
@@ -221,10 +220,12 @@ public class LearnerLayer {
 			PersistentStorageReader r = this.n.getReader(LEARN_FILE);
 			String line = r.readLine();
 			while( line != null ) {
-				String[] entry = line.split(" ");
+				String[] entry = line.split("|");
 				int instanceNum = Integer.parseInt(entry[0]);
 				int proposalNum = Integer.parseInt(entry[1]);
-				learned.put( instanceNum, proposalNum );
+				String value = entry[2];
+				Proposal p = new Proposal( instanceNum, proposalNum, value );
+				learned.put( instanceNum, p );
 				updateLargestInstanceNum( instanceNum );
 			}
 		} catch (FileNotFoundException e) {
@@ -237,12 +238,9 @@ public class LearnerLayer {
 	}
 	
 	private void writeToLog( Proposal p ) {
-		int instanceNum = p.getInstanceNum();
-		int proposalNum = p.getProposalNum();
-		
 		try {
 			PersistentStorageWriter w = this.n.getWriter(LEARN_FILE, true);
-			w.write(instanceNum + " " + proposalNum );
+			w.write(p.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -280,7 +278,10 @@ public class LearnerLayer {
 	}
 
 	public String getLearnedForInstance(int instanceNum) {
-		// TODO Auto-generated method stub
+		Proposal p = learned.get( instanceNum );
+		if( p != null ) { 
+			return p.getValue();
+		}
 		return null;
 	}
 	

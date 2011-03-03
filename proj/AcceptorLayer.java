@@ -10,13 +10,11 @@ public class AcceptorLayer {
 
 	private static final String ACCEPT_FILE = ".acceptor_record";
 	private static final String PROMISE_FILE = ".promises";
-	
-	//TODO HANDLE CRASHES
-	
+		
 	
 	private PaxosLayer paxosLayer;
 	
-	private HashMap<Integer, Proposal> acceptorRecord; //instance num -> accepted proposal number -> value
+	private HashMap<Integer, Proposal> acceptorRecord; //instance num -> accepted proposal
 	private HashMap<Integer, Integer> promised; //instance num -> highest promised or accepted proposal number
 	private DistNode n;
 	
@@ -37,7 +35,6 @@ public class AcceptorLayer {
 		
 		int newProposalNum = pkt.getProposalNumber();
 		
-		Proposal existing = acceptorRecord.get( pkt.getInstanceNumber() );
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
