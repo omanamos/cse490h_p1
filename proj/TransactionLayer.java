@@ -852,9 +852,11 @@ public class TransactionLayer {
 	}
 
 	public void start() {
-		if(this.isElection()){
+		if(this.txn != null){
+			this.n.printError("ERROR: Transaction in progress on node " + this.n.addr + " : can not start new transaction");
+		}else if(this.isElection()){
 			this.n.printData("Delay: Election currently in progress, start command queued, will be sent when election is finished.");
-		}else if( this.txn == null ) {
+		}else{
 			try{
 				int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
 				this.n.write(".txn_id", newTXNnum + "", false, true);
@@ -865,8 +867,6 @@ public class TransactionLayer {
 			}catch(Exception e){
 				e.printStackTrace();
 			}
-		} else {
-			this.n.printError("ERROR: Transaction in progress on node " + this.n.addr + " : can not start new transaction");
 		}
 	}
 	
