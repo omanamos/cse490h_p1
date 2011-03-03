@@ -23,6 +23,12 @@ public class PaxosLayer {
 		}
 	}
 	
+	public void start(){
+		this.propLayer.start();
+		this.accLayer.start();
+		this.learnLayer.start();
+	}
+	
 	public LearnerLayer getLearnerLayer(){
 		return learnLayer;
 	}

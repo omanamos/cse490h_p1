@@ -7,7 +7,8 @@ import java.io.IOException;
 
 public class PaxosPacket extends TXNPacket {
 
-	public static final int HEADER_SIZE = 5;
+	public static final int MAX_PACKET_SIZE = TXNPacket.MAX_PAYLOAD_SIZE;
+	public static final int HEADER_SIZE = 8;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 	
 	private int proposalNumber;

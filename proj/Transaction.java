@@ -134,6 +134,16 @@ public class Transaction implements Iterable<Command> {
 		return txn;
 	}
 	
+	public static Transaction fromString(String txn){
+		return null;
+		//TODO: IMPL
+	}
+	
+	public String toString(){
+		return null;
+		//TODO: IMPL
+	}
+	
 	public int size(){
 		return this.log.size();
 	}

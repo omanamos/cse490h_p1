@@ -79,7 +79,8 @@ public class LearnerLayer {
 	
 	private void executeNextLearnedProposal() {
 		Proposal p = proposals.get(this.lastContInstance + 1); //the next higher instance
-		executeProposal( p );
+		if(p != null)
+			executeProposal( p );
 	}
 	
 	private void pushProposalValueToDisk( Proposal p ) {

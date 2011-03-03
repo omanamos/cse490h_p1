@@ -3,7 +3,6 @@ import java.io.IOException;
 import java.util.*;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
-import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class AcceptorLayer {
