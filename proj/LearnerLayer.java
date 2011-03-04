@@ -252,8 +252,7 @@ public class LearnerLayer {
 	private void writeToLearnedLog() {
 		String learnContent = "";
 		for( Integer iNum : this.learned.keySet() ) {
-			
-			
+			learnContent += this.learned.get( iNum ).toString() + "\n";
 		}
 		
 		try {
