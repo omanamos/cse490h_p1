@@ -5,3 +5,17 @@ start 3
 start 4
 start 5
 time
+5 txstart
+time
+time
+time
+time
+time
+time
+time
+time
+5 create test
+time
+5 put test "hello world!"
+time
+5 txcommit

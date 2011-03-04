@@ -55,7 +55,9 @@ public class TransactionLayer {
 		this.RIOLayer = RIOLayer;
 		this.lastTXNnum = this.n.addr;
 		this.timeout = new TimeoutManager(8, this.n, this);
-		
+	}
+	
+	public void start(){
 		if(this.n.isMaster()){
 			this.paxos = new PaxosLayer(this, true);
 			this.waitingQueue = new HashMap<Integer, Commit>();
@@ -86,12 +88,14 @@ public class TransactionLayer {
 	
 	public void elect(int newLeader, int instanceNum){
 		this.leader = newLeader;
-		if(this.txn.willStart){
-			this.start();
-		}else if(this.txn.willAbort){
-			this.abort(true);
-		}else if(this.txn.willCommit){
-			this.commit();
+		if(this.txn != null){
+			if(this.txn.willStart){
+				this.send(this.leader, TXNProtocol.START, new byte[0]);
+			}else if(this.txn.willAbort){
+				this.abort(true);
+			}else if(this.txn.willCommit){
+				this.commit();
+			}
 		}
 	}
 	
@@ -611,6 +615,7 @@ public class TransactionLayer {
 			case TXNProtocol.START:
 				if(this.timeout.onRtn(from, pkt.getSeqNum())){
 					this.txn.isStarted = true;
+					this.txn.willStart = false;
 					this.n.printData("Success: Transaction #" + this.txn.id + " Started on Node " + this.n.addr);
 					for(File f1 : this.cache.values())
 						this.executeCommandQueue(f1);
@@ -855,7 +860,7 @@ public class TransactionLayer {
 		}else if( this.txn.willCommit ) {
 			this.txn.decrementNumQueued();
 			if( this.txn.getNumQueued() == 0 ) {
-				this.commit();
+				this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
 			}
 		}
 	}
@@ -891,19 +896,22 @@ public class TransactionLayer {
 		this.cache.clear();
 	}
 
-	public void start() {
+	public void txstart() {
 		if(this.txn != null){
 			this.n.printError("ERROR: Transaction in progress on node " + this.n.addr + " : can not start new transaction");
-		}else if(this.isElection()){
-			this.n.printData("Delay: Election currently in progress, start command queued, will be sent when election is finished.");
 		}else{
 			try{
-				int newTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
-				this.n.write(".txn_id", newTXNnum + "", false, true);
+				this.lastTXNnum = this.lastTXNnum + RIONode.NUM_NODES;
+				this.n.write(".txn_id", this.lastTXNnum + "", false, true);
 				
 				//start a new transaction by creating a new transaction object
-				this.txn = new Transaction( newTXNnum );
-				this.send(this.leader, TXNProtocol.START, new byte[0]);
+				this.txn = new Transaction( this.lastTXNnum );
+				this.txn.willStart = true;
+				
+				if(this.isElection())
+					this.n.printData("Delay: Election currently in progress, start command queued, will be sent when election is finished.");
+				else
+					this.send(this.leader, TXNProtocol.START, new byte[0]);
 			}catch(Exception e){
 				e.printStackTrace();
 			}
@@ -941,7 +949,7 @@ public class TransactionLayer {
 		File f = this.cache.get(fileName);
 		
 		if(f == null){
-			f = this.n.addr == MASTER_NODE ? new MasterFile(fileName, "") : new File(File.INV, fileName);
+			f = this.n.isMaster() ? new MasterFile(fileName, "") : new File(File.INV, fileName);
 			if(!fileName.isEmpty())
 				this.cache.put(fileName, f);
 		}

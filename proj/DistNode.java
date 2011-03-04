@@ -21,7 +21,7 @@ public class DistNode extends RIONode {
 	private Map<String, Update> fileList;
 	
 	public boolean isMaster(){
-		return Arrays.binarySearch(PaxosLayer.ACCEPTORS, this.addr) != -1;
+		return Arrays.binarySearch(PaxosLayer.ACCEPTORS, this.addr) >= 0;
 	}
 	/*========================================
 	 * START FILE INTERFACE METHODS
@@ -342,6 +342,8 @@ public class DistNode extends RIONode {
 				}
 			}
 		}
+		
+		this.TXNLayer.start();
 	}
 
 	@Override
@@ -376,7 +378,7 @@ public class DistNode extends RIONode {
 			}
 		}else if(Pattern.matches("^(txstart|txcommit|txabort)$", command)){
 			if(command.equals("txstart"))
-				this.TXNLayer.start();
+				this.TXNLayer.txstart();
 			else if(command.equals("txcommit"))
 				this.TXNLayer.commit();
 			else
