@@ -140,7 +140,7 @@ public class Transaction implements Iterable<Command> {
 		
 		for(int i = 1; i < parts.length; i++)
 			if(!parts[i].isEmpty())
-				txn.add(Command.fromByteArray(str, cache));
+				txn.add(Command.fromByteArray(parts[i], cache));
 		
 		return txn;
 	}

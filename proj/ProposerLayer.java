@@ -28,6 +28,7 @@ public class ProposerLayer {
 		this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
 		this.proposalNumber = 0;
+		this.instanceNumber = -1;
 
 		this.promises = 0;
 		this.rejects = 0;
