@@ -14,7 +14,6 @@ public class LearnerLayer {
 	private HashMap<Integer, HashMap<Integer, Integer>> proposalCount; //instance num, proposal num, proposal count
 	private HashMap<Integer, Proposal> outOfOrder;
 	
-	//TODO: SEND TO TXN LAYER WHEN ADDED TO THIS MAP, ALSO DETERMINE IF ABORT OR COMMIT ON THIS LAYER
 	private HashMap<Integer, Proposal> learned; //instance num, proposal num
 	private DistNode n;
 	private int lastContInstance;
@@ -239,10 +238,8 @@ public class LearnerLayer {
 				updateLargestInstanceNum( instanceNum );
 			}
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
