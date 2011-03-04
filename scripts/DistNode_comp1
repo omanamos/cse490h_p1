@@ -18,7 +18,7 @@ time
 time
 6 create test
 time
-6 put test "line one\n"
+6 append test "line one\n"
 time
 6 get test
 time

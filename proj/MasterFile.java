@@ -17,8 +17,8 @@ public class MasterFile extends File implements Iterable<Integer>{
 	 */
 	private PriorityQueue<Update> proposals;
 	
-	public MasterFile(String name, String contents) {
-		super(File.INV, name);
+	public MasterFile(int type, String name) {
+		super(type, name);
 		this.lastCommitter = -1;
 		this.isWaiting = false;
 		this.filePermissions = new HashMap<Integer, Integer>();

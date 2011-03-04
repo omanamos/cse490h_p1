@@ -16,6 +16,6 @@ time
 time
 5 create test
 time
-5 put test "hello world!"
+5 put test "hello world!\n"
 time
 5 txcommit

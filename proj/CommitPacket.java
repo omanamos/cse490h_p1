@@ -81,8 +81,10 @@ public class CommitPacket {
 			return new CommitPacket(txn);
 		} catch (IllegalArgumentException e) {
 			// will return null
+			e.printStackTrace();
 		} catch(IOException e) {
 			// will return null
+			e.printStackTrace();
 		}
 		return null;
 	}

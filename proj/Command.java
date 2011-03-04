@@ -85,7 +85,7 @@ public class Command extends Queueable{
 		
 		String fileName = command[1];
 		if(!cache.containsKey(fileName))
-			cache.put(fileName, new File(File.RW, fileName));
+			cache.put(fileName, new MasterFile(File.RW, fileName));
 		
 		String bytes = command[2].substring(1, command[2].length() - 1);
 		if(!bytes.isEmpty()){

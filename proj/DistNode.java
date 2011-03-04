@@ -192,7 +192,7 @@ public class DistNode extends RIONode {
 	}
 	
 	public void printSuccess(Command c){
-		System.out.println("Success: Command - " + c + " executed succesfully on file: " + c.getFileName() );
+		System.out.println("Node " + this.addr + ": Success: Command - " + c + " executed succesfully on file: " + c.getFileName() );
 	}
 	
 	/*========================================
@@ -204,6 +204,7 @@ public class DistNode extends RIONode {
 	 * Starts up the node. Checks for unfinished PUT commands.
 	 */
 	public void start() {
+		this.TXNLayer.start();
 		
 		//SESSION RECOVERY
 		if(fileExists(".sessions")){
@@ -342,8 +343,6 @@ public class DistNode extends RIONode {
 				}
 			}
 		}
-		
-		this.TXNLayer.start();
 	}
 
 	@Override

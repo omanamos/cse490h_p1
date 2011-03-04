@@ -82,7 +82,7 @@ public class ReliableInOrderMsgLayer {
 		try {
 			this.n.write(".sessions", content, false, true);
 		} catch (IOException e) {
-			this.n.printError("Fatal Error: Could not update .sessions file");
+			this.n.printError("Node " + this.n.addr + ": Fatal Error: Could not update .sessions file");
 		}
 		
 		for(RIOPacket p: toBeDelivered) {
@@ -136,7 +136,7 @@ public class ReliableInOrderMsgLayer {
 			try {
 				this.n.write(".sessions", in.toString(), true, true);
 			} catch (IOException e) {
-				this.n.printError("Fatal Error: could not write session to disk");
+				this.n.printError("Node " + this.n.addr + ": Fatal Error: could not write session to disk");
 			}
 			inConnections.put(from, in);
 			nextSessionId++;

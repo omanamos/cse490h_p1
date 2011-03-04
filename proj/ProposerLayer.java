@@ -108,7 +108,7 @@ public class ProposerLayer {
 	}
 	
 	public void instanceFinished(){
-		String commit = commits.remove();
+		String commit = commits.poll();
 		if(commit != null){
 			newInstance(commit);
 			this.sendPrepares();

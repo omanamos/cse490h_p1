@@ -10,6 +10,7 @@ public class TimeoutManager {
 	private TransactionLayer txnLayer;
 	private DistNode node;
 	private int timeout;
+	private static final int MAX_RETRIES = 3;
 	
 	/**
 	 * addr -> seqNum
@@ -19,6 +20,10 @@ public class TimeoutManager {
 	 * addr -> seqNum -> packet
 	 */
 	private Map<Integer, Map<Integer, TXNPacket>> unRtned;
+	/**
+	 * addr -> seqNum -> number of retires
+	 */
+	private Map<Integer, Map<Integer, Integer>> retries;
 
 	public TimeoutManager(int timeout, DistNode node, TransactionLayer txnLayer){
 		this.timeout = timeout;
@@ -26,6 +31,7 @@ public class TimeoutManager {
 		this.txnLayer = txnLayer;
 		this.unRtned = new HashMap<Integer, Map<Integer, TXNPacket>>();
 		this.seqNums = new HashMap<Integer, Integer>();
+		this.retries = new HashMap<Integer, Map<Integer, Integer>>();
 	}
 	
 	public void initializeSeqNums(Map<Integer, Integer> seqNums){
@@ -42,9 +48,21 @@ public class TimeoutManager {
 	}
 	
 	public void onTimeout(Integer dest, Integer seqNum){
-		TXNPacket pkt = this.unRtned.get(dest).get(seqNum);
-		if(pkt != null)
-			this.txnLayer.onRIOTimeout(dest, pkt.pack());
+		TXNPacket pkt = this.unRtned.get(dest).remove(seqNum);
+		Integer retries = this.retries.containsKey(dest) ? this.retries.get(dest).remove(seqNum) : null;
+		if(pkt != null){
+			if((retries == null || retries < MAX_RETRIES) && (pkt.getProtocol() == TXNProtocol.COMMIT || pkt.getProtocol() == TXNProtocol.ABORT)){
+				if(!this.retries.containsKey(dest))
+					this.retries.put(dest, new HashMap<Integer, Integer>());
+				retries = retries == null ? 0 : retries;
+				this.retries.get(dest).put(seqNum, retries + 1);
+				
+				this.createTimeoutListener(dest, pkt);
+				this.txnLayer.RIOLayer.sendRIO(dest, Protocol.TXN, pkt.pack());
+			}else{
+				this.txnLayer.onRIOTimeout(dest, pkt.pack());
+			}
+		}
 	}
 	
 	public int nextSeqNum(int dest){
