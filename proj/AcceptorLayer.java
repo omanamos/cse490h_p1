@@ -121,7 +121,7 @@ public class AcceptorLayer {
 			
 			String promisedContents = "";
 			for( int instanceNum : promised.keySet() ) {
-				fileContents += instanceNum + " " + promised.get( instanceNum ) + "\n";
+				promisedContents += instanceNum + " " + promised.get( instanceNum ) + "\n";
 			}
 			this.n.write(PROMISE_FILE, promisedContents, false, true);
 
