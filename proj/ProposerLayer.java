@@ -27,7 +27,7 @@ public class ProposerLayer {
 		
 		this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
-		this.proposalNumber = 0;
+		this.proposalNumber = -1;
 
 		this.promises = 0;
 		this.rejects = 0;
@@ -116,8 +116,8 @@ public class ProposerLayer {
 	
 	private void newInstance(String value){
 		resetRP();
-		this.values.put(this.instanceNumber, value);
 		this.instanceNumber++;
+		this.values.put(this.instanceNumber, value);
 	}
 	
 	private void fixHole(int instance){
