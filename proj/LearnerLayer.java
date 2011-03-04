@@ -54,11 +54,11 @@ public class LearnerLayer {
 	
 	private void receivedLearn(int from, PaxosPacket pkt){
 		Proposal p = new Proposal(pkt);
-		executeProposal( p );
+		executeProposal( p, false );
 	}
 	
 	
-	private void executeProposal( Proposal p ) {
+	private void executeProposal( Proposal p, boolean iamMaster ) {
 		int iNum = p.getInstanceNum();
 		
 		proposals.put(iNum, p ); //add this proposal to our proposals...
@@ -75,19 +75,23 @@ public class LearnerLayer {
 			writeToLearnedLog();
 			writeOutOfOrder();
 			
+			if(iamMaster) {
+				this.paxosLayer.getProposerLayer().instancedFinished();
+			}
+			
 			//now see if we can execute more proposals 
-			this.executeNextLearnedProposal();
+			this.executeNextLearnedProposal( iamMaster );
 		} else if( iNum > this.lastContInstance + 1 ) {
 			//ok we are missing something so write this proposal to the out of order log
 			this.outOfOrder.put( iNum, p );
-			writeOutOfOrder( );
+			writeOutOfOrder();
 		}
 	}
 	
-	private void executeNextLearnedProposal() {
+	private void executeNextLearnedProposal( boolean iamMaster ) {
 		Proposal p = proposals.get(this.lastContInstance + 1); //the next higher instance
 		if( p != null )
-			executeProposal( p );
+			executeProposal( p, iamMaster );
 	}
 	
 	private void pushProposalValueToDisk( Proposal p ) {
@@ -98,6 +102,7 @@ public class LearnerLayer {
 			//replace value of this proposal with txid followed by ABORT
 			p.setValue( txn.id + "#ABORT" );
 		}
+		
 	}
 	
 	private boolean  commit( Transaction txn ) {
@@ -161,7 +166,7 @@ public class LearnerLayer {
 	 * @param p
 	 */
 	private void masterLearn( Proposal p ) {
-		executeProposal(p);
+		executeProposal(p, true);
 		sendChosenToAllLearners( p );
 	}
 	

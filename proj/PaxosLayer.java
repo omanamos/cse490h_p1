@@ -37,6 +37,10 @@ public class PaxosLayer {
 		return this.txnLayer;
 	}
 	
+	public ProposerLayer getProposerLayer() {
+		return this.propLayer;
+	}
+	
 	public void onReceive(int from, byte[] payload) {
 		PaxosPacket pkt = PaxosPacket.unpack(payload);
 		switch(pkt.getProtocol()){
