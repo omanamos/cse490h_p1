@@ -28,6 +28,7 @@ public class LearnerLayer {
 		this.proposals = new HashMap<Integer, Proposal>();
 		this.proposalCount = new HashMap<Integer, HashMap<Integer,Integer>>();
 		this.outOfOrder = new HashMap<Integer, Proposal>();
+		this.learned = new HashMap<Integer, Proposal>();
 	}
 	
 	public void start() {
@@ -72,6 +73,7 @@ public class LearnerLayer {
 			learned.put( iNum, p );
 			this.outOfOrder.remove( iNum );
 			writeToLearnedLog();
+			writeOutOfOrder();
 			
 			//now see if we can execute more proposals 
 			this.executeNextLearnedProposal();
@@ -247,8 +249,7 @@ public class LearnerLayer {
 	private void writeToLearnedLog() {
 		String learnContent = "";
 		for( Integer iNum : this.learned.keySet() ) {
-			
-			
+			learnContent += this.learned.get( iNum ).toString() + "\n";
 		}
 		
 		try {
