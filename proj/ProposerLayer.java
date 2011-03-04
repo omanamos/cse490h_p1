@@ -27,7 +27,7 @@ public class ProposerLayer {
 		
 		this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
-		this.proposalNumber = -1;
+		this.proposalNumber = 0;
 
 		this.promises = 0;
 		this.rejects = 0;
@@ -150,7 +150,7 @@ public class ProposerLayer {
 			int largestInst = paxosLayer.getLearnerLayer().getLargestInstanceNum();
 
 
-		return largestInst;
+		return largestInst - 1;
 	}
 
 
