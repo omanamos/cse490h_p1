@@ -100,22 +100,24 @@ public class ProposerLayer {
 
 	public void receivedCommit(String commit){
 		commits.add(commit);
-		if(commits.size() == 1)
+		if(commits.size() == 1){
 			newInstance(commit);
-		this.sendPrepares();
+			this.sendPrepares();
+		}
+	}
+	
+	public void instanceFinished(){
+		String commit = commits.remove();
+		if(commit != null){
+			newInstance(commit);
+			this.sendPrepares();
+		}
 	}
 	
 	private void newInstance(String value){
 		resetRP();
-		if(value != null)
-			this.values.put(this.instanceNumber, value);
-		if(commits.size() > 0){
-			if(value == commits.peek())
-				commits.remove();
-			this.instanceNumber++;
-			this.values.put(this.instanceNumber, commits.peek());
-		}	
-		
+		this.values.put(this.instanceNumber, value);
+		this.instanceNumber++;
 	}
 	
 	private void fixHole(int instance){

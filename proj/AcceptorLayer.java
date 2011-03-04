@@ -65,7 +65,7 @@ public class AcceptorLayer {
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
-		if( acceptedProposal == null && ( promisedValue == null || pkt.getProposalNumber() >= promisedValue ) ) {
+		if( acceptedProposal == null && ( pkt.getProposalNumber() >= promisedValue ) ) {
 			acceptedProposal = new Proposal( pkt );
 			acceptorRecord.put( pkt.getInstanceNumber(), acceptedProposal );
 			promised.put( pkt.getInstanceNumber(), pkt.getProposalNumber() );

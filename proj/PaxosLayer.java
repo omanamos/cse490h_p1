@@ -43,22 +43,31 @@ public class PaxosLayer {
 			case PaxosProtocol.ACCEPT:
 			case PaxosProtocol.LEARN:
 				this.learnLayer.receive(from, pkt);
+				break;
 			case PaxosProtocol.PREPARE:
 				this.accLayer.receivedPrepare(from, pkt);
+				break;
 			case PaxosProtocol.PROMISE:
 				this.propLayer.receivedPromise(from, pkt);
+				break;
 			case PaxosProtocol.PROPOSE:
 				this.accLayer.receivedPropose(from, pkt);
+				break;
 			case PaxosProtocol.RECOVERY:
 				this.accLayer.receivedRecovery(from, pkt);
+				break;
 			case PaxosProtocol.RECOVERY_ACCEPTED:
 				this.propLayer.receivedRecovery(from, pkt);
+				break;
 			case PaxosProtocol.RECOVERY_CHOSEN:
 				this.propLayer.receivedRecovery(from, pkt);
+				break;
 			case PaxosProtocol.REJECT:
 				this.propLayer.receivedPromise(from, pkt);
+				break;
 			case PaxosProtocol.ELECT:
 				this.receivedElect(from, pkt);
+				break;
 		}
 	}
 	
