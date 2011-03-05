@@ -207,6 +207,7 @@ public class LearnerLayer {
 				missing.add(i);
 			}
 		}
+		Collections.sort(missing);
 		return missing;
 	}
 	

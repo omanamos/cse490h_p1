@@ -103,7 +103,6 @@ public class TransactionLayer {
 		TXNPacket pkt = new TXNPacket(protocol, this.timeout.nextSeqNum(dest), payload);
 		int p = pkt.getProtocol();
 		if(p == TXNProtocol.WF || p == TXNProtocol.WQ || p == TXNProtocol.CREATE || 
-				(this.n.isMaster() && p == TXNProtocol.WD) || 
 				(!this.n.isMaster() && (p == TXNProtocol.ABORT || p == TXNProtocol.COMMIT || p == TXNProtocol.START)))
 			this.timeout.createTimeoutListener(dest, pkt);
 		this.RIOLayer.sendRIO(dest, Protocol.TXN, pkt.pack());

@@ -17,11 +17,14 @@ public class AcceptorLayer {
 	private HashMap<Integer, Integer> promised; //instance num -> highest promised or accepted proposal number
 	private DistNode n;
 	
+	private int maxInstanceNumber;
+	
 	public AcceptorLayer(PaxosLayer paxosLayer) {
 		this.paxosLayer = paxosLayer;
 		this.n = this.paxosLayer.n;
 		this.acceptorRecord = new HashMap<Integer, Proposal>();
 		this.promised = new HashMap<Integer, Integer>();
+		this.maxInstanceNumber = -1;
 	}
 	
 	public void start() {
@@ -30,6 +33,10 @@ public class AcceptorLayer {
 	
 	public void send(int dest, PaxosPacket pkt){
 		this.paxosLayer.send(dest, pkt);
+	}
+	
+	public int getMaxInstanceNumber(){
+		return this.maxInstanceNumber;
 	}
 	
 	public void receivedPrepare(int from, PaxosPacket pkt){
@@ -69,7 +76,7 @@ public class AcceptorLayer {
 			acceptedProposal = new Proposal( pkt );
 			acceptorRecord.put( pkt.getInstanceNumber(), acceptedProposal );
 			promised.put( pkt.getInstanceNumber(), pkt.getProposalNumber() );
-			
+			this.maxInstanceNumber = Math.max(this.maxInstanceNumber, pkt.getInstanceNumber());
 			updateState();
 			
 			this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.ACCEPT));

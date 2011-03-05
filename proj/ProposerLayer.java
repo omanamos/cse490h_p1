@@ -146,9 +146,13 @@ public class ProposerLayer {
 	private int fillGaps(){
 			
 			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
+			int largestInst = paxosLayer.getAcceptorLayer().getMaxInstanceNumber();
+			
+			for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
+				missingInst.add(i);
+			
 			for(Integer instance : missingInst)
 				fixHole(instance);
-			int largestInst = paxosLayer.getLearnerLayer().getLargestInstanceNum();
 
 
 		return largestInst - 1;

@@ -41,6 +41,10 @@ public class PaxosLayer {
 		return this.propLayer;
 	}
 	
+	public AcceptorLayer getAcceptorLayer(){
+		return this.accLayer;
+	}
+	
 	public void onReceive(int from, byte[] payload) {
 		PaxosPacket pkt = PaxosPacket.unpack(payload);
 		switch(pkt.getProtocol()){
@@ -96,7 +100,7 @@ public class PaxosLayer {
 	
 	private void receivedElect(int from, PaxosPacket pkt){
 		if(isServer){
-			this.send(from, new PaxosPacket(PaxosProtocol.ELECT, -1, this.learnLayer.getLargestInstanceNum(), new byte[0]));
+			this.send(from, new PaxosPacket(PaxosProtocol.ELECT, -1, this.accLayer.getMaxInstanceNumber(), new byte[0]));
 		}else if(this.e != null){
 			this.e.propose(from, pkt.getInstanceNumber());
 			if(this.e.hasMajority()){
