@@ -259,7 +259,6 @@ public class TransactionLayer {
 				}
 				break;
 			case TXNProtocol.COMMIT:
-				//this.commit(from, pkt.getSeqNum(), CommitPacket.unpack(pkt.getPayload(), this.cache));
 				Transaction txn = CommitPacket.unpack(pkt.getPayload(), this.cache).getTransaction();
 				if(!this.paxosQueue.containsKey(txn.id)){
 					this.paxosQueue.put(txn.id, pkt.getSeqNum());
@@ -858,7 +857,7 @@ public class TransactionLayer {
 			}
 		}else if( this.txn.willCommit ) {
 			this.txn.decrementNumQueued();
-			if( this.txn.getNumQueued() == 0 ) {
+			if( this.txn.getNumQueued() == 0  && !this.isElection()) {
 				this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
 			}
 		}

@@ -36,7 +36,7 @@ public class Commit implements Iterable<Integer>{
 		for(MasterFile f : log){
 			Update u = log.getInitialVersion(f);
 			int addr = u.source % RIONode.NUM_NODES;
-			if(f.getState() == File.INV || (txnLog.containsKey(u.source) && !txnLog.get(u.source)) || addr == -1 && log.hasReads(f)){
+			if(txnLog.containsKey(u.source) && !txnLog.get(u.source)){
 				//Dep transaction aborted -> this one must also abort
 				this.abort = true;
 				return;

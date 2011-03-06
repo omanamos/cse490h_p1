@@ -51,8 +51,8 @@ public class Transaction implements Iterable<Command> {
 	}
 	
 	public void decrementNumQueued() {
-		if( this.willCommit ) {
-			this.numQueued--;
+		if( this.willCommit || this.willAbort) {
+			this.numQueued = this.numQueued == 0 ? 0 : this.numQueued - 1;
 		}
 	}
 	
