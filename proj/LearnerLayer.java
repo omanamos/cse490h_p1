@@ -183,19 +183,6 @@ public class LearnerLayer {
 	
 	public ArrayList<Integer> getMissingInstanceNums() {
 		ArrayList<Integer> missing = new ArrayList<Integer>();
-			try {
-				PersistentStorageReader r = this.n.getReader(LEARN_FILE);
-				String line = r.readLine();
-				while( line != null ) {
-					String[] entry = line.split("|");
-					int instanceNum = Integer.parseInt(entry[0]);
-					int proposalNum = Integer.parseInt(entry[1]);
-					String value = entry[2];
-					learned.put( instanceNum, new Proposal( instanceNum, proposalNum, value ) );
-					updateLargestInstanceNum( instanceNum );
-					r.readLine();
-				}
-			} catch (Exception e) {}
 		for( int i = this.lastContInstance + 1; i < this.largestInstanceNum; i++ ) {
 			Proposal p = this.proposals.get(i);
 			if( p == null ) {
@@ -231,7 +218,7 @@ public class LearnerLayer {
 		try {
 			PersistentStorageReader r = this.n.getReader(LEARN_FILE);
 			String line = r.readLine();
-			while( line != null ) {
+			while( line != null && !line.trim().isEmpty() ) {
 				String[] entry = line.split("|");
 				int instanceNum = Integer.parseInt(entry[0]);
 				int proposalNum = Integer.parseInt(entry[1]);
@@ -265,7 +252,7 @@ public class LearnerLayer {
 		try {
 			PersistentStorageReader r = this.n.getReader(OUT_OF_ORDER);
 			String line = r.readLine();
-			while( line != null ) {
+			while( line != null && !line.trim().isEmpty() ) {
 				String[] entry = line.split("|");
 				int instanceNum = Integer.parseInt(entry[0]);
 				int proposalNum = Integer.parseInt(entry[1]);
