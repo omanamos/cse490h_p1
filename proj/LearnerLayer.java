@@ -246,9 +246,9 @@ public class LearnerLayer {
 				updateLargestInstanceNum( instanceNum );
 			}
 		} catch (FileNotFoundException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		} catch (IOException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 	
@@ -280,9 +280,9 @@ public class LearnerLayer {
 				updateLargestInstanceNum( instanceNum );
 			}
 		} catch (FileNotFoundException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		} catch (IOException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 	

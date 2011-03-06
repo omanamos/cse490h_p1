@@ -73,6 +73,7 @@ public class ProposerLayer {
 	
 	
 	public void receivedRecovery(int from, PaxosPacket pkt){
+		
 		if(pkt.getProtocol() == PaxosProtocol.RECOVERY_CHOSEN){
 
 			paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
