@@ -75,8 +75,10 @@ public class PaxosPacket extends TXNPacket {
 			return new PaxosPacket(protocol, proposalNumber, instanceNumber, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
+			e.printStackTrace();
 		} catch(IOException e) {
 			// will return null
+			e.printStackTrace();
 		}
 		return null;
 	}

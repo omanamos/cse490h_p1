@@ -5,9 +5,12 @@ public class Election {
 	private PriorityQueue<Pair<Integer, Integer>> proposals;
 	private int majority;
 	
+	private int timedOut;
+	
 	public Election(int totalNumNodes){
 		this.proposals = new PriorityQueue<Pair<Integer,Integer>>();
-		majority = totalNumNodes / 2 + 1;
+		this.majority = totalNumNodes / 2 + 1;
+		this.timedOut = 0;
 	}
 	
 	public void propose(int addr, int instanceNum){
@@ -22,6 +25,11 @@ public class Election {
 		if(!hasMajority())
 			throw new IllegalStateException("Haven't received responses from a majority yet!");
 		return this.proposals.poll();
+	}
+	
+	public boolean onTimeout(){
+		this.timedOut++;
+		return this.timedOut >= this.majority;
 	}
 	
 	public String toString(){
