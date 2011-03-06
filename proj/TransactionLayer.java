@@ -42,6 +42,8 @@ public class TransactionLayer {
 	 * txnID -> true if txn committed, false if it aborted
 	 */
 	private Map<Integer, Boolean> txnLog;
+
+	private boolean isElected;
 	
 	public TransactionLayer(RIONode n, ReliableInOrderMsgLayer RIOLayer){
 		this.cache = new HashMap<String, File>();
@@ -90,6 +92,7 @@ public class TransactionLayer {
 	}
 	
 	public void elect(int newLeader, int instanceNum){
+		this.isElected = true;
 		this.leader = newLeader;
 		this.n.printData("Node " + this.n.addr + ": Success: Node: " + this.leader + " elected as leader.");
 		this.executeCommandQueue();
@@ -654,7 +657,13 @@ public class TransactionLayer {
 				commandsWereExecuted = this.executeCommandQueue(f) && commandsWereExecuted;
 			
 			if(!commandsWereExecuted){
-				txnExecute();
+				this.isElected = txnExecute() && this.isElected;
+			}else if(this.txn.willAbort){
+				this.abort(true);
+			}else if(this.txn.willCommit){
+				this.commit();
+			}else{
+				this.isElected = false;
 			}
 		}
 	}
@@ -854,19 +863,26 @@ public class TransactionLayer {
 		}else if(notifyServer && this.hasElection()){
 			this.txn.willAbort = true;
 		}else{
-			if(notifyServer)
-				this.send(this.leader, TXNProtocol.ABORT, Utility.stringToByteArray(this.txn.id+""));
-			else{
+			if(notifyServer){
+				if(this.isElected){
+					this.isElected = false;
+					this.send(this.leader, TXNProtocol.ABORT, Utility.stringToByteArray(this.txn.id+""));
+				}else{
+					this.txn.willAbort = true;
+					this.leader = this.paxos.electLeader();
+				}
+			}else{
 				this.n.printError("Node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
 				this.txn = null;
 			}
 		}
 	}
 	
-	public void txnExecute() {
+	public boolean txnExecute() {
 		if(this.txn.willAbort){
 			this.txn.decrementNumQueued();
 			if( this.txn.getNumQueued() == 0 ) {
+				//TODO: check that aborts are getting sent through PAXOS
 				this.abort(true);
 			}
 		}else if( this.txn.willCommit ) {
@@ -875,10 +891,17 @@ public class TransactionLayer {
 				if(this.txn.isEmpty()){
 					this.n.printData("Node " + this.n.addr + ": Success: Committed empty transaction #" + this.txn.id + ".");
 					this.commitConfirm();
-				}else
+				}else if(this.isElected){
+					this.isElected = false;
 					this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
+				}else{
+					this.txn.willCommit = true;
+					this.leader = this.paxos.electLeader();
+				}
 			}
-		}
+		}else
+			return false;
+		return true;
 	}
 
 	public void commit() {
@@ -893,7 +916,13 @@ public class TransactionLayer {
 				this.commitConfirm();
 			} else {
 				//Send txn to master node
-				this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
+				if(this.isElected){
+					this.isElected = false;
+					this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
+				}else{
+					this.txn.willCommit = true;
+					this.leader = this.paxos.electLeader();
+				}
 			}
 		}
 	}

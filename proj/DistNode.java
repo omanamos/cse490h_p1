@@ -23,6 +23,10 @@ public class DistNode extends RIONode {
 	public boolean isMaster(){
 		return Arrays.binarySearch(PaxosLayer.ACCEPTORS, this.addr) >= 0;
 	}
+	
+	public static boolean isOptimalLeader(int addr){
+		return addr == 0;
+	}
 	/*========================================
 	 * START FILE INTERFACE METHODS
 	 *========================================*/

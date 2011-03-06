@@ -189,16 +189,17 @@ public class LearnerLayer {
 				PersistentStorageReader r = this.n.getReader(LEARN_FILE);
 				String line = r.readLine();
 				while( line != null ) {
-					String[] entry = line.split("|");
-					int instanceNum = Integer.parseInt(entry[0]);
-					int proposalNum = Integer.parseInt(entry[1]);
-					String value = entry[2];
-					learned.put( instanceNum, new Proposal( instanceNum, proposalNum, value ) );
-					updateLargestInstanceNum( instanceNum );
+					try{
+						String[] entry = line.split("|");
+						int instanceNum = Integer.parseInt(entry[0]);
+						int proposalNum = Integer.parseInt(entry[1]);
+						String value = entry[2];
+						learned.put( instanceNum, new Proposal( instanceNum, proposalNum, value ) );
+						updateLargestInstanceNum( instanceNum );
+					}catch(Exception e){}
+					line = r.readLine();
 				}
-			} catch (FileNotFoundException e) {
-			} catch (IOException e) {
-			}
+			} catch (Exception e) {}
 		for( int i = this.lastContInstance + 1; i < this.largestInstanceNum; i++ ) {
 			Proposal p = this.proposals.get(i);
 			if( p == null ) {

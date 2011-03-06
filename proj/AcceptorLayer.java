@@ -68,7 +68,7 @@ public class AcceptorLayer {
 		this.send(from, response);
 	}
 	
-	public void receivedPropose(int from, PaxosPacket pkt)]{
+	public void receivedPropose(int from, PaxosPacket pkt){
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
@@ -146,6 +146,7 @@ public class AcceptorLayer {
 				String[] entry = line.split("|");
 				Proposal p = new Proposal( Integer.parseInt(entry[0]), Integer.parseInt(entry[1]), entry[2] );
 				this.acceptorRecord.put(p.getInstanceNum(), p);
+				
 			}
 			
 			r = this.n.getReader(PROMISE_FILE);
