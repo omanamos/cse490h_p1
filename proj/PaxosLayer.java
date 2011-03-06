@@ -89,7 +89,7 @@ public class PaxosLayer {
 			if(this.e.onTimeout()){
 				this.e = null;
 				this.n.printError("Node " + this.n.addr + ": Error: Election failed, a majority of requests timed out.");
-				this.txnLayer.abort(false);
+				this.txnLayer.abort(false, false);
 			}
 		}
 	}

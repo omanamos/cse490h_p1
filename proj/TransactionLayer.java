@@ -277,6 +277,7 @@ public class TransactionLayer {
 				break;
 			case TXNProtocol.COMMIT:
 				Transaction txn = CommitPacket.unpack(pkt.getPayload(), this.cache).getTransaction();
+				this.setHB(from, false);
 				if(!this.paxosQueue.containsKey(txn.id)){
 					this.paxosQueue.put(txn.id, pkt.getSeqNum());
 					this.commit(txn, pkt.getSeqNum(), false);
@@ -298,31 +299,11 @@ public class TransactionLayer {
 				break;
 			case TXNProtocol.ABORT:
 				txnID = Integer.parseInt(Utility.byteArrayToString(pkt.getPayload()));
-				this.updateLog(txnID, false);
-				for(String fName : this.cache.keySet()){
-					f = (MasterFile)this.cache.get(fName);
-					f.abort(from);
-				}
-				if(this.waitingQueue.containsKey(from)){ //This transaction tried to commit, but the client timed out on the return message
-					Commit c = this.waitingQueue.remove(from);
-					for(Integer dep : c){
-						boolean othersAreDep = false;
-						for(Integer committer : waitingQueue.keySet())
-							if(waitingQueue.get(committer).isWaitingFor(committer))
-								othersAreDep = true;
-						if(!othersAreDep)
-							this.setHB(dep, false);
-					}
-				}
 				this.setHB(from, false);
-				//Try to commit the transactions dependent on this one (they should all abort b/c the txnlog is updated)
-				for(Integer committer : waitingQueue.keySet()){
-					Commit com = waitingQueue.get(committer);
-					if(com.isDepOn(txnID)){
-						this.commit(committer, com.getSeqNum(), com.getLog());
-					}
+				if(!this.paxosQueue.containsKey(txnID)){
+					txn = new Transaction(txnID);
+					this.paxos.commit(txn);
 				}
-				this.rtn(from, TXNProtocol.ABORT, pkt.getSeqNum(), Utility.stringToByteArray(txnID+""));
 				break;
 		}
 	}
@@ -499,8 +480,32 @@ public class TransactionLayer {
 	public boolean abort(Transaction txn, int seqNum){
 		int client = txn.id % RIONode.NUM_NODES;
 		this.updateLog(txn.id, false);
-		if(seqNum != -1)
+		
+		if(seqNum != -1){ //this is the leader
+			for(String fName : this.cache.keySet()){
+				MasterFile f = (MasterFile)this.cache.get(fName);
+				f.abort(client);
+			}
+			if(this.waitingQueue.containsKey(client)){ //This transaction tried to commit, but the client timed out on the return message
+				Commit c = this.waitingQueue.remove(client);
+				for(Integer dep : c){
+					boolean othersAreDep = false;
+					for(Integer committer : waitingQueue.keySet())
+						if(waitingQueue.get(committer).isWaitingFor(committer))
+							othersAreDep = true;
+					if(!othersAreDep)
+						this.setHB(dep, false);
+				}
+			}
+			//Try to commit the transactions dependent on this one (they should all abort b/c the txnlog is updated)
+			for(Integer committer : waitingQueue.keySet()){
+				Commit com = waitingQueue.get(committer);
+				if(com.isDepOn(client)){
+					this.commit(committer, com.getSeqNum(), com.getLog());
+				}
+			}
 			this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(txn.id+""));
+		}
 		return false;
 	}
 	
@@ -597,7 +602,7 @@ public class TransactionLayer {
 				int txID = Integer.parseInt(Utility.byteArrayToString(pkt.getPayload()));
 				this.timeout.onRtn(from, pkt.getSeqNum());
 				if(this.txn != null && txID == this.txn.id){
-					this.abort(false);
+					this.abort(false, false);
 				}
 				break;
 			case TXNProtocol.COMMIT:
@@ -669,9 +674,9 @@ public class TransactionLayer {
 			if(!commandsWereExecuted){
 				this.isElected = txnExecute() && this.isElected;
 			}else if(this.txn.willAbort){
-				this.abort(true);
+				this.abort(true, false);
 			}else if(this.txn.willCommit){
-				this.commit();
+				this.commit(false);
 			}else{
 				this.isElected = false;
 			}
@@ -857,7 +862,6 @@ public class TransactionLayer {
 			return false;//WQ
 		} else {
 			f.execute();
-			//f.setState(File.INV);
 			this.txn.add(c);
 			txnExecute();
 			return true;
@@ -865,16 +869,20 @@ public class TransactionLayer {
 		}
 	}
 
-	public void abort(boolean notifyServer) {
-		if(this.txn == null && notifyServer){
+	public void abort(boolean notifyServer, boolean makeChecks) {
+		if(this.txn == null && notifyServer && makeChecks){
 			this.assertTXNStarted();
-		}else if(notifyServer && (!this.notCommited() || !this.notAborted())){
+		}else if(makeChecks && notifyServer && (!this.notCommited() || !this.notAborted())){
 			//^ prints out error message
-		}else if(notifyServer && this.hasElection()){
+		}else if(makeChecks && notifyServer && (this.hasElection() || !this.noQueuedCommands())){
 			this.txn.willAbort = true;
 		}else{
 			if(notifyServer){
-				if(this.isElected){
+				if(this.txn.isEmpty()){
+					this.isElected = false;
+					this.txn = null;
+					this.n.printError("Node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
+				}else if(this.isElected){
 					this.isElected = false;
 					this.send(this.leader, TXNProtocol.ABORT, Utility.stringToByteArray(this.txn.id+""));
 				}else{
@@ -889,13 +897,12 @@ public class TransactionLayer {
 	}
 	
 	public boolean txnExecute() {
-		if(this.txn.willAbort){
+		if(this.txn != null && this.txn.willAbort){
 			this.txn.decrementNumQueued();
 			if( this.txn.getNumQueued() == 0 ) {
-				//TODO: check that aborts are getting sent through PAXOS
-				this.abort(true);
+				this.abort(true, false);
 			}
-		}else if( this.txn.willCommit ) {
+		}else if( this.txn != null && this.txn.willCommit ) {
 			this.txn.decrementNumQueued();
 			if( this.txn.getNumQueued() == 0  && !this.hasElection()) {
 				if(this.txn.isEmpty()){
@@ -914,9 +921,9 @@ public class TransactionLayer {
 		return true;
 	}
 
-	public void commit() {
+	public void commit(boolean makeChecks) {
 
-		if( this.assertTXNStarted() && this.notAborted() && this.notCommited()) {
+		if(!makeChecks || this.assertTXNStarted() && this.notAborted() && this.notCommited()) {
 			//Check to see if there are queued commands before committing
 			if( !noQueuedCommands() || this.hasElection()) {
 				//set will commit to true to that the txn commits after all queued commands complete

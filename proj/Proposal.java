@@ -39,4 +39,9 @@ public class Proposal implements Comparable<Proposal> {
 	public String toString() {
 		return this.instanceNum + "|" + this.proposalNum + "|" + this.value;
 	}
+
+	public int compareTo(Proposal o) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 }

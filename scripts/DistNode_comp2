@@ -1,0 +1,45 @@
+start 0
+start 1
+start 2
+start 3
+start 4
+start 5
+start 6
+start 7
+time
+5 txstart
+6 txstart
+7 txstart
+time
+5 create test
+time
+5 put test "hello world"
+time
+5 txcommit
+time
+time
+time
+time
+time
+time
+time
+time
+time
+6 get test
+time
+6 append test "\nline two"
+time
+6 txabort
+time
+time
+time
+time
+time
+time
+time
+time
+7 get test
+time
+7 append test "\nline two"
+time
+7 txcommit

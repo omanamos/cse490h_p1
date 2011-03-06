@@ -383,9 +383,9 @@ public class DistNode extends RIONode {
 			if(command.equals("txstart"))
 				this.TXNLayer.txstart();
 			else if(command.equals("txcommit"))
-				this.TXNLayer.commit();
+				this.TXNLayer.commit(true);
 			else
-				this.TXNLayer.abort(true);
+				this.TXNLayer.abort(true, true);
 		}else{
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
 			return;
