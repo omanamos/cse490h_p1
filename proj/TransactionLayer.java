@@ -372,10 +372,12 @@ public class TransactionLayer {
 		}
 	}
 	
-	public boolean paxosFinished(Transaction txn){
+	public boolean paxosFinished(Transaction txn, boolean abort){
 		int seqNum = -1;
 		if(this.paxosQueue.containsKey(txn.id))
 			seqNum = this.paxosQueue.get(txn.id);
+		if(abort)
+			return this.abort(txn, seqNum);
 		return this.commit(txn, seqNum, true);
 	}
 	
@@ -492,6 +494,14 @@ public class TransactionLayer {
 			Commit com = this.waitingQueue.remove(addr);
 			this.commit(com.getLog().getTXN(), com.getSeqNum(), false);
 		}
+	}
+	
+	public boolean abort(Transaction txn, int seqNum){
+		int client = txn.id % RIONode.NUM_NODES;
+		this.updateLog(txn.id, false);
+		if(seqNum != -1)
+			this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(txn.id+""));
+		return false;
 	}
 	
 	public void pushUpdatesToDisk(int txnID, Map<MasterFile, Update> updates) throws IOException{

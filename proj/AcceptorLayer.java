@@ -68,7 +68,7 @@ public class AcceptorLayer {
 		this.send(from, response);
 	}
 	
-	public void receivedPropose(int from, PaxosPacket pkt){
+	public void receivedPropose(int from, PaxosPacket pkt) {
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
@@ -146,7 +146,7 @@ public class AcceptorLayer {
 				String[] entry = line.split("|");
 				Proposal p = new Proposal( Integer.parseInt(entry[0]), Integer.parseInt(entry[1]), entry[2] );
 				this.acceptorRecord.put(p.getInstanceNum(), p);
-				
+				r.readLine();
 			}
 			
 			r = this.n.getReader(PROMISE_FILE);
@@ -154,6 +154,7 @@ public class AcceptorLayer {
 			while( line != null ) {
 				String[] entry = line.split(" ");
 				this.promised.put(Integer.parseInt(entry[0]), Integer.parseInt(entry[1]));
+				r.readLine();
 			}
 		} catch (FileNotFoundException e) {
 			//e.printStackTrace();

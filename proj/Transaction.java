@@ -133,6 +133,11 @@ public class Transaction implements Iterable<Command> {
 		String[] parts = str.split("#");
 		int id = Integer.parseInt(parts[0]);
 		Transaction txn = new Transaction(id);
+
+		if(parts[1].equals("ABORT")){
+			txn.willAbort = true;
+			return txn;
+		}
 		
 		for(int i = 1; i < parts.length; i++)
 			if(!parts[i].isEmpty())
