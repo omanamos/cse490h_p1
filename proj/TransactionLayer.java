@@ -858,7 +858,11 @@ public class TransactionLayer {
 		}else if( this.txn.willCommit ) {
 			this.txn.decrementNumQueued();
 			if( this.txn.getNumQueued() == 0  && !this.isElection()) {
-				this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
+				if(this.txn.isEmpty()){
+					this.n.printData("Node " + this.n.addr + ": Success: Committed empty transaction #" + this.txn.id + ".");
+					this.commitConfirm();
+				}else
+					this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
 			}
 		}
 	}
@@ -870,6 +874,9 @@ public class TransactionLayer {
 			if( !noQueuedCommands() || this.isElection()) {
 				//set will commit to true to that the txn commits after all queued commands complete
 				this.txn.willCommit = true;
+			}else if(this.txn.isEmpty()){
+				this.n.printData("Node " + this.n.addr + ": Success: Committed empty transaction #" + this.txn.id + ".");
+				this.commitConfirm();
 			} else {
 				//Send txn to master node
 				this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
