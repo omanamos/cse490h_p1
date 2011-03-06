@@ -143,10 +143,10 @@ public class AcceptorLayer {
 			r = this.n.getReader(ACCEPT_FILE);
 			String line = r.readLine();
 			while( line != null && !line.trim().isEmpty() ) {
-				String[] entry = line.split("|");
+				String[] entry = line.split("\\|");
 				Proposal p = new Proposal( Integer.parseInt(entry[0]), Integer.parseInt(entry[1]), entry[2] );
 				this.acceptorRecord.put(p.getInstanceNum(), p);
-				r.readLine();
+				line = r.readLine();
 			}
 			
 			r = this.n.getReader(PROMISE_FILE);
@@ -154,7 +154,7 @@ public class AcceptorLayer {
 			while( line != null && !line.trim().isEmpty() ) {
 				String[] entry = line.split(" ");
 				this.promised.put(Integer.parseInt(entry[0]), Integer.parseInt(entry[1]));
-				r.readLine();
+				line = r.readLine();
 			}
 		} catch (FileNotFoundException e) {
 			//e.printStackTrace();
