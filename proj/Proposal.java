@@ -41,7 +41,17 @@ public class Proposal implements Comparable<Proposal> {
 	}
 
 	public int compareTo(Proposal o) {
-		// TODO Auto-generated method stub
+		if( this.instanceNum > o.getInstanceNum() ) {
+			return 1;
+		} else if( this.instanceNum < o.getInstanceNum() ) {
+			return -1;
+		} else {
+			if( this.proposalNum > o.getProposalNum() ) {
+				return 1;
+			} else if( this.proposalNum < o.getProposalNum() ) {
+				return -1;
+			}
+		}
 		return 0;
 	}
 }
