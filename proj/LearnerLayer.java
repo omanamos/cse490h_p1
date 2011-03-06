@@ -219,14 +219,14 @@ public class LearnerLayer {
 			PersistentStorageReader r = this.n.getReader(LEARN_FILE);
 			String line = r.readLine();
 			while( line != null && !line.trim().isEmpty() ) {
-				String[] entry = line.split("|");
+				String[] entry = line.split("\\|");
 				int instanceNum = Integer.parseInt(entry[0]);
 				int proposalNum = Integer.parseInt(entry[1]);
 				String value = entry[2];
 				Proposal p = new Proposal( instanceNum, proposalNum, value );
 				learned.put( instanceNum, p );
 				updateLargestInstanceNum( instanceNum );
-				r.readLine();
+				line = r.readLine();
 			}
 		} catch (FileNotFoundException e) {
 			//e.printStackTrace();
@@ -253,7 +253,7 @@ public class LearnerLayer {
 			PersistentStorageReader r = this.n.getReader(OUT_OF_ORDER);
 			String line = r.readLine();
 			while( line != null && !line.trim().isEmpty() ) {
-				String[] entry = line.split("|");
+				String[] entry = line.split("\\|");
 				int instanceNum = Integer.parseInt(entry[0]);
 				int proposalNum = Integer.parseInt(entry[1]);
 				String value = entry[2];
@@ -261,7 +261,7 @@ public class LearnerLayer {
 				proposals.put( instanceNum, p);
 				outOfOrder.put( instanceNum, p);
 				updateLargestInstanceNum( instanceNum );
-				r.readLine();
+				line = r.readLine();
 			}
 		} catch (FileNotFoundException e) {
 			//e.printStackTrace();
