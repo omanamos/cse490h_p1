@@ -525,7 +525,8 @@ class OutChannel {
 		
 		while(!this.queuedCommands.isEmpty()){
 			RIOPacket p = this.queuedCommands.poll();
-			this.sendRIOPacket(p.getProtocol(), p.getPayload());
+			if(p.getSeqNum() > seqNum)
+				this.sendRIOPacket(p.getProtocol(), p.getPayload());
 		}
 	}
 	
