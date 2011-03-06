@@ -1,3 +1,4 @@
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
@@ -17,6 +18,10 @@ public class Commit implements Iterable<Integer>{
 	 * key = client that this commit is waiting on
 	 */
 	private Set<Integer> waitAddr;
+	/**
+	 * addr -> txnID
+	 */
+	private Map<Integer, Integer> txnIDLookup;
 	
 	private int seqNum;
 	
@@ -26,6 +31,7 @@ public class Commit implements Iterable<Integer>{
 		this.abort = false;
 		this.waitTXN = new HashSet<Integer>();
 		this.waitAddr = new HashSet<Integer>();
+		this.txnIDLookup = new HashMap<Integer, Integer>();
 		
 		for(MasterFile f : log){
 			Update u = log.getInitialVersion(f);
@@ -46,6 +52,7 @@ public class Commit implements Iterable<Integer>{
 					//if there are reads or writes that depend on an uncommitted and unaborted transaction
 					this.waitTXN.add(u.source);
 					this.waitAddr.add(addr);
+					this.txnIDLookup.put(addr, u.source);
 				}else if(u.version < f.getVersion() && log.hasWrites(f)){
 					//the version you wrote to is old
 					this.abort = true;
@@ -63,6 +70,10 @@ public class Commit implements Iterable<Integer>{
 	
 	public boolean isWaitingFor(int addr){
 		return this.waitAddr.contains(addr);
+	}
+	
+	public int getDepTXNID(int addr){
+		return this.txnIDLookup.get(addr);
 	}
 	
 	public Log getLog(){

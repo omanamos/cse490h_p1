@@ -1,6 +1,5 @@
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -20,7 +19,7 @@ import edu.washington.cs.cse490h.lib.Utility;
  */
 public class ReliableInOrderMsgLayer {
 	public final static int TIMEOUT = 3;
-	public final static int MAX_RETRY = 1;
+	public final static int MAX_RETRY = 4;
 	
 	private Map<Integer, InChannel> inConnections;
 	private Map<Integer, OutChannel> outConnections;
@@ -64,10 +63,11 @@ public class ReliableInOrderMsgLayer {
 	 *            The Packet of data
 	 */
 	public void receiveRIO(int from, RIOPacket pkt) {
-		
 		InChannel in = inConnections.get(from);
 		if(in == null) { //Expired Session -> Server has crashed recently
 			sendExpiredSessionError(from);
+			return;
+		}else if(pkt.getSessionID() != in.getSessionId()){
 			return;
 		}
 		
@@ -130,18 +130,24 @@ public class ReliableInOrderMsgLayer {
 	 * @param from client node the packet came from
 	 */
 	private void receiveEstablishSession(int from){
-		InChannel in = inConnections.get(from);
-		if(in == null){
-			in = new InChannel(n, from, nextSessionId);
-			try {
-				this.n.write(".sessions", in.toString(), true, true);
-			} catch (IOException e) {
-				this.n.printError("Node " + this.n.addr + ": Fatal Error: could not write session to disk");
-			}
-			inConnections.put(from, in);
-			nextSessionId++;
-		}
+		InChannel in = inConnections.remove(from);
+		in = new InChannel(n, from, nextSessionId);
+		inConnections.put(from, in);
+		nextSessionId++;
+		
+		this.updateSessions();
 		in.returnSessionPacket(SessionProtocol.ACK_SESSION, Utility.stringToByteArray(in.getSessionId() + " " + in.getLastSeqNumDelivered()));
+	}
+	
+	private void updateSessions(){
+		try {
+			String contents = "";
+			for(InChannel in : this.inConnections.values())
+				contents += in;
+			this.n.write(".sessions", contents, false, true);
+		} catch (IOException e) {
+			this.n.printError("Node " + this.n.addr + ": Fatal Error: could not write session to disk");
+		}
 	}
 	
 	/**
@@ -347,11 +353,10 @@ class InChannel {
 class OutChannel {
 	private HashMap<Integer, RIOPacket> unACKedPackets;
 	private HashMap<Integer, Integer> pktRetries;
-	private ArrayList<RIOPacket> pendingPackets;
 	
 	private int lastSeqNumSent;
 	private ReliableInOrderMsgLayer parent;
-	private RIONode n;
+	private DistNode n;
 	
 	private int destAddr;
 	private int sessionID;
@@ -361,11 +366,11 @@ class OutChannel {
 	
 	private boolean heartbeat;
 	
-	OutChannel(ReliableInOrderMsgLayer parent, RIONode n, int destAddr){
+	OutChannel(ReliableInOrderMsgLayer parent, DistNode n, int destAddr){
 		this(parent, n, destAddr, -1);
 	}
 	
-	OutChannel(ReliableInOrderMsgLayer parent, RIONode n, int destAddr, int sessionId){
+	OutChannel(ReliableInOrderMsgLayer parent, DistNode n, int destAddr, int sessionId){
 		lastSeqNumSent = -1;
 		unACKedPackets = new HashMap<Integer, RIOPacket>();
 		pktRetries = new HashMap<Integer, Integer>();
@@ -374,7 +379,6 @@ class OutChannel {
 		this.n = n;
 		this.sessionID = sessionId;
 		this.destAddr = destAddr;
-		this.pendingPackets = new ArrayList<RIOPacket>();
 		
 		establishingSession = false;
 		queuedCommands = new LinkedList<RIOPacket>();
@@ -427,6 +431,7 @@ class OutChannel {
 	 * the session is being established.
 	 */
 	public void establishSession(){
+		this.lastSeqNumSent = -1;
 		this.establishingSession = true;
 		SessionPacket sPkt = new SessionPacket(SessionProtocol.ESTB_SESSION, new byte[0]);
 		RIOPacket pkt = new RIOPacket(Protocol.SESSION, -1, sPkt.pack(), -1);
@@ -462,20 +467,25 @@ class OutChannel {
 		} else if(unACKedPackets.containsKey(seqNum)){
 			RIOPacket pkt = unACKedPackets.remove(seqNum);
 			pktRetries.remove(seqNum);
-			boolean lastSequence = false;
-			int maxSeqNum = seqNum + 1;
-			while(!lastSequence){
-				if(unACKedPackets.containsKey(maxSeqNum)){
-					pendingPackets.add(unACKedPackets.get(maxSeqNum));
-					unACKedPackets.remove(maxSeqNum);
-					pktRetries.remove(maxSeqNum);
-					maxSeqNum++;
-				} else
-					lastSequence = true;
-			}
-			if(pkt.getProtocol() != Protocol.SESSION){
+			
+			if(pkt.getProtocol() == Protocol.SESSION)
+				establishSession();
+			else{
+				boolean lastSequence = false;
+				int maxSeqNum = seqNum + 1;
+				while(!lastSequence){
+					if(unACKedPackets.containsKey(maxSeqNum)){
+						this.queuedCommands.add(unACKedPackets.remove(maxSeqNum));
+						for(int i = 0; i < this.queuedCommands.size() - 1; i++)
+							this.queuedCommands.add(this.queuedCommands.poll());
+						pktRetries.remove(maxSeqNum);
+						maxSeqNum++;
+					} else
+						lastSequence = true;
+				}
 				establishSession();
 				n.TXNLayer.onRIOTimeout(this.destAddr, pkt.getPayload());
+				this.n.printError("Node " + this.n.addr + ": Delay: Session timed out with node " + this.destAddr + ", establishing new session.");
 			}
 		}
 	}
@@ -511,14 +521,7 @@ class OutChannel {
 		this.unACKedPackets = new HashMap<Integer, RIOPacket>();
 		this.sessionID = sessionId;
 
-		for(int i = 0; i < pendingPackets.size(); i++){
-			seqNum++;
-			RIOPacket tPkt = pendingPackets.remove(i);
-			unACKedPackets.put(seqNum, tPkt);
-			pktRetries.put(seqNum, 0);
-		}
-		
-		this.lastSeqNumSent = seqNum;
+		this.lastSeqNumSent = Math.max(this.lastSeqNumSent, seqNum);
 		
 		while(!this.queuedCommands.isEmpty()){
 			RIOPacket p = this.queuedCommands.poll();

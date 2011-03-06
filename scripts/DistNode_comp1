@@ -10,12 +10,6 @@ time
 6 txstart
 7 txstart
 time
-time
-time
-time
-time
-time
-time
 6 create test
 time
 6 append test "line one\n"

@@ -23,6 +23,10 @@ public class PaxosLayer {
 		}
 	}
 	
+	public String toString(){
+		return this.e == null ? "No Election" : this.e.toString();
+	}
+	
 	public void start(){
 		this.propLayer.start();
 		this.accLayer.start();
@@ -100,7 +104,7 @@ public class PaxosLayer {
 	
 	private void receivedElect(int from, PaxosPacket pkt){
 		if(isServer){
-			this.send(from, new PaxosPacket(PaxosProtocol.ELECT, -1, this.accLayer.getMaxInstanceNumber(), new byte[0]));
+			this.send(from, new PaxosPacket(PaxosProtocol.ELECT, -1, Math.max(this.learnLayer.getLargestInstanceNum(), this.accLayer.getMaxInstanceNumber()), new byte[0]));
 		}else if(this.e != null){
 			this.e.propose(from, pkt.getInstanceNumber());
 			if(this.e.hasMajority()){

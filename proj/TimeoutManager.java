@@ -48,7 +48,7 @@ public class TimeoutManager {
 	}
 	
 	public void onTimeout(Integer dest, Integer seqNum){
-		TXNPacket pkt = this.unRtned.get(dest).remove(seqNum);
+		TXNPacket pkt = this.unRtned.get(dest).get(seqNum);
 		Integer retries = this.retries.containsKey(dest) ? this.retries.get(dest).remove(seqNum) : null;
 		if(pkt != null){
 			if((retries == null || retries < MAX_RETRIES) && (pkt.getProtocol() == TXNProtocol.COMMIT || pkt.getProtocol() == TXNProtocol.ABORT)){
