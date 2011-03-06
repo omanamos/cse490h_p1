@@ -880,8 +880,8 @@ public class TransactionLayer {
 			if(notifyServer){
 				if(this.txn.isEmpty()){
 					this.isElected = false;
+					this.n.printError("Node " + this.n.addr + ": Success: Empty transaction #" + this.txn.id + " aborted.");
 					this.txn = null;
-					this.n.printError("Node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
 				}else if(this.isElected){
 					this.isElected = false;
 					this.send(this.leader, TXNProtocol.ABORT, Utility.stringToByteArray(this.txn.id+""));
@@ -890,7 +890,10 @@ public class TransactionLayer {
 					this.leader = this.paxos.electLeader();
 				}
 			}else{
-				this.n.printError("Node " + this.n.addr + " : Transaction aborted, please start a new transaction and try again.");
+				if(this.txn.willAbort)
+					this.n.printError("Node " + this.n.addr + ": Success: Transaction #" + this.txn.id + " aborted.");
+				else
+					this.n.printError("Node " + this.n.addr + ": Error: Transaction #" + this.txn.id + " aborted, please start a new transaction and try again.");
 				this.txn = null;
 			}
 		}
