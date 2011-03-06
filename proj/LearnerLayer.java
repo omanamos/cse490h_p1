@@ -195,6 +195,7 @@ public class LearnerLayer {
 					String value = entry[2];
 					learned.put( instanceNum, new Proposal( instanceNum, proposalNum, value ) );
 					updateLargestInstanceNum( instanceNum );
+					r.readLine();
 				}
 			} catch (FileNotFoundException e) {
 			} catch (IOException e) {
@@ -242,6 +243,7 @@ public class LearnerLayer {
 				Proposal p = new Proposal( instanceNum, proposalNum, value );
 				learned.put( instanceNum, p );
 				updateLargestInstanceNum( instanceNum );
+				r.readLine();
 			}
 		} catch (FileNotFoundException e) {
 			//e.printStackTrace();
@@ -276,6 +278,7 @@ public class LearnerLayer {
 				proposals.put( instanceNum, p);
 				outOfOrder.put( instanceNum, p);
 				updateLargestInstanceNum( instanceNum );
+				r.readLine();
 			}
 		} catch (FileNotFoundException e) {
 			//e.printStackTrace();
