@@ -1,7 +1,7 @@
 import edu.washington.cs.cse490h.lib.Utility;
 
 
-public class Proposal {
+public class Proposal implements Comparable<Proposal> {
 	private int instanceNum;
 	private int proposalNum;
 	private String value;
