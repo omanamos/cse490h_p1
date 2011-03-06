@@ -525,7 +525,7 @@ public class TransactionLayer {
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = this.getFileFromCache(fileName);
 				
-				if(this.txn == null || this.txn.isDeleted(f)){
+				if(this.txn == null || this.txn.hasFile(f) || this.txn.isDeleted(f)){
 					this.rtn(from, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(fileName + " " + Error.ERR_10));
 				}else{
 					try {
@@ -537,7 +537,7 @@ public class TransactionLayer {
 				}
 				break;
 			case TXNProtocol.WD:
-				if(this.timeout.onRtn(from, pkt.getSeqNum())){
+				if(this.timeout.onRtn(from, pkt.getSeqNum()) && this.leader == from){
 					contents = Utility.byteArrayToString(pkt.getPayload());
 					i = contents.indexOf(' ');
 					fileName = contents.substring(0, i);
@@ -641,11 +641,7 @@ public class TransactionLayer {
 				commandsWereExecuted = this.executeCommandQueue(f) && commandsWereExecuted;
 			
 			if(!commandsWereExecuted){
-				if(this.txn.willAbort){
-					this.abort(true);
-				}else if(this.txn.willCommit){
-					this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
-				}
+				txnExecute();
 			}
 		}
 	}
@@ -840,9 +836,9 @@ public class TransactionLayer {
 	public void abort(boolean notifyServer) {
 		if(this.txn == null && notifyServer){
 			this.assertTXNStarted();
-		}else if(!this.notCommited() || !this.notAborted()){
+		}else if(notifyServer && (!this.notCommited() || !this.notAborted())){
 			//^ prints out error message
-		}else if(this.isElection()){
+		}else if(notifyServer && this.isElection()){
 			this.txn.willAbort = true;
 		}else{
 			if(notifyServer)

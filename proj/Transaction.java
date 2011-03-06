@@ -159,4 +159,7 @@ public class Transaction implements Iterable<Command> {
 		return this.size() == 0;
 	}
 	
+	public boolean hasFile(File f){
+		return this.fileLog.containsKey(f);
+	}
 }
