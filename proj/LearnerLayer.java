@@ -19,9 +19,9 @@ public class LearnerLayer {
 	private int lastContInstance;
 	private int largestInstanceNum;
 	
-	public LearnerLayer(PaxosLayer paxosLayer) {
+	public LearnerLayer(PaxosLayer paxosLayer, DistNode n) {
 		this.paxosLayer = paxosLayer;
-		this.n = this.paxosLayer.n;
+		this.n = n;
 		this.lastContInstance = -1;
 		this.largestInstanceNum = -1;
 		
@@ -197,9 +197,7 @@ public class LearnerLayer {
 					updateLargestInstanceNum( instanceNum );
 				}
 			} catch (FileNotFoundException e) {
-				e.printStackTrace();
 			} catch (IOException e) {
-				e.printStackTrace();
 			}
 		for( int i = this.lastContInstance + 1; i < this.largestInstanceNum; i++ ) {
 			Proposal p = this.proposals.get(i);

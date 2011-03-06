@@ -11,7 +11,7 @@ public class TransactionLayer {
 
 	public final static int MASTER_NODE = 0;
 	
-	public  DistNode n;
+	private DistNode n;
 	public ReliableInOrderMsgLayer RIOLayer;
 	private PaxosLayer paxos;
 	
@@ -57,12 +57,13 @@ public class TransactionLayer {
 	
 	public void start(){
 		if(this.n.isMaster()){
-			this.paxos = new PaxosLayer(this, true);
+			this.paxos = new PaxosLayer(this, this.n, true);
+			this.paxos.start();
 			this.waitingQueue = new HashMap<Integer, Commit>();
 			this.txnLog = new HashMap<Integer, Boolean>();
 			this.paxosQueue = new HashMap<Integer, Integer>();
 		}else{
-			this.paxos = new PaxosLayer(this, false);
+			this.paxos = new PaxosLayer(this, this.n, false);
 			this.leader = this.paxos.electLeader();
 		}
 	}
@@ -79,8 +80,13 @@ public class TransactionLayer {
 		this.txnLog.putAll(txnLog);
 	}
 	
-	public boolean isElection(){
-		return this.leader == -1;
+	public boolean hasElection(){
+		if(this.leader == -1){
+			if(!this.paxos.hasElection())
+				this.leader = this.paxos.electLeader();
+			return true;
+		}else
+			return false;
 	}
 	
 	public void elect(int newLeader, int instanceNum){
@@ -92,8 +98,11 @@ public class TransactionLayer {
 	public void send(int dest, int protocol, byte[] payload) {
 		TXNPacket pkt = new TXNPacket(protocol, this.timeout.nextSeqNum(dest), payload);
 		int p = pkt.getProtocol();
-		//TODO: implement timeouts for PAXOS packets
-		if(p == TXNProtocol.WF || p == TXNProtocol.WQ || p == TXNProtocol.CREATE || 
+		if(p == TXNProtocol.PAXOS){
+			PaxosPacket p1 = PaxosPacket.unpack(payload);
+			if(p1.getProtocol() == PaxosProtocol.ELECT)
+				this.timeout.createTimeoutListener(dest, pkt);
+		}else if(p == TXNProtocol.WF || p == TXNProtocol.WQ || p == TXNProtocol.CREATE || 
 				(!this.n.isMaster() && (p == TXNProtocol.ABORT || p == TXNProtocol.COMMIT || p == TXNProtocol.START)))
 			this.timeout.createTimeoutListener(dest, pkt);
 		this.RIOLayer.sendRIO(dest, Protocol.TXN, pkt.pack());
@@ -116,7 +125,10 @@ public class TransactionLayer {
 	public void onReceive(int from, byte[] payload) {
 		TXNPacket packet = TXNPacket.unpack(payload);
 		if(packet.getProtocol() == TXNProtocol.PAXOS){
-			this.paxos.onReceive(from, packet.getPayload());
+			PaxosPacket pkt = PaxosPacket.unpack(packet.getPayload());
+			if(!this.n.isMaster() && pkt.getProtocol() == PaxosProtocol.ELECT)
+				this.timeout.onRtn(from, packet.getSeqNum());
+			this.paxos.onReceive(from, packet.getSeqNum(), packet.getPayload());
 		}else if(this.n.isMaster()){
 			masterReceive(from, packet);
 		}else
@@ -177,6 +189,8 @@ public class TransactionLayer {
 					this.txnExecute();
 					this.executeCommandQueue(f);
 					this.leader = this.paxos.electLeader();
+				}else if(pkt.getProtocol() == TXNProtocol.PAXOS){
+					this.paxos.onTimeout(dest, pkt.getPayload());
 				}
 			}
 		}
@@ -690,7 +704,7 @@ public class TransactionLayer {
 			File f = this.getFileFromCache(fileName);
 			Command c = new Command(MASTER_NODE, Command.GET, f);
 			
-			if(f.execute(c) && !this.isElection()){
+			if(f.execute(c) && !this.hasElection()){
 				return get(c, f);
 			}
 		}
@@ -724,7 +738,7 @@ public class TransactionLayer {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.CREATE, f, "");
 			
-			if(f.execute(c) && !this.isElection()){
+			if(f.execute(c) && !this.hasElection()){
 				return create(c, f);
 			}
 		}
@@ -752,7 +766,7 @@ public class TransactionLayer {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.PUT, f, content);
 			
-			if(f.execute(c) && !this.isElection()){
+			if(f.execute(c) && !this.hasElection()){
 				return put(c, f);
 			}
 		}
@@ -781,7 +795,7 @@ public class TransactionLayer {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.APPEND, f, content);
 			
-			if(f.execute(c) && !this.isElection()) {
+			if(f.execute(c) && !this.hasElection()) {
 				return append(c, f);
 			}
 		}
@@ -811,7 +825,7 @@ public class TransactionLayer {
 			File f = getFileFromCache( filename );
 			Command c = new Command(MASTER_NODE, Command.DELETE, f);
 		
-			if(f.execute(c) && !this.isElection()) {
+			if(f.execute(c) && !this.hasElection()) {
 				return delete(c, f);
 			}
 		}
@@ -837,7 +851,7 @@ public class TransactionLayer {
 			this.assertTXNStarted();
 		}else if(notifyServer && (!this.notCommited() || !this.notAborted())){
 			//^ prints out error message
-		}else if(notifyServer && this.isElection()){
+		}else if(notifyServer && this.hasElection()){
 			this.txn.willAbort = true;
 		}else{
 			if(notifyServer)
@@ -857,7 +871,7 @@ public class TransactionLayer {
 			}
 		}else if( this.txn.willCommit ) {
 			this.txn.decrementNumQueued();
-			if( this.txn.getNumQueued() == 0  && !this.isElection()) {
+			if( this.txn.getNumQueued() == 0  && !this.hasElection()) {
 				if(this.txn.isEmpty()){
 					this.n.printData("Node " + this.n.addr + ": Success: Committed empty transaction #" + this.txn.id + ".");
 					this.commitConfirm();
@@ -871,7 +885,7 @@ public class TransactionLayer {
 
 		if( this.assertTXNStarted() && this.notAborted() && this.notCommited()) {
 			//Check to see if there are queued commands before committing
-			if( !noQueuedCommands() || this.isElection()) {
+			if( !noQueuedCommands() || this.hasElection()) {
 				//set will commit to true to that the txn commits after all queued commands complete
 				this.txn.willCommit = true;
 			}else if(this.txn.isEmpty()){

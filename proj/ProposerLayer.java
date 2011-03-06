@@ -6,7 +6,6 @@ import java.util.Queue;
 
 import edu.washington.cs.cse490h.lib.Utility;
 
-
 public class ProposerLayer {
 
 	private PaxosLayer paxosLayer;
@@ -119,7 +118,7 @@ public class ProposerLayer {
 	
 	private void newInstance(String value){
 		resetRP();
-		this.instanceNumber++;
+		this.instanceNumber = fillGaps() + 1;
 		this.values.put(this.instanceNumber, value);
 	}
 	
@@ -148,16 +147,17 @@ public class ProposerLayer {
 	private int fillGaps(){
 			
 			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
-			int largestInst = paxosLayer.getAcceptorLayer().getMaxInstanceNumber();
+			int largestInst = Math.max(paxosLayer.getAcceptorLayer().getMaxInstanceNumber(), paxosLayer.getLearnerLayer().getLargestInstanceNum());
 			
-			for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
-				missingInst.add(i);
+			if(missingInst.size() != 0)
+				for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
+					missingInst.add(i);
 			
 			for(Integer instance : missingInst)
 				fixHole(instance);
 
 
-		return largestInst - 1;
+		return largestInst;
 	}
 
 

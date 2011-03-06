@@ -19,9 +19,9 @@ public class AcceptorLayer {
 	
 	private int maxInstanceNumber;
 	
-	public AcceptorLayer(PaxosLayer paxosLayer) {
+	public AcceptorLayer(PaxosLayer paxosLayer, DistNode n) {
 		this.paxosLayer = paxosLayer;
-		this.n = this.paxosLayer.n;
+		this.n = n;
 		this.acceptorRecord = new HashMap<Integer, Proposal>();
 		this.promised = new HashMap<Integer, Integer>();
 		this.maxInstanceNumber = -1;

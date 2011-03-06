@@ -8,19 +8,14 @@ public class PaxosLayer {
 	private ProposerLayer propLayer;
 	private AcceptorLayer accLayer;
 	private LearnerLayer learnLayer;
-	public  DistNode n;
+	private DistNode n;
 	private Election e;
 	private boolean isServer;
 	
-	public PaxosLayer(TransactionLayer txn, boolean isServer){
+	public PaxosLayer(TransactionLayer txn, DistNode n, boolean isServer){
 		this.txnLayer = txn;
 		this.isServer = isServer;
-		if(isServer){
-			this.n = this.txnLayer.n;
-			this.propLayer = new ProposerLayer(this);
-			this.accLayer = new AcceptorLayer(this);
-			this.learnLayer = new LearnerLayer(this);
-		}
+		this.n = n;
 	}
 	
 	public String toString(){
@@ -28,9 +23,14 @@ public class PaxosLayer {
 	}
 	
 	public void start(){
-		this.propLayer.start();
-		this.accLayer.start();
-		this.learnLayer.start();
+		if(this.isServer){
+			this.propLayer = new ProposerLayer(this);
+			this.accLayer = new AcceptorLayer(this, n);
+			this.learnLayer = new LearnerLayer(this, n);
+			this.propLayer.start();
+			this.accLayer.start();
+			this.learnLayer.start();
+		}
 	}
 	
 	public LearnerLayer getLearnerLayer(){
@@ -49,7 +49,7 @@ public class PaxosLayer {
 		return this.accLayer;
 	}
 	
-	public void onReceive(int from, byte[] payload) {
+	public void onReceive(int from, int seqNum, byte[] payload) {
 		PaxosPacket pkt = PaxosPacket.unpack(payload);
 		switch(pkt.getProtocol()){
 			case PaxosProtocol.ACCEPT:
@@ -78,13 +78,30 @@ public class PaxosLayer {
 				this.propLayer.receivedPromise(from, pkt);
 				break;
 			case PaxosProtocol.ELECT:
-				this.receivedElect(from, pkt);
+				this.receivedElect(from, seqNum, pkt);
 				break;
+		}
+	}
+	
+	public void onTimeout(int dest, byte[] payload){
+		PaxosPacket pkt = PaxosPacket.unpack(payload);
+		if(pkt.getProtocol() == PaxosProtocol.ELECT && this.e != null){
+			if(this.e.onTimeout()){
+				this.e = null;
+				if(this.n == null)
+					System.out.println();
+				this.n.printError("Node " + this.n.addr + ": Error: Election failed, a majority of requests timed out.");
+				this.txnLayer.abort(false);
+			}
 		}
 	}
 	
 	public void send(int dest, PaxosPacket pkt){
 		this.txnLayer.send(dest, TXNProtocol.PAXOS, pkt.pack());
+	}
+	
+	public void rtn(int dest, int seqNum, PaxosPacket pkt){
+		this.txnLayer.rtn(dest, TXNProtocol.PAXOS, seqNum, pkt.pack());
 	}
 	
 	public int size(){
@@ -95,6 +112,10 @@ public class PaxosLayer {
 		this.propLayer.receivedCommit(txn.toString());
 	}
 	
+	public boolean hasElection(){
+		return this.e != null;
+	}
+	
 	public int electLeader() {
 		this.e = new Election(this.size());
 		for(int addr : ACCEPTORS)
@@ -102,9 +123,9 @@ public class PaxosLayer {
 		return -1;
 	}
 	
-	private void receivedElect(int from, PaxosPacket pkt){
+	private void receivedElect(int from, int seqNum, PaxosPacket pkt){
 		if(isServer){
-			this.send(from, new PaxosPacket(PaxosProtocol.ELECT, -1, Math.max(this.learnLayer.getLargestInstanceNum(), this.accLayer.getMaxInstanceNumber()), new byte[0]));
+			this.rtn(from, seqNum, new PaxosPacket(PaxosProtocol.ELECT, -1, Math.max(this.learnLayer.getLargestInstanceNum(), this.accLayer.getMaxInstanceNumber()), new byte[0]));
 		}else if(this.e != null){
 			this.e.propose(from, pkt.getInstanceNumber());
 			if(this.e.hasMajority()){
