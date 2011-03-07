@@ -214,6 +214,7 @@ public class TransactionLayer {
 					this.rtn(from, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(payload));
 				}else if(!f.isCheckedOut()){ //The file hasn't been checked out by anyone, return the last committed version.
 					try{
+						f.changePermissions(from, MasterFile.WF);
 						contents = this.n.get(fileName);
 						byte[] payload = Utility.stringToByteArray(f.getName() + " " + f.getVersion() + " " + MASTER_NODE + " " + contents);
 						f.changePermissions(from, MasterFile.FREE);
@@ -397,11 +398,14 @@ public class TransactionLayer {
 			
 			if(c.abort()){
 				//txn should abort
-				//TODO: check if paxos has already returned
-				txn = new Transaction(txn.id);
-				txn.willAbort = true;
-				this.paxos.commit(txn);
-				return true;
+				if(paxosFinished){
+					this.abort(txn, seqNum);
+				}else{
+					txn = new Transaction(txn.id);
+					txn.willAbort = true;
+					this.paxos.commit(txn);
+				}
+				return false;
 			}else if(c.isWaiting()){
 				//add commit to queue and send heartbeat to nodes that the commit is waiting for
 				if(!paxosFinished){
@@ -599,7 +603,7 @@ public class TransactionLayer {
 						this.txn.add(c);
 						this.txnExecute();
 					} catch (IOException e) {
-						this.n.printError("Node " + this.n.addr + ": Fatal Error: Couldn't update file: " + fileName + " to version: " + version);
+						this.n.printError("Node " + this.n.addr + ": Fatal Error: Couldn't update file: " + fileName + " to version: " + version + ".");
 					}
 					
 					executeCommandQueue(f);
