@@ -68,7 +68,7 @@ public class AcceptorLayer {
 		this.send(from, response);
 	}
 	
-	public void receivedPropose(int from, PaxosPacket pkt)]{
+	public void receivedPropose(int from, PaxosPacket pkt){
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
 		
