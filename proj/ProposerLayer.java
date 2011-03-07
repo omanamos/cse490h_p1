@@ -49,7 +49,7 @@ public class ProposerLayer {
 	}
 
 	public void receivedPromise(int from, PaxosPacket pkt) {
-		if(pkt.getInstanceNumber() == this.instanceNumber){
+		if(pkt.getInstanceNumber() == this.instanceNumber && this.values.containsKey(this.instanceNumber)){
 			int propNumber = pkt.getProposalNumber();
 			if(propNumber > this.proposalNumber){
 				this.proposalNumber = propNumber;

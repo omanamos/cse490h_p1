@@ -126,6 +126,8 @@ public class TransactionLayer {
 	}
 	
 	public void onReceive(int from, byte[] payload) {
+		if(from == 5 && this.n.addr == 0)
+			System.out.println();
 		TXNPacket packet = TXNPacket.unpack(payload);
 		if(packet.getProtocol() == TXNProtocol.PAXOS){
 			PaxosPacket pkt = PaxosPacket.unpack(packet.getPayload());
@@ -640,8 +642,10 @@ public class TransactionLayer {
 					}catch(Exception e){
 						this.n.printError(contents);
 					}
-					txnExecute();
-					executeCommandQueue(f);
+					if(noQueuedCommands())
+						txnExecute();
+					else
+						executeCommandQueue(f);
 				}
 				break;
 		}
