@@ -24,7 +24,7 @@ public class PaxosLayer {
 	
 	public void start(){
 		if(this.isServer){
-			this.propLayer = new ProposerLayer(this);
+			this.propLayer = new ProposerLayer(this, n);
 			this.accLayer = new AcceptorLayer(this, n);
 			this.learnLayer = new LearnerLayer(this, n);
 			this.propLayer.start();

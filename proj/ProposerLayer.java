@@ -21,12 +21,15 @@ public class ProposerLayer {
 	private Queue<String> commits;
 	private HashMap<Integer, PaxosPacket> unACKedPackets;
 	private HashMap<Integer, Integer> pktRetries;
+	private DistNode n;
 	
 
-	public ProposerLayer(PaxosLayer paxosLayer) {
+	public ProposerLayer(PaxosLayer paxosLayer, DistNode n) {
 		this.commits = new LinkedList<String>();
 		this.instanceValues = new HashMap<String, Integer>();
 		this.values = new HashMap<Integer, String>();
+		
+		this.n = n;
 		
 		this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
@@ -177,9 +180,9 @@ public class ProposerLayer {
 	
 	private void createTimeoutListener(int instance) {
 		try{
-			Method onTimeoutMethod = Callback.getMethod("onTimeout", this.paxosLayer, new String[]{ "java.lang.Integer"});
+			Method onTimeoutMethod = Callback.getMethod("onTimeout", this, new String[]{ "java.lang.Integer"});
 			//waits 13 time steps
-			this.paxosLayer.n.addTimeout(new Callback(onTimeoutMethod, this.paxosLayer, new Object[]{ instance }), 13);
+			this.n.addTimeout(new Callback(onTimeoutMethod, this.paxosLayer, new Object[]{ instance }), 13);
 		}catch(Exception e){
 			e.printStackTrace();
 		}
