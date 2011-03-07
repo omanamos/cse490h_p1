@@ -46,7 +46,7 @@ public class DistNode extends RIONode {
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
 		if(fileExists(fileName) || force){
-			if(force && this.isMaster() && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
+			if(force && this.isMaster() && !fileName.startsWith(".") && !fileList.containsKey(fileName)){
 				fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
 				this.updateFileList();
 			}
@@ -204,6 +204,8 @@ public class DistNode extends RIONode {
 	 * Starts up the node. Checks for unfinished PUT commands.
 	 */
 	public void start() {
+		if(this.isMaster())
+			this.fileList = new HashMap<String, Update>();
 		this.TXNLayer.start();
 		
 		//SESSION RECOVERY
@@ -283,7 +285,6 @@ public class DistNode extends RIONode {
 		
 		if(this.isMaster()){
 			//CACHE RECOVERY ON MASTER NODE
-			this.fileList = new HashMap<String, Update>();
 			if(this.addr == TransactionLayer.MASTER_NODE){
 				if(!fileExists(".l")){
 					try {
