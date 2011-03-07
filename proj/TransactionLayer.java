@@ -302,6 +302,7 @@ public class TransactionLayer {
 				this.setHB(from, false);
 				if(!this.paxosQueue.containsKey(txnID)){
 					txn = new Transaction(txnID);
+					this.paxosQueue.put(txn.id, pkt.getSeqNum());
 					this.paxos.commit(txn);
 				}
 				break;
@@ -383,18 +384,23 @@ public class TransactionLayer {
 			if(seqNum != -1)
 				this.rtn(client, TXNProtocol.COMMIT, seqNum, Utility.stringToByteArray(txn.id+""));
 			return true;
+		}else if(txn.willAbort){
+			if(paxosFinished)
+				this.abort(txn, seqNum);
+			else
+				this.paxos.commit(txn);
+			return false;
 		}else {
 			Log log = new Log(client, txn);
 			Commit c = new Commit(client, log, this.txnLog, seqNum);
 			
 			if(c.abort()){
 				//txn should abort
-				for(MasterFile f : log)
-					f.abort(client);
-				this.updateLog(txn.id, false);
-				if(seqNum != -1)
-					this.rtn(client, TXNProtocol.ABORT, seqNum, Utility.stringToByteArray(txn.id+""));
-				return false;
+				//TODO: SEND TO PAXOS
+				txn = new Transaction(txn.id);
+				txn.willAbort = true;
+				this.paxos.commit(txn);
+				return true;
 			}else if(c.isWaiting()){
 				//add commit to queue and send heartbeat to nodes that the commit is waiting for
 				if(!paxosFinished){
@@ -884,6 +890,7 @@ public class TransactionLayer {
 					this.txn = null;
 				}else if(this.isElected){
 					this.isElected = false;
+					this.txn.willAbort = true;
 					this.send(this.leader, TXNProtocol.ABORT, Utility.stringToByteArray(this.txn.id+""));
 				}else{
 					this.txn.willAbort = true;
@@ -935,12 +942,12 @@ public class TransactionLayer {
 				this.n.printData("Node " + this.n.addr + ": Success: Committed empty transaction #" + this.txn.id + ".");
 				this.commitConfirm();
 			} else {
-				//Send txn to master node
-				if(this.isElected){
+				this.txn.willCommit = true;
+				
+				if(this.isElected){	//Send txn to master node
 					this.isElected = false;
 					this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
-				}else{
-					this.txn.willCommit = true;
+				}else{				//Initiate new leader election.
 					this.leader = this.paxos.electLeader();
 				}
 			}

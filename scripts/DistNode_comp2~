@@ -11,21 +11,11 @@ time
 6 txstart
 7 txstart
 time
-time
-time
-time
-time
-time
-time
-time
-time
-time
 5 create test
 time
 5 put test "hello world"
 time
 5 txcommit
-time
 time
 time
 time

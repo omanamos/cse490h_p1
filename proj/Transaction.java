@@ -133,27 +133,31 @@ public class Transaction implements Iterable<Command> {
 		String[] parts = str.split("#");
 		int id = Integer.parseInt(parts[0]);
 		Transaction txn = new Transaction(id);
-
-		if(parts[1].equals("ABORT")){
+		
+		if(parts.length == 1){
+			//empty transaction, do nothing
+		}else if(parts[1].equals("ABORT")){
 			txn.willAbort = true;
-			return txn;
+		}else{
+			for(int i = 1; i < parts.length; i++)
+				if(!parts[i].isEmpty())
+					txn.add(Command.fromByteArray(parts[i], cache));
 		}
-		
-		for(int i = 1; i < parts.length; i++)
-			if(!parts[i].isEmpty())
-				txn.add(Command.fromByteArray(parts[i], cache));
-		
 		return txn;
 	}
 	
 	public String toString(){
 		String rtn = this.id + "#";
 		
-		for(Command c : this){
-			rtn += c.buildCommit() + "#";
+		if(this.willAbort){
+			return rtn + "ABORT";
+		}else{
+			for(Command c : this){
+				rtn += c.buildCommit() + "#";
+			}
+			
+			return rtn.substring(0, rtn.length() - 1);
 		}
-		
-		return rtn.substring(0, rtn.length() - 1);
 	}
 	
 	public int size(){
