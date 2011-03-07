@@ -48,10 +48,7 @@ public class DistNode extends RIONode {
 		if(fileExists(fileName) || force){
 			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
 				fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
-				PersistentStorageWriter w = this.getWriter(".l", true);
-				//TODO: check .l file for formatting issues
-				w.write(fileName + "\n");
-				w.close();
+				this.updateFileList();
 			}
 			if(!append)
 				putFile(fileName, content, force);
@@ -68,9 +65,7 @@ public class DistNode extends RIONode {
 		this.getWriter(fileName, false).write("");
 		if(this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName)){
 			fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
-			PersistentStorageWriter w = this.getWriter(".l", true);
-			w.write(fileName + "\n");
-			w.close();
+			this.updateFileList();
 		}
 	}
 	
