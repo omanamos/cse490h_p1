@@ -147,6 +147,7 @@ public class AcceptorLayer {
 				String[] entry = line.split("\\|");
 				Proposal p = new Proposal( Integer.parseInt(entry[0]), Integer.parseInt(entry[1]), entry[2] );
 				this.acceptorRecord.put(p.getInstanceNum(), p);
+				this.maxInstanceNumber = Math.max(this.maxInstanceNumber, p.getInstanceNum());
 				line = r.readLine();
 			}
 			

@@ -146,6 +146,10 @@ public class Transaction implements Iterable<Command> {
 		return txn;
 	}
 	
+	public static int getIdFromString(String str){
+		return Integer.parseInt(str.split("#")[0]);
+	}
+	
 	public String toString(){
 		String rtn = this.id + "#";
 		

@@ -226,6 +226,7 @@ public class LearnerLayer {
 				Proposal p = new Proposal( instanceNum, proposalNum, value );
 				learned.put( instanceNum, p );
 				updateLargestInstanceNum( instanceNum );
+				this.lastContInstance = Math.max(this.lastContInstance, instanceNum);
 				line = r.readLine();
 			}
 		} catch (FileNotFoundException e) {

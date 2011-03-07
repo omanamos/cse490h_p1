@@ -59,7 +59,7 @@ public class ProposerLayer {
 			if(pkt.getProtocol() == PaxosProtocol.REJECT){
 				rejects++;
 				if(rejects >= MAJORITY){
-					sendPrepares();
+					sendPrepares(this.instanceNumber);
 					resetRP();
 				}
 	
@@ -98,7 +98,7 @@ public class ProposerLayer {
 		}
 		//DONE FIXING HOLES IF THIS IS TRUE, READY TO START A NEW INSTANCE!!
 		if(fixedHoles == holes && !this.commits.isEmpty()){
-			sendPrepares();
+			sendPrepares(this.instanceNumber);
 			this.values.put(this.instanceNumber, commits.peek());
 		}
 		
@@ -125,9 +125,12 @@ public class ProposerLayer {
 		String commit = commits.poll();
 		
 		if(commit != null){
-			if(commit.equals(learnedValue))
+			int learnedID = Transaction.getIdFromString(learnedValue);
+			int txnID = Transaction.getIdFromString(commit);
+			if(learnedID == txnID)
 				commit = commits.poll();
-			this.receivedCommit(commit);
+			if(commit != null)
+				this.receivedCommit(commit);
 		}
 	}
 	
@@ -149,9 +152,9 @@ public class ProposerLayer {
 	 * Sends a prepare request to all known acceptors with the highest proposal number we have seen for the current instanceNumber
 	 * and nothing in the payload
 	 */
-	private void sendPrepares(){
+	private void sendPrepares(int instanceNumber){
 		for(int acceptor : PaxosLayer.ACCEPTORS){
-			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, this.proposalNumber, this.instanceNumber, new byte[0]);
+			PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PREPARE, this.proposalNumber, instanceNumber, new byte[0]);
 			send(acceptor, pkt);
 		}
 	}
@@ -162,17 +165,20 @@ public class ProposerLayer {
 	 */
 	private int fillGaps(){
 		ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
+		int largestAccInst = paxosLayer.getAcceptorLayer().getMaxInstanceNumber();
+		int largestLearnInst = paxosLayer.getLearnerLayer().getLargestInstanceNum();
 		int largestInst = Math.max(paxosLayer.getAcceptorLayer().getMaxInstanceNumber(), paxosLayer.getLearnerLayer().getLargestInstanceNum());
 		
+		for(int i = largestLearnInst + 1; i < largestAccInst + 1; i++)
+			missingInst.add(i);
+		
 		if(missingInst.size() != 0){
-			for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
-				missingInst.add(i);
 			fixedHoles = 0;
 			holes = missingInst.size();
 			for(Integer instance : missingInst)
 				fixHole(instance);
 		}else if(!this.commits.isEmpty()){
-			sendPrepares();
+			sendPrepares(largestInst + 1);
 			this.values.put(largestInst + 1, commits.peek());
 		}
 
@@ -196,7 +202,7 @@ public class ProposerLayer {
 			if(promises > MAJORITY)
 				sendProposal();
 			else
-				sendPrepares();
+				sendPrepares(this.instanceNumber);
 		}
 	}
 

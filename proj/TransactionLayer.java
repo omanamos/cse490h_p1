@@ -208,7 +208,7 @@ public class TransactionLayer {
 			case TXNProtocol.WQ://payload structure: "[fileName]"
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
-				
+				//TODO: file versions inconsistent on different server nodes
 				if(f.getState() == File.INV){ //the file doesn't exist on the server, return an error
 					String payload = fileName + " " + Error.ERR_10;
 					this.rtn(from, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(payload));
@@ -360,6 +360,7 @@ public class TransactionLayer {
 		int seqNum = -1;
 		if(this.paxosQueue.containsKey(txn.id))
 			seqNum = this.paxosQueue.get(txn.id);
+		this.paxosQueue.remove(txn.id);
 		if(abort)
 			return this.abort(txn, seqNum);
 		return this.commit(txn, seqNum, true);

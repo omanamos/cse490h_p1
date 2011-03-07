@@ -15,8 +15,8 @@ public class DistNode extends RIONode {
 	 */
 	public static double getFailureRate() { return 0.0 / 100.0; }
 	public static double getRecoveryRate() { return 100.0 / 100.0; }
-	public static double getDropRate() { return 5.0 / 100.0; }
-	public static double getDelayRate() { return 0.0 / 100.0; }
+	public static double getDropRate() { return 10.0 / 100.0; }
+	public static double getDelayRate() { return 10.0 / 100.0; }
 	
 	private Map<String, Update> fileList;
 	
@@ -63,7 +63,7 @@ public class DistNode extends RIONode {
 	
 	public void create(String fileName) throws IOException {
 		this.getWriter(fileName, false).write("");
-		if(this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName)){
+		if(this.isMaster() && !fileList.containsKey(fileName)){
 			fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
 			this.updateFileList();
 		}
@@ -72,7 +72,7 @@ public class DistNode extends RIONode {
 	public void delete(String fileName, boolean quiet) throws IOException {
 		if(fileExists(fileName)){
 			this.getWriter(fileName, false).delete();
-			if(this.addr == TransactionLayer.MASTER_NODE && fileList.containsKey(fileName)){
+			if(this.isMaster() && fileList.containsKey(fileName)){
 				fileList.remove(fileName);
 				this.updateFileList();
 			}
@@ -285,35 +285,33 @@ public class DistNode extends RIONode {
 		
 		if(this.isMaster()){
 			//CACHE RECOVERY ON MASTER NODE
-			if(this.addr == TransactionLayer.MASTER_NODE){
-				if(!fileExists(".l")){
-					try {
-						this.getWriter(".l", false).write("");
-					} catch (IOException e) {
-						e.printStackTrace();
+			if(!fileExists(".l")){
+				try {
+					this.getWriter(".l", false).write("");
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				
+			} else {
+				try{
+					PersistentStorageReader files = getReader(".l");
+					String line = files.readLine();
+					while(line != null){
+						String[] parts = line.split(" ");
+						String fileName = parts[0];
+						int version = Integer.parseInt(parts[1]);
+						int lastCommitter = Integer.parseInt(parts[2]);
+						if(fileExists(fileName)){
+							fileList.put(fileName, new Update("", version, lastCommitter));
+						}
+						line = files.readLine();
 					}
 					
-				} else {
-					try{
-						PersistentStorageReader files = getReader(".l");
-						String line = files.readLine();
-						while(line != null){
-							String[] parts = line.split(" ");
-							String fileName = parts[0];
-							int version = Integer.parseInt(parts[1]);
-							int lastCommitter = Integer.parseInt(parts[2]);
-							if(fileExists(fileName)){
-								fileList.put(fileName, new Update("", version, lastCommitter));
-							}
-							line = files.readLine();
-						}
-						
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
-				this.TXNLayer.setupCache(fileList);
 			}
+			this.TXNLayer.setupCache(fileList);
 			
 			//TXN LOG RECOVERY
 			if(this.fileExists(".txn_log")){
