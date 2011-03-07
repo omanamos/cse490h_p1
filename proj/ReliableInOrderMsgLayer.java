@@ -114,10 +114,12 @@ public class ReliableInOrderMsgLayer {
 	 * @param msg
 	 */
 	private void receiveAckSession(int from, byte[] msg){
-		String[] parts = Utility.byteArrayToString(msg).split(" ");
-		int session = Integer.parseInt(parts[0]);
-		int seqNum = Integer.parseInt(parts[1]);
-		outConnections.get(from).receiveAckSession(session, seqNum);
+		if( outConnections.get(from ) != null ) { 
+			String[] parts = Utility.byteArrayToString(msg).split(" ");
+			int session = Integer.parseInt(parts[0]);
+			int seqNum = Integer.parseInt(parts[1]);
+			outConnections.get(from).receiveAckSession(session, seqNum);
+		}
 	}
 	
 	/**
@@ -195,8 +197,10 @@ public class ReliableInOrderMsgLayer {
 	 *            The Packet of data
 	 */
 	public void receiveAck(int from, byte[] msg) {
-		int seqNum = Integer.parseInt(Utility.byteArrayToString(msg));
-		outConnections.get(from).receiveAck(seqNum);
+		if( outConnections.get(from ) != null ) { 
+			int seqNum = Integer.parseInt(Utility.byteArrayToString(msg));
+			outConnections.get(from).receiveAck(seqNum);
+		}
 	}
 
 	/**

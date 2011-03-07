@@ -879,6 +879,8 @@ public class TransactionLayer {
 	public void abort(boolean notifyServer, boolean makeChecks) {
 		if(this.txn == null && notifyServer && makeChecks){
 			this.assertTXNStarted();
+		}else if(this.txn == null){
+			//Do Nothing
 		}else if(makeChecks && notifyServer && (!this.notCommited() || !this.notAborted())){
 			//^ prints out error message
 		}else if(makeChecks && notifyServer && (this.hasElection() || !this.noQueuedCommands())){

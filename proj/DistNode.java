@@ -13,9 +13,9 @@ public class DistNode extends RIONode {
 	 * The student may hide these by implementing static methods with the same
 	 * signature in their own node class. 0<=p<=1.
 	 */
-	public static double getFailureRate() { return 0 / 100.0; }
+	public static double getFailureRate() { return 0.5 / 100.0; }
 	public static double getRecoveryRate() { return 100.0 / 100.0; }
-	public static double getDropRate() { return 0.0 / 100.0; }
+	public static double getDropRate() { return 5.0 / 100.0; }
 	public static double getDelayRate() { return 0.0 / 100.0; }
 	
 	private Map<String, Update> fileList;

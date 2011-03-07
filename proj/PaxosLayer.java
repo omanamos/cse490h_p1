@@ -27,9 +27,11 @@ public class PaxosLayer {
 			this.propLayer = new ProposerLayer(this);
 			this.accLayer = new AcceptorLayer(this, n);
 			this.learnLayer = new LearnerLayer(this, n);
-			this.propLayer.start();
-			this.accLayer.start();
+
+			//The order here matters
 			this.learnLayer.start();
+			this.accLayer.start();
+			this.propLayer.start();
 		}
 	}
 	
