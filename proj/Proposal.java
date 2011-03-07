@@ -1,7 +1,7 @@
 import edu.washington.cs.cse490h.lib.Utility;
 
 
-public class Proposal {
+public class Proposal implements Comparable<Proposal> {
 	private int instanceNum;
 	private int proposalNum;
 	private String value;
@@ -38,5 +38,20 @@ public class Proposal {
 	
 	public String toString() {
 		return this.instanceNum + "|" + this.proposalNum + "|" + this.value;
+	}
+
+	public int compareTo(Proposal o) {
+		if( this.instanceNum > o.getInstanceNum() ) {
+			return 1;
+		} else if( this.instanceNum < o.getInstanceNum() ) {
+			return -1;
+		} else {
+			if( this.proposalNum > o.getProposalNum() ) {
+				return 1;
+			} else if( this.proposalNum < o.getProposalNum() ) {
+				return -1;
+			}
+		}
+		return 0;
 	}
 }

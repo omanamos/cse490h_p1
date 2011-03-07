@@ -15,13 +15,17 @@ public class DistNode extends RIONode {
 	 */
 	public static double getFailureRate() { return 0 / 100.0; }
 	public static double getRecoveryRate() { return 100.0 / 100.0; }
-	public static double getDropRate() { return 10.0 / 100.0; }
-	public static double getDelayRate() { return 10.0 / 100.0; }
+	public static double getDropRate() { return 0.0 / 100.0; }
+	public static double getDelayRate() { return 0.0 / 100.0; }
 	
 	private Map<String, Update> fileList;
 	
 	public boolean isMaster(){
 		return Arrays.binarySearch(PaxosLayer.ACCEPTORS, this.addr) >= 0;
+	}
+	
+	public static boolean isOptimalLeader(int addr){
+		return addr == 0;
 	}
 	/*========================================
 	 * START FILE INTERFACE METHODS
@@ -44,9 +48,7 @@ public class DistNode extends RIONode {
 		if(fileExists(fileName) || force){
 			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
 				fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
-				PersistentStorageWriter w = this.getWriter(".l", true);
-				w.write(fileName + "\n");
-				w.close();
+				this.updateFileList();
 			}
 			if(!append)
 				putFile(fileName, content, force);
@@ -63,9 +65,7 @@ public class DistNode extends RIONode {
 		this.getWriter(fileName, false).write("");
 		if(this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName)){
 			fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
-			PersistentStorageWriter w = this.getWriter(".l", true);
-			w.write(fileName + "\n");
-			w.close();
+			this.updateFileList();
 		}
 	}
 	
@@ -379,9 +379,9 @@ public class DistNode extends RIONode {
 			if(command.equals("txstart"))
 				this.TXNLayer.txstart();
 			else if(command.equals("txcommit"))
-				this.TXNLayer.commit();
+				this.TXNLayer.commit(true);
 			else
-				this.TXNLayer.abort(true);
+				this.TXNLayer.abort(true, true);
 		}else{
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
 			return;
