@@ -19,6 +19,9 @@ public class ProposerLayer {
 	private Map<String, Integer> instanceValues;
 	private Map<Integer, String> values;
 	private Queue<String> commits;
+	private int holes;
+	private int fixedHoles;
+	private boolean fixingHoles;
 	private HashMap<Integer, PaxosPacket> unACKedPackets;
 	private HashMap<Integer, Integer> pktRetries;
 	
@@ -35,7 +38,7 @@ public class ProposerLayer {
 
 		this.promises = 0;
 		this.rejects = 0;
-
+		this.fixingHoles = true;
 		unACKedPackets = new HashMap<Integer, PaxosPacket>();
 		pktRetries = new HashMap<Integer, Integer>();
 	}
@@ -49,28 +52,27 @@ public class ProposerLayer {
 	}
 
 	public void receivedPromise(int from, PaxosPacket pkt) {
-		if(pkt.getInstanceNumber() == this.instanceNumber){
-			int propNumber = pkt.getProposalNumber();
-			if(propNumber > this.proposalNumber){
-				this.proposalNumber = propNumber;
-				this.values.put(pkt.getInstanceNumber(), Utility.byteArrayToString(pkt.getPayload()));
+		int propNumber = pkt.getProposalNumber();
+		if(propNumber > this.proposalNumber){
+			this.proposalNumber = propNumber;
+			this.values.put(pkt.getInstanceNumber(), Utility.byteArrayToString(pkt.getPayload()));
+		}
+		
+		if(pkt.getProtocol() == PaxosProtocol.REJECT){
+			rejects++;
+			if(rejects >= MAJORITY){
+				sendPrepares();
+				resetRP();
 			}
-			
-			if(pkt.getProtocol() == PaxosProtocol.REJECT){
-				rejects++;
-				if(rejects >= MAJORITY && this.paxosLayer.getLearnerLayer().getLargestInstanceNum() < this.instanceNumber){
-					sendPrepares();
-					resetRP();
-				}
-	
-			} else {
-				promises++;
-				if(promises >= MAJORITY && this.paxosLayer.getLearnerLayer().getLargestInstanceNum() < this.instanceNumber){
-					sendProposal();
-					resetRP();
-				}
+
+		} else {
+			promises++;
+			if(promises >= MAJORITY){
+				sendProposal();
+				resetRP();
 			}
 		}
+			
 	}
 	
 	private void resetRP(){
@@ -80,12 +82,10 @@ public class ProposerLayer {
 	
 	
 	public void receivedRecovery(int from, PaxosPacket pkt){
-
+		fixedHoles++;
 		if(pkt.getProtocol() == PaxosProtocol.RECOVERY_CHOSEN){
 
 			paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
-			sendPrepares();
-			this.values.put(this.instanceNumber, commits.peek());
 			
 		} else{
 			String payload = Utility.byteArrayToString(pkt.payload);
@@ -93,15 +93,17 @@ public class ProposerLayer {
 				int count = instanceValues.get(payload) + 1;
 				if(count >= MAJORITY){
 					paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
-					sendPrepares();
-					this.values.put(this.instanceNumber, commits.peek());
 				} else 
 					instanceValues.put(payload, count);
 			}else
 				instanceValues.put(payload, 1);
 		}
 		//DONE FIXING HOLES IF THIS IS TRUE, READY TO START A NEW INSTANCE!!
-
+		if(fixedHoles == holes){
+			sendPrepares();
+			this.values.put(this.instanceNumber, commits.peek());
+		}
+		
 		
 	}
 	
@@ -159,17 +161,19 @@ public class ProposerLayer {
 	 * @return the current instance of paxos you should be using
 	 */
 	private int fillGaps(){
-
+			fixingHoles = true;
 			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
 			int largestInst = Math.max(paxosLayer.getAcceptorLayer().getMaxInstanceNumber(), paxosLayer.getLearnerLayer().getLargestInstanceNum());
 			
 			if(missingInst.size() != 0)
 				for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
 					missingInst.add(i);
-
+			
+			holes = missingInst.size();
 			for(Integer instance : missingInst)
 				fixHole(instance);
-
+			if(missingInst.size() == 0)
+				fixingHoles = false;
 
 
 		return largestInst;
