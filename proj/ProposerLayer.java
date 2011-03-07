@@ -120,7 +120,6 @@ public class ProposerLayer {
 		commits.add(commit);
 		if(commits.size() == 1){
 			newInstance(commit);
-			commits.poll();
 			this.sendPrepares();
 		}
 	}
@@ -134,7 +133,7 @@ public class ProposerLayer {
 	}
 	
 	private void newInstance(String value){
-		createTimeoutListener(this.instanceNumber);
+		this.createTimeoutListener(this.instanceNumber);
 		resetRP();
 		this.instanceNumber = fillGaps() + 1;
 	}
