@@ -126,15 +126,13 @@ public class TransactionLayer {
 	}
 	
 	public void onReceive(int from, byte[] payload) {
-		if(from == 5 && this.n.addr == 0)
-			System.out.println();
 		TXNPacket packet = TXNPacket.unpack(payload);
 		if(packet.getProtocol() == TXNProtocol.PAXOS){
 			PaxosPacket pkt = PaxosPacket.unpack(packet.getPayload());
 			if(!this.n.isMaster() && pkt.getProtocol() == PaxosProtocol.ELECT)
 				this.timeout.onRtn(from, packet.getSeqNum());
 			this.paxos.onReceive(from, packet.getSeqNum(), packet.getPayload());
-		}else if(this.n.isMaster()){
+		}else if(this.n.isMaster()){	
 			masterReceive(from, packet);
 		}else
 			slaveReceive(from, packet);

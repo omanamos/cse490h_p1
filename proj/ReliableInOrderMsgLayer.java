@@ -63,8 +63,6 @@ public class ReliableInOrderMsgLayer {
 	 *            The Packet of data
 	 */
 	public void receiveRIO(int from, RIOPacket pkt) {
-		if(from == 5 && this.n.addr == 0)
-			System.out.println();
 		InChannel in = inConnections.get(from);
 		if(in == null) { //Expired Session -> Server has crashed recently
 			sendExpiredSessionError(from);
@@ -489,9 +487,11 @@ class OutChannel {
 					} else
 						lastSequence = true;
 				}
-				establishSession();
 				n.TXNLayer.onRIOTimeout(this.destAddr, pkt.getPayload());
-				this.n.printError("Node " + this.n.addr + ": Delay: Session timed out with node " + this.destAddr + ", establishing new session.");
+				if(this.establishingSession){
+					establishSession();
+					this.n.printError("Node " + this.n.addr + ": Delay: Session timed out with node " + this.destAddr + ", establishing new session.");
+				}
 			}
 		}
 	}
@@ -527,7 +527,7 @@ class OutChannel {
 		this.unACKedPackets = new HashMap<Integer, RIOPacket>();
 		this.sessionID = sessionId;
 
-		this.lastSeqNumSent = Math.max(this.lastSeqNumSent, seqNum);
+		this.lastSeqNumSent = seqNum;
 		
 		while(!this.queuedCommands.isEmpty()){
 			RIOPacket p = this.queuedCommands.poll();
