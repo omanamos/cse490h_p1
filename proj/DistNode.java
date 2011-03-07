@@ -49,6 +49,7 @@ public class DistNode extends RIONode {
 			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
 				fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
 				PersistentStorageWriter w = this.getWriter(".l", true);
+				//TODO: check .l file for formatting issues
 				w.write(fileName + "\n");
 				w.close();
 			}

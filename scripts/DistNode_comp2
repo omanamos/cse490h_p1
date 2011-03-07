@@ -22,7 +22,7 @@ time
 time
 5 create test
 time
-5 put test "hello world"
+5 put test "hello world\n"
 time
 5 txcommit
 time
@@ -37,9 +37,9 @@ time
 time
 6 get test
 time
-6 append test "\nline two"
+6 append test "line one\n"
 time
-6 txabort
+6 txcommit
 time
 time
 time
@@ -50,6 +50,6 @@ time
 time
 7 get test
 time
-7 append test "\nline two"
+7 append test "line two\n"
 time
 7 txcommit

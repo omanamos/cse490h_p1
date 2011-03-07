@@ -42,27 +42,28 @@ public class ProposerLayer {
 	}
 
 	public void receivedPromise(int from, PaxosPacket pkt) {
-		int propNumber = pkt.getProposalNumber();
-		if(propNumber > this.proposalNumber){
-			this.proposalNumber = propNumber;
-			this.values.put(pkt.getInstanceNumber(), Utility.byteArrayToString(pkt.getPayload()));
-		}
-		
-		if(pkt.getProtocol() == PaxosProtocol.REJECT){
-			rejects++;
-			if(rejects >= MAJORITY){
-				sendPrepares();
-				resetRP();
+		if(pkt.getInstanceNumber() == this.instanceNumber){
+			int propNumber = pkt.getProposalNumber();
+			if(propNumber > this.proposalNumber){
+				this.proposalNumber = propNumber;
+				this.values.put(pkt.getInstanceNumber(), Utility.byteArrayToString(pkt.getPayload()));
 			}
-
-		} else {
-			promises++;
-			if(promises >= MAJORITY){
-				sendProposal();
-				resetRP();
-			}
-		}
 			
+			if(pkt.getProtocol() == PaxosProtocol.REJECT){
+				rejects++;
+				if(rejects >= MAJORITY && this.paxosLayer.getLearnerLayer().getLargestInstanceNum() < this.instanceNumber){
+					sendPrepares();
+					resetRP();
+				}
+	
+			} else {
+				promises++;
+				if(promises >= MAJORITY && this.paxosLayer.getLearnerLayer().getLargestInstanceNum() < this.instanceNumber){
+					sendProposal();
+					resetRP();
+				}
+			}
+		}
 	}
 	
 	private void resetRP(){

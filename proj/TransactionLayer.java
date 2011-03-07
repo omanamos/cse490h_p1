@@ -302,6 +302,7 @@ public class TransactionLayer {
 				this.setHB(from, false);
 				if(!this.paxosQueue.containsKey(txnID)){
 					txn = new Transaction(txnID);
+					txn.willAbort = true;
 					this.paxosQueue.put(txn.id, pkt.getSeqNum());
 					this.paxos.commit(txn);
 				}
@@ -396,7 +397,7 @@ public class TransactionLayer {
 			
 			if(c.abort()){
 				//txn should abort
-				//TODO: SEND TO PAXOS
+				//TODO: check if paxos has already returned
 				txn = new Transaction(txn.id);
 				txn.willAbort = true;
 				this.paxos.commit(txn);
