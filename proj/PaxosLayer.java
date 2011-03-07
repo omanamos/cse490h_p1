@@ -8,7 +8,7 @@ public class PaxosLayer {
 	private ProposerLayer propLayer;
 	private AcceptorLayer accLayer;
 	private LearnerLayer learnLayer;
-	private DistNode n;
+	public DistNode n;
 	private Election e;
 	private boolean isServer;
 	

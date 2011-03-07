@@ -1,9 +1,11 @@
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
+import edu.washington.cs.cse490h.lib.Callback;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class ProposerLayer {
@@ -17,6 +19,8 @@ public class ProposerLayer {
 	private Map<String, Integer> instanceValues;
 	private Map<Integer, String> values;
 	private Queue<String> commits;
+	private HashMap<Integer, PaxosPacket> unACKedPackets;
+	private HashMap<Integer, Integer> pktRetries;
 	
 
 	public ProposerLayer(PaxosLayer paxosLayer) {
@@ -31,6 +35,9 @@ public class ProposerLayer {
 
 		this.promises = 0;
 		this.rejects = 0;
+
+		unACKedPackets = new HashMap<Integer, PaxosPacket>();
+		pktRetries = new HashMap<Integer, Integer>();
 	}
 	
 	public void start(){
@@ -72,10 +79,12 @@ public class ProposerLayer {
 	
 	
 	public void receivedRecovery(int from, PaxosPacket pkt){
-		
+
 		if(pkt.getProtocol() == PaxosProtocol.RECOVERY_CHOSEN){
 
 			paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
+			sendPrepares();
+			this.values.put(this.instanceNumber, commits.peek());
 			
 		} else{
 			String payload = Utility.byteArrayToString(pkt.payload);
@@ -83,11 +92,15 @@ public class ProposerLayer {
 				int count = instanceValues.get(payload) + 1;
 				if(count >= MAJORITY){
 					paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
+					sendPrepares();
+					this.values.put(this.instanceNumber, commits.peek());
 				} else 
 					instanceValues.put(payload, count);
 			}else
 				instanceValues.put(payload, 1);
 		}
+		//DONE FIXING HOLES IF THIS IS TRUE, READY TO START A NEW INSTANCE!!
+
 		
 	}
 	
@@ -117,9 +130,9 @@ public class ProposerLayer {
 	}
 	
 	private void newInstance(String value){
+		createTimeoutListener(this.instanceNumber);
 		resetRP();
 		this.instanceNumber = fillGaps() + 1;
-		this.values.put(this.instanceNumber, value);
 	}
 	
 	private void fixHole(int instance){
@@ -145,20 +158,43 @@ public class ProposerLayer {
 	 * @return the current instance of paxos you should be using
 	 */
 	private int fillGaps(){
-			
+
 			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
 			int largestInst = Math.max(paxosLayer.getAcceptorLayer().getMaxInstanceNumber(), paxosLayer.getLearnerLayer().getLargestInstanceNum());
 			
 			if(missingInst.size() != 0)
 				for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
 					missingInst.add(i);
-			
+
 			for(Integer instance : missingInst)
 				fixHole(instance);
 
 
+
 		return largestInst;
 	}
+	
+	private void createTimeoutListener(int instance) {
+		try{
+			Method onTimeoutMethod = Callback.getMethod("onTimeout", this.paxosLayer, new String[]{ "java.lang.Integer"});
+			//waits 13 time steps
+			this.paxosLayer.n.addTimeout(new Callback(onTimeoutMethod, this.paxosLayer, new Object[]{ instance }), 13);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	public void onTimeout(Integer instance) {
+		//it timed out, time to resend packets!
+		if(this.instanceNumber == instance){
+			createTimeoutListener(instance);
+			if(promises > MAJORITY)
+				sendProposal();
+			else
+				sendPrepares();
+		}
+	}
+
 
 
 	
