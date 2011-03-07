@@ -60,6 +60,8 @@ public class TimeoutManager {
 				this.createTimeoutListener(dest, pkt);
 				this.txnLayer.RIOLayer.sendRIO(dest, Protocol.TXN, pkt.pack());
 			}else{
+				if(pkt.getProtocol() == TXNProtocol.COMMIT)
+					System.out.println();
 				this.txnLayer.onRIOTimeout(dest, pkt.pack());
 			}
 		}

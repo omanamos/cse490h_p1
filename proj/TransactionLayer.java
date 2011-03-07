@@ -208,7 +208,7 @@ public class TransactionLayer {
 			case TXNProtocol.WQ://payload structure: "[fileName]"
 				fileName = Utility.byteArrayToString(pkt.getPayload());
 				f = (MasterFile)this.getFileFromCache(fileName);
-				//TODO: file versions inconsistent on different server nodes
+				//TODO: file versions inconsistent on different server nodes -> causes aborts
 				if(f.getState() == File.INV){ //the file doesn't exist on the server, return an error
 					String payload = fileName + " " + Error.ERR_10;
 					this.rtn(from, TXNProtocol.ERROR, pkt.getSeqNum(), Utility.stringToByteArray(payload));

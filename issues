@@ -1,0 +1,2 @@
+Proposer does infinite retry until it learns about that instance (could be a different value).
+Unstable with high failure rate.

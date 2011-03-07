@@ -1,0 +1,1 @@
+Proposer does infinite retry until it learns about that instance (could be a different value).
