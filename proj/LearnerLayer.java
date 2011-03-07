@@ -200,11 +200,6 @@ public class LearnerLayer {
 			this.masterLearn(p);
 	}
 	
-	public int learnedProposalNumForInstance( int instanceNum ) {
-		return this.learned.get( instanceNum ).getProposalNum();
-	}
-	
-	
 	
 	/**
 	 * Disk methods
