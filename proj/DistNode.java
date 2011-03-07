@@ -34,19 +34,19 @@ public class DistNode extends RIONode {
 	public String get(String fileName) throws IOException{
 		PersistentStorageReader r = this.getReader(fileName);
 		String file = "";
-		String line = r.readLine();
-		while(line != null){
-			file += line + "\n";
-			line = r.readLine();
+		int chr = r.read();
+		while(chr != -1){
+			file += (char)chr;
+			chr = r.read();
 		}
 		r.close();
-		return file.length() == 0 ? "" : file.substring(0, file.length() - 1);
+		return file;
 	}
 	
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
 		if(fileExists(fileName) || force){
-			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
+			if(force && this.isMaster() && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
 				fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
 				this.updateFileList();
 			}
