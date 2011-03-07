@@ -683,14 +683,13 @@ public class TransactionLayer {
 				commandsWereExecuted = this.executeCommandQueue(f) && commandsWereExecuted;
 			
 			if(!commandsWereExecuted){
-				this.isElected = txnExecute() && this.isElected;
+				txnExecute();
 			}else if(this.txn.willAbort){
 				this.abort(true, false);
 			}else if(this.txn.willCommit){
 				this.commit(false);
-			}else{
-				this.isElected = false;
 			}
+			this.isElected = false;
 		}
 	}
 	
@@ -913,7 +912,7 @@ public class TransactionLayer {
 		}
 	}
 	
-	public boolean txnExecute() {
+	public void txnExecute() {
 		if(this.txn != null && this.txn.willAbort){
 			this.txn.decrementNumQueued();
 			if( this.txn.getNumQueued() == 0 ) {
@@ -926,16 +925,13 @@ public class TransactionLayer {
 					this.n.printData("Node " + this.n.addr + ": Success: Committed empty transaction #" + this.txn.id + ".");
 					this.commitConfirm();
 				}else if(this.isElected){
-					this.isElected = false;
 					this.send(this.leader, TXNProtocol.COMMIT, new CommitPacket(this.txn).pack());
 				}else{
 					this.txn.willCommit = true;
 					this.leader = this.paxos.electLeader();
 				}
 			}
-		}else
-			return false;
-		return true;
+		}
 	}
 
 	public void commit(boolean makeChecks) {

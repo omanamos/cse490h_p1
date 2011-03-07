@@ -121,18 +121,19 @@ public class ProposerLayer {
 	}
 	
 	public void instanceFinished(String learnedValue){
+		this.values.remove(this.instanceNumber);
 		String commit = commits.poll();
 		
-		if(commit.equals(learnedValue))
-			commit = commits.poll();
-		
 		if(commit != null){
+			if(commit.equals(learnedValue))
+				commit = commits.poll();
 			this.receivedCommit(commit);
 		}
 	}
 	
 	private void newInstance(String value){
 		resetRP();
+		this.proposalNumber = 0;
 		this.instanceNumber = fillGaps() + 1;
 		this.createTimeoutListener(this.instanceNumber);
 	}
