@@ -76,7 +76,7 @@ public class LearnerLayer {
 			writeOutOfOrder();
 			
 			if(iamMaster) {
-				this.paxosLayer.getProposerLayer().instanceFinished();
+				this.paxosLayer.getProposerLayer().instanceFinished(p.getValue());
 			}
 			
 			//now see if we can execute more proposals 

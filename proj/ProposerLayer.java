@@ -1,9 +1,11 @@
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
+import edu.washington.cs.cse490h.lib.Callback;
 import edu.washington.cs.cse490h.lib.Utility;
 
 public class ProposerLayer {
@@ -17,12 +19,17 @@ public class ProposerLayer {
 	private Map<String, Integer> instanceValues;
 	private Map<Integer, String> values;
 	private Queue<String> commits;
+	private int holes;
+	private int fixedHoles;
+	private DistNode n;
 	
 
-	public ProposerLayer(PaxosLayer paxosLayer) {
+	public ProposerLayer(PaxosLayer paxosLayer, DistNode n) {
 		this.commits = new LinkedList<String>();
 		this.instanceValues = new HashMap<String, Integer>();
 		this.values = new HashMap<Integer, String>();
+		
+		this.n = n;
 		
 		this.paxosLayer = paxosLayer;
 		ProposerLayer.MAJORITY = PaxosLayer.ACCEPTORS.length / 2 + 1;
@@ -51,14 +58,14 @@ public class ProposerLayer {
 			
 			if(pkt.getProtocol() == PaxosProtocol.REJECT){
 				rejects++;
-				if(rejects >= MAJORITY && this.paxosLayer.getLearnerLayer().getLargestInstanceNum() < this.instanceNumber){
+				if(rejects >= MAJORITY){
 					sendPrepares();
 					resetRP();
 				}
 	
 			} else {
 				promises++;
-				if(promises >= MAJORITY && this.paxosLayer.getLearnerLayer().getLargestInstanceNum() < this.instanceNumber){
+				if(promises >= MAJORITY){
 					sendProposal();
 					resetRP();
 				}
@@ -73,9 +80,8 @@ public class ProposerLayer {
 	
 	
 	public void receivedRecovery(int from, PaxosPacket pkt){
-		
 		if(pkt.getProtocol() == PaxosProtocol.RECOVERY_CHOSEN){
-
+			fixedHoles++;
 			paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
 			
 		} else{
@@ -83,12 +89,19 @@ public class ProposerLayer {
 			if(instanceValues.containsKey(payload)){
 				int count = instanceValues.get(payload) + 1;
 				if(count >= MAJORITY){
+					fixedHoles++;
 					paxosLayer.getLearnerLayer().writeValue(new Proposal(pkt));
 				} else 
 					instanceValues.put(payload, count);
 			}else
 				instanceValues.put(payload, 1);
 		}
+		//DONE FIXING HOLES IF THIS IS TRUE, READY TO START A NEW INSTANCE!!
+		if(fixedHoles == holes && !this.commits.isEmpty()){
+			sendPrepares();
+			this.values.put(this.instanceNumber, commits.peek());
+		}
+		
 		
 	}
 	
@@ -104,23 +117,24 @@ public class ProposerLayer {
 		commits.add(commit);
 		if(commits.size() == 1){
 			newInstance(commit);
-			commits.poll();
-			this.sendPrepares();
 		}
 	}
 	
-	public void instanceFinished(){
+	public void instanceFinished(String learnedValue){
 		String commit = commits.poll();
+		
+		if(commit.equals(learnedValue))
+			commit = commits.poll();
+		
 		if(commit != null){
-			newInstance(commit);
-			this.sendPrepares();
+			this.receivedCommit(commit);
 		}
 	}
 	
 	private void newInstance(String value){
 		resetRP();
 		this.instanceNumber = fillGaps() + 1;
-		this.values.put(this.instanceNumber, value);
+		this.createTimeoutListener(this.instanceNumber);
 	}
 	
 	private void fixHole(int instance){
@@ -146,20 +160,45 @@ public class ProposerLayer {
 	 * @return the current instance of paxos you should be using
 	 */
 	private int fillGaps(){
-			
-			ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
-			int largestInst = Math.max(paxosLayer.getAcceptorLayer().getMaxInstanceNumber(), paxosLayer.getLearnerLayer().getLargestInstanceNum());
-			
-			if(missingInst.size() != 0)
-				for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
-					missingInst.add(i);
-			
+		ArrayList<Integer> missingInst = paxosLayer.getLearnerLayer().getMissingInstanceNums();
+		int largestInst = Math.max(paxosLayer.getAcceptorLayer().getMaxInstanceNumber(), paxosLayer.getLearnerLayer().getLargestInstanceNum());
+		
+		if(missingInst.size() != 0){
+			for(int i = missingInst.get(missingInst.size() - 1) + 1; i < largestInst + 1; i++)
+				missingInst.add(i);
+			fixedHoles = 0;
+			holes = missingInst.size();
 			for(Integer instance : missingInst)
 				fixHole(instance);
-
+		}else if(!this.commits.isEmpty()){
+			sendPrepares();
+			this.values.put(largestInst + 1, commits.peek());
+		}
 
 		return largestInst;
 	}
+	
+	private void createTimeoutListener(int instance) {
+		try{
+			Method onTimeoutMethod = Callback.getMethod("onTimeout", this, new String[]{ "java.lang.Integer"});
+			//waits 13 time steps
+			this.n.addTimeout(new Callback(onTimeoutMethod, this, new Object[]{ instance }), 13);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	public void onTimeout(Integer instance) {
+		//it timed out, time to resend packets!
+		if(this.instanceNumber == instance && this.paxosLayer.getLearnerLayer().getLargestInstanceNum() < instance){
+			this.createTimeoutListener(instance);
+			if(promises > MAJORITY)
+				sendProposal();
+			else
+				sendPrepares();
+		}
+	}
+
 
 
 	

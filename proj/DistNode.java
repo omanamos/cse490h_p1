@@ -34,19 +34,19 @@ public class DistNode extends RIONode {
 	public String get(String fileName) throws IOException{
 		PersistentStorageReader r = this.getReader(fileName);
 		String file = "";
-		String line = r.readLine();
-		while(line != null){
-			file += line + "\n";
-			line = r.readLine();
+		int chr = r.read();
+		while(chr != -1){
+			file += (char)chr;
+			chr = r.read();
 		}
 		r.close();
-		return file.length() == 0 ? "" : file.substring(0, file.length() - 1);
+		return file;
 	}
 	
 	
 	public void write(String fileName, String content, boolean append, boolean force) throws IOException{
 		if(fileExists(fileName) || force){
-			if(force && this.addr == TransactionLayer.MASTER_NODE && !fileList.containsKey(fileName) && !fileName.startsWith(".")){
+			if(force && this.isMaster() && !fileName.startsWith(".") && !fileList.containsKey(fileName)){
 				fileList.put(fileName, new Update(null, 0, TransactionLayer.MASTER_NODE));
 				this.updateFileList();
 			}
@@ -204,6 +204,8 @@ public class DistNode extends RIONode {
 	 * Starts up the node. Checks for unfinished PUT commands.
 	 */
 	public void start() {
+		if(this.isMaster())
+			this.fileList = new HashMap<String, Update>();
 		this.TXNLayer.start();
 		
 		//SESSION RECOVERY
@@ -283,7 +285,6 @@ public class DistNode extends RIONode {
 		
 		if(this.isMaster()){
 			//CACHE RECOVERY ON MASTER NODE
-			this.fileList = new HashMap<String, Update>();
 			if(this.addr == TransactionLayer.MASTER_NODE){
 				if(!fileExists(".l")){
 					try {

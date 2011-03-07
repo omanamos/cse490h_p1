@@ -8,7 +8,7 @@ public class PaxosLayer {
 	private ProposerLayer propLayer;
 	private AcceptorLayer accLayer;
 	private LearnerLayer learnLayer;
-	private DistNode n;
+	public DistNode n;
 	private Election e;
 	private boolean isServer;
 	
@@ -24,7 +24,7 @@ public class PaxosLayer {
 	
 	public void start(){
 		if(this.isServer){
-			this.propLayer = new ProposerLayer(this);
+			this.propLayer = new ProposerLayer(this, n);
 			this.accLayer = new AcceptorLayer(this, n);
 			this.learnLayer = new LearnerLayer(this, n);
 
