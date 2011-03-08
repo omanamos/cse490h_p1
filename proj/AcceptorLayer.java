@@ -7,8 +7,8 @@ import edu.washington.cs.cse490h.lib.Utility;
 
 public class AcceptorLayer {
 
-	private static final String ACCEPT_FILE = ".acceptor_record";
-	private static final String PROMISE_FILE = ".promises";
+	private static final String ACCEPT_FILE = ".acceptor_record"; //every proposal that has been accepted
+	private static final String PROMISE_FILE = ".promises";		  //every promised proposal number for a instance
 		
 	
 	private PaxosLayer paxosLayer;
@@ -17,8 +17,13 @@ public class AcceptorLayer {
 	private HashMap<Integer, Integer> promised; //instance num -> highest promised or accepted proposal number
 	private DistNode n;
 	
-	private int maxInstanceNumber;
+	private int maxInstanceNumber; //The highest instance number seen so far
 	
+	/**
+	 * Creates a new Acceptor Layer
+	 * @param paxosLayer
+	 * @param n
+	 */
 	public AcceptorLayer(PaxosLayer paxosLayer, DistNode n) {
 		this.paxosLayer = paxosLayer;
 		this.n = n;
@@ -27,18 +32,43 @@ public class AcceptorLayer {
 		this.maxInstanceNumber = -1;
 	}
 	
+	/**
+	 * Start method called by the paxos layer, must be called before
+	 * the proposal layer is started
+	 */
 	public void start() {
 		this.readLogs();
 	}
 	
+	
+	/**
+	 * Sends the given paxos packet to the given destination 
+	 * using the paxos layer
+	 * @param dest - packet desitination
+	 * @param pkt - Paxos Packet
+	 */
 	public void send(int dest, PaxosPacket pkt){
 		this.paxosLayer.send(dest, pkt);
 	}
 	
+	/**
+	 * Returns the max instance number this acceptor
+	 * has seen so far
+	 * @return the max instance number
+	 */
 	public int getMaxInstanceNumber(){
 		return this.maxInstanceNumber;
 	}
 	
+	/**
+	 * Called when receiving a prepare message.
+	 * This method will send a promise or a reject message
+	 * back to the leader depending on what has already been
+	 * promised and/or accepted
+	 * 
+	 * @param from - Sending node
+	 * @param pkt - Received packet
+	 */
 	public void receivedPrepare(int from, PaxosPacket pkt){
 		
 		int newProposalNum = pkt.getProposalNumber();
