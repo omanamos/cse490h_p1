@@ -98,7 +98,14 @@ public class AcceptorLayer {
 		this.send(from, response);
 	}
 	
-
+	/**
+	 * Called when a propose message is received. A accept or reject message is sent back
+	 * to the leader depending on whether or not a proposal has been accepted for the
+	 * instance specified in the packet.
+	 * 
+	 * @param from
+	 * @param pkt
+	 */
 	public void receivedPropose(int from, PaxosPacket pkt) {
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
@@ -118,6 +125,16 @@ public class AcceptorLayer {
 		}
 	}
 	
+	/**
+	 * Used to generate a reject paxos packet based on the given paramters
+	 * The packet that is return will either have an empty value or the value
+	 * of the accepted proposal if the given accepted proposal is not null
+	 * 
+	 * @param instanceNum
+	 * @param promisedValue
+	 * @param acceptedProposal
+	 * @return a reject paxos packet
+	 */
 	public PaxosPacket reject(int instanceNum, int promisedValue, Proposal acceptedProposal ) {
 		PaxosPacket response;
 		if( acceptedProposal == null ) {
@@ -128,15 +145,22 @@ public class AcceptorLayer {
 		return response;
 	}
 
+	/**
+	 * Called after receiving a recovery message. The asks the learner layer for and learned proposals for
+	 * the instance number in the packet, if there is a learned proposal, the method sends a recovery chosen
+	 * message back to the leader. If no proposal has been learned, then the method sends a recovery accepted
+	 * message back to the leader with the accepted proposal message for the instance number in the packet.
+	 * Nothing happens if there has not been a learned or accepted proposal for the instance number.
+	 * @param from
+	 * @param pkt
+	 */
 	public void receivedRecovery(int from, PaxosPacket pkt) {
 		int instanceNum = pkt.getInstanceNumber();
 		
 		String response = this.paxosLayer.getLearnerLayer().getLearnedForInstance( instanceNum );
 		if( response == null ) {
 			Proposal acceptedProposal = this.acceptorRecord.get(instanceNum);
-			if( acceptedProposal == null ) {
-				//not quite sure
-			} else {
+			if( acceptedProposal != null ) {
 				this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.RECOVERY_ACCEPTED));
 			}
 			
@@ -147,7 +171,10 @@ public class AcceptorLayer {
 	}
 	
 	
-	//write the acceptorRecord and promises to disk
+	/**
+	 * Writes the acceptor record and promise hashes to disk,
+	 * overwriting the files that already exist.
+	 */
 	private void updateState() {
 		try {
 			String fileContents = "";
@@ -168,6 +195,10 @@ public class AcceptorLayer {
 		}
 	}
 	
+	/**
+	 * Reads the acceptor record and promise logs on disk
+	 * and populates the corresponding hash maps in memory
+	 */
 	private void readLogs() {
 		PersistentStorageReader r;
 		try {
