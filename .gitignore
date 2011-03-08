@@ -6,3 +6,4 @@
 *.tar
 *.gz
 storage/*
+storage_tmpl/*

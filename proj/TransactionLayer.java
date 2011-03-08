@@ -103,7 +103,7 @@ public class TransactionLayer {
 		int p = pkt.getProtocol();
 		if(p == TXNProtocol.PAXOS){
 			PaxosPacket p1 = PaxosPacket.unpack(payload);
-			if(p1.getProtocol() == PaxosProtocol.ELECT)
+			if(p1.getProtocol() == PaxosProtocol.ELECT || p1.getProtocol() == PaxosProtocol.PREPARE)
 				this.timeout.createTimeoutListener(dest, pkt);
 		}else if(p == TXNProtocol.WF || p == TXNProtocol.WQ || p == TXNProtocol.CREATE || 
 				(!this.n.isMaster() && (p == TXNProtocol.ABORT || p == TXNProtocol.COMMIT || p == TXNProtocol.START)))
@@ -129,7 +129,7 @@ public class TransactionLayer {
 		TXNPacket packet = TXNPacket.unpack(payload);
 		if(packet.getProtocol() == TXNProtocol.PAXOS){
 			PaxosPacket pkt = PaxosPacket.unpack(packet.getPayload());
-			if(!this.n.isMaster() && pkt.getProtocol() == PaxosProtocol.ELECT)
+			if((!this.n.isMaster() && pkt.getProtocol() == PaxosProtocol.ELECT) || (pkt.getProtocol() == PaxosProtocol.REJECT || pkt.getProtocol() == PaxosProtocol.PROMISE))
 				this.timeout.onRtn(from, packet.getSeqNum());
 			this.paxos.onReceive(from, packet.getSeqNum(), packet.getPayload());
 		}else if(this.n.isMaster()){	
@@ -162,6 +162,8 @@ public class TransactionLayer {
 					MasterFile f = (MasterFile)this.getFileFromCache(fileName);
 					f.changePermissions(dest, File.INV);
 					this.returnWaiting(f);
+				}else if(pkt.getProtocol() == TXNProtocol.PAXOS){
+					this.paxos.onTimeout(dest, pkt.getPayload());
 				}else
 					this.n.printError(DistNode.buildErrorString(dest, this.n.addr, pkt.getProtocol(), Utility.byteArrayToString(pkt.getPayload()), Error.ERR_20));
 			}else{ //this is the client and we should just print out the message

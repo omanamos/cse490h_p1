@@ -268,6 +268,10 @@ public class LearnerLayer {
 		return this.largestInstanceNum;
 	}
 	
+	public int getLargestContInstanceNum(){
+		return this.lastContInstance;
+	}
+	
 	/**
 	 * If the given propsal has not been learned yet, learn the proposal
 	 * @param p
