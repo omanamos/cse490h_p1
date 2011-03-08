@@ -36,6 +36,10 @@ public class LearnerLayer {
 		this.readOutOfOrder();
 	}
 	
+	public boolean isLearned(int instanceNum){
+		return this.learned.containsKey(instanceNum);
+	}
+	
 	private void updateLargestInstanceNum( int instanceNum ) {
 		if( instanceNum > this.largestInstanceNum ) {
 			this.largestInstanceNum = instanceNum;
