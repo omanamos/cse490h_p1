@@ -168,7 +168,7 @@ public class ProposerLayer {
 		this.instanceValues.remove(this.instanceNumber);
 		
 		if(!this.unFinishedInstances.isEmpty()){
-			
+			//TODO: check for more holes, and maybe start new instance?
 		}else{
 			String commit = commits.poll();
 			
@@ -195,6 +195,7 @@ public class ProposerLayer {
 		this.instanceNumber = instanceNum;
 		this.values.put(instanceNum, value);
 		this.sendPrepares(instanceNum);
+		//TODO: double check
 	}
 	
 	private void fixHole(int instance){
