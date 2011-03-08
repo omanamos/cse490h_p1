@@ -109,7 +109,6 @@ public class LearnerLayer {
 	}
 	
 	
-	
 	/**
 	 * Leader methods
 	 * 
@@ -199,11 +198,6 @@ public class LearnerLayer {
 		if(!this.learned.containsKey(p.getInstanceNum()))
 			this.masterLearn(p);
 	}
-	
-	public int learnedProposalNumForInstance( int instanceNum ) {
-		return this.learned.get( instanceNum ).getProposalNum();
-	}
-	
 	
 	
 	/**

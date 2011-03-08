@@ -39,6 +39,14 @@ public class Proposal implements Comparable<Proposal> {
 	public String toString() {
 		return this.instanceNum + "|" + this.proposalNum + "|" + this.value;
 	}
+	
+	public int hashCode(){
+		return this.instanceNum + this.proposalNum + this.value.hashCode();
+	}
+	
+	public boolean equals(Proposal other){
+		return this.instanceNum == other.instanceNum && this.proposalNum == other.proposalNum && this.value.equals(other.value);
+	}
 
 	public int compareTo(Proposal o) {
 		if( this.instanceNum > o.getInstanceNum() ) {
