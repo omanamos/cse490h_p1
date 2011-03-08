@@ -7,8 +7,8 @@ import edu.washington.cs.cse490h.lib.Utility;
 
 public class AcceptorLayer {
 
-	private static final String ACCEPT_FILE = ".acceptor_record";
-	private static final String PROMISE_FILE = ".promises";
+	private static final String ACCEPT_FILE = ".acceptor_record"; //every proposal that has been accepted
+	private static final String PROMISE_FILE = ".promises";		  //every promised proposal number for a instance
 		
 	
 	private PaxosLayer paxosLayer;
@@ -17,8 +17,13 @@ public class AcceptorLayer {
 	private HashMap<Integer, Integer> promised; //instance num -> highest promised or accepted proposal number
 	private DistNode n;
 	
-	private int maxInstanceNumber;
+	private int maxInstanceNumber; //The highest instance number seen so far
 	
+	/**
+	 * Creates a new Acceptor Layer
+	 * @param paxosLayer
+	 * @param n
+	 */
 	public AcceptorLayer(PaxosLayer paxosLayer, DistNode n) {
 		this.paxosLayer = paxosLayer;
 		this.n = n;
@@ -27,18 +32,43 @@ public class AcceptorLayer {
 		this.maxInstanceNumber = -1;
 	}
 	
+	/**
+	 * Start method called by the paxos layer, must be called before
+	 * the proposal layer is started
+	 */
 	public void start() {
 		this.readLogs();
 	}
 	
+	
+	/**
+	 * Sends the given paxos packet to the given destination 
+	 * using the paxos layer
+	 * @param dest - packet desitination
+	 * @param pkt - Paxos Packet
+	 */
 	public void send(int dest, PaxosPacket pkt){
 		this.paxosLayer.send(dest, pkt);
 	}
 	
+	/**
+	 * Returns the max instance number this acceptor
+	 * has seen so far
+	 * @return the max instance number
+	 */
 	public int getMaxInstanceNumber(){
 		return this.maxInstanceNumber;
 	}
 	
+	/**
+	 * Called when receiving a prepare message.
+	 * This method will send a promise or a reject message
+	 * back to the leader depending on what has already been
+	 * promised and/or accepted
+	 * 
+	 * @param from - Sending node
+	 * @param pkt - Received packet
+	 */
 	public void receivedPrepare(int from, PaxosPacket pkt){
 		
 		int newProposalNum = pkt.getProposalNumber();
@@ -68,7 +98,14 @@ public class AcceptorLayer {
 		this.send(from, response);
 	}
 	
-
+	/**
+	 * Called when a propose message is received. A accept or reject message is sent back
+	 * to the leader depending on whether or not a proposal has been accepted for the
+	 * instance specified in the packet.
+	 * 
+	 * @param from
+	 * @param pkt
+	 */
 	public void receivedPropose(int from, PaxosPacket pkt) {
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
@@ -88,6 +125,16 @@ public class AcceptorLayer {
 		}
 	}
 	
+	/**
+	 * Used to generate a reject paxos packet based on the given paramters
+	 * The packet that is return will either have an empty value or the value
+	 * of the accepted proposal if the given accepted proposal is not null
+	 * 
+	 * @param instanceNum
+	 * @param promisedValue
+	 * @param acceptedProposal
+	 * @return a reject paxos packet
+	 */
 	public PaxosPacket reject(int instanceNum, int promisedValue, Proposal acceptedProposal ) {
 		PaxosPacket response;
 		if( acceptedProposal == null ) {
@@ -98,16 +145,26 @@ public class AcceptorLayer {
 		return response;
 	}
 
+	/**
+	 * Called after receiving a recovery message. The asks the learner layer for and learned proposals for
+	 * the instance number in the packet, if there is a learned proposal, the method sends a recovery chosen
+	 * message back to the leader. If no proposal has been learned, then the method sends a recovery accepted
+	 * message back to the leader with the accepted proposal message for the instance number in the packet.
+	 * Nothing happens if there has not been a learned or accepted proposal for the instance number.
+	 * @param from
+	 * @param pkt
+	 */
 	public void receivedRecovery(int from, PaxosPacket pkt) {
 		int instanceNum = pkt.getInstanceNumber();
 		
 		String response = this.paxosLayer.getLearnerLayer().getLearnedForInstance( instanceNum );
 		if( response == null ) {
 			Proposal acceptedProposal = this.acceptorRecord.get(instanceNum);
-			if( acceptedProposal == null ) {
-				//not quite sure
-			} else {
+			if( acceptedProposal != null ) {
 				this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.RECOVERY_ACCEPTED));
+			} else {
+				PaxosPacket recoveryReject = new PaxosPacket( PaxosProtocol.RECOVERY_REJECT, -1, this.maxInstanceNumber, new byte[0]);
+				this.send(from, recoveryReject );
 			}
 			
 		} else {
@@ -117,7 +174,10 @@ public class AcceptorLayer {
 	}
 	
 	
-	//write the acceptorRecord and promises to disk
+	/**
+	 * Writes the acceptor record and promise hashes to disk,
+	 * overwriting the files that already exist.
+	 */
 	private void updateState() {
 		try {
 			String fileContents = "";
@@ -138,6 +198,10 @@ public class AcceptorLayer {
 		}
 	}
 	
+	/**
+	 * Reads the acceptor record and promise logs on disk
+	 * and populates the corresponding hash maps in memory
+	 */
 	private void readLogs() {
 		PersistentStorageReader r;
 		try {
