@@ -162,6 +162,9 @@ public class AcceptorLayer {
 			Proposal acceptedProposal = this.acceptorRecord.get(instanceNum);
 			if( acceptedProposal != null ) {
 				this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.RECOVERY_ACCEPTED));
+			} else {
+				PaxosPacket recoveryReject = new PaxosPacket( PaxosProtocol.RECOVERY_REJECT, -1, this.maxInstanceNumber, new byte[0]);
+				this.send(from, recoveryReject );
 			}
 			
 		} else {
