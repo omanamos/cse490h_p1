@@ -15,7 +15,7 @@ public class DistNode extends RIONode {
 	 */
 	public static double getFailureRate() { return 0.0 / 100.0; }
 	public static double getRecoveryRate() { return 100.0 / 100.0; }
-	public static double getDropRate() { return 20.0 / 100.0; }
+	public static double getDropRate() { return 10.0 / 100.0; }
 	public static double getDelayRate() { return 10.0 / 100.0; }
 	
 	private Map<String, Update> fileList;
@@ -27,6 +27,7 @@ public class DistNode extends RIONode {
 	public static boolean isOptimalLeader(int addr){
 		return addr == 0;
 	}
+	
 	/*========================================
 	 * START FILE INTERFACE METHODS
 	 *========================================*/

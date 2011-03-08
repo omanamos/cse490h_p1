@@ -8,16 +8,22 @@ import java.io.IOException;
 public class PaxosPacket extends TXNPacket {
 
 	public static final int MAX_PACKET_SIZE = TXNPacket.MAX_PAYLOAD_SIZE;
-	public static final int HEADER_SIZE = 9;
+	public static final int HEADER_SIZE = 13;
 	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;
 	
 	private int proposalNumber;
 	private int instanceNumber;
+	private int curVersion;
 	
 	public PaxosPacket(int protocol, int proposalNumber, int instanceNumber, byte[] payload){
+		this(protocol, proposalNumber, instanceNumber, -1, payload);
+	}
+	
+	public PaxosPacket(int protocol, int proposalNumber, int instanceNumber, int curVersion, byte[] payload){
 		super(protocol, 0, payload, MAX_PAYLOAD_SIZE, !PaxosProtocol.isPaxosProtocol(protocol));
 		this.proposalNumber = proposalNumber;
 		this.instanceNumber = instanceNumber;
+		this.curVersion = curVersion;
 	}
 	
 	public int getProposalNumber(){
@@ -26,6 +32,14 @@ public class PaxosPacket extends TXNPacket {
 	
 	public int getInstanceNumber() {
 		return this.instanceNumber;
+	}
+	
+	public int getCurVersion(){
+		return this.curVersion;
+	}
+	
+	public void setCurVersion(int curVersion){
+		this.curVersion = curVersion;
 	}
 	
 	/**
@@ -44,6 +58,7 @@ public class PaxosPacket extends TXNPacket {
 			out.writeByte(this.protocol);
 			out.writeInt(this.proposalNumber);
 			out.writeInt(this.instanceNumber);
+			out.writeInt(this.curVersion);
 			
 			out.write(payload, 0, payload.length);
 
@@ -68,11 +83,12 @@ public class PaxosPacket extends TXNPacket {
 			int protocol = in.readByte();
 			int proposalNumber = in.readInt();
 			int instanceNumber = in.readInt();
+			int curVersion = in.readInt();
 
 			byte[] payload = new byte[packet.length - HEADER_SIZE];
 			in.read(payload, 0, payload.length);
 
-			return new PaxosPacket(protocol, proposalNumber, instanceNumber, payload);
+			return new PaxosPacket(protocol, proposalNumber, instanceNumber, curVersion, payload);
 		} catch (IllegalArgumentException e) {
 			// will return null
 			e.printStackTrace();

@@ -59,7 +59,7 @@ public class PaxosLayer {
 				this.learnLayer.receive(from, pkt);
 				break;
 			case PaxosProtocol.PREPARE:
-				this.accLayer.receivedPrepare(from, pkt);
+				this.accLayer.receivedPrepare(from, seqNum, pkt);
 				break;
 			case PaxosProtocol.PROMISE:
 				this.propLayer.receivedPromise(from, pkt);
@@ -71,9 +71,8 @@ public class PaxosLayer {
 				this.accLayer.receivedRecovery(from, pkt);
 				break;
 			case PaxosProtocol.RECOVERY_ACCEPTED:
-				this.propLayer.receivedRecovery(from, pkt);
-				break;
 			case PaxosProtocol.RECOVERY_CHOSEN:
+			case PaxosProtocol.RECOVERY_REJECT:
 				this.propLayer.receivedRecovery(from, pkt);
 				break;
 			case PaxosProtocol.REJECT:
@@ -87,7 +86,10 @@ public class PaxosLayer {
 	
 	public void onTimeout(int dest, byte[] payload){
 		PaxosPacket pkt = PaxosPacket.unpack(payload);
-		if(pkt.getProtocol() == PaxosProtocol.ELECT && this.e != null){
+		if(pkt.getProtocol() == PaxosProtocol.PREPARE){
+			if(this.propLayer.onTimeout(pkt.getInstanceNumber(), false))
+				this.send(dest, pkt);
+		}else if(pkt.getProtocol() == PaxosProtocol.ELECT && this.e != null){
 			if(this.e.onTimeout()){
 				this.e = null;
 				this.n.printError("Node " + this.n.addr + ": Error: Election failed, a majority of requests timed out.");

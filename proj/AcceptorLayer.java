@@ -69,7 +69,7 @@ public class AcceptorLayer {
 	 * @param from - Sending node
 	 * @param pkt - Received packet
 	 */
-	public void receivedPrepare(int from, PaxosPacket pkt){
+	public void receivedPrepare(int from, int seqNum, PaxosPacket pkt){
 		
 		int newProposalNum = pkt.getProposalNumber();
 		
@@ -78,10 +78,10 @@ public class AcceptorLayer {
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		
 		PaxosPacket response;
-		if( promisedValue == null ||  newProposalNum >= promisedValue ) {
+		if( promisedValue == null || newProposalNum > promisedValue ) {
 			promised.put( pkt.getInstanceNumber(), pkt.getProposalNumber());
 			if( acceptedProposal == null ) {
-				response = new PaxosPacket(PaxosProtocol.PROMISE, pkt.getProposalNumber(), pkt.getInstanceNumber(), new byte[0] );
+				response = new PaxosPacket(PaxosProtocol.PROMISE, pkt.getProposalNumber() - 1, pkt.getInstanceNumber(), new byte[0] );
 			} else {
 				response = acceptedProposal.getPaxosPacket(PaxosProtocol.PROMISE);
 			}
@@ -91,11 +91,12 @@ public class AcceptorLayer {
 			
 		} else {
 			//REJECTION OOOOHHHH BURRRRNNN
-			response = reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal );
+			response = reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal, pkt.getCurVersion() );
 		}
 		
 		//send the response
-		this.send(from, response);
+		response.setCurVersion(pkt.getCurVersion());
+		this.paxosLayer.rtn(from, seqNum, response);
 	}
 	
 	/**
@@ -109,6 +110,8 @@ public class AcceptorLayer {
 	public void receivedPropose(int from, PaxosPacket pkt) {
 		Proposal acceptedProposal = acceptorRecord.get(pkt.getInstanceNumber());
 		Integer promisedValue = promised.get( pkt.getInstanceNumber() );
+		int accTxnId = Transaction.getIdFromString(Utility.byteArrayToString(pkt.getPayload()));
+		int newTxnId = acceptedProposal == null ? -1 : Transaction.getIdFromString(acceptedProposal.getValue());
 		
 		if( acceptedProposal == null && ( promisedValue == null || pkt.getProposalNumber() >= promisedValue ) ) {
 			acceptedProposal = new Proposal( pkt );
@@ -119,9 +122,11 @@ public class AcceptorLayer {
 			
 			this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.ACCEPT));
 			
-		} else {
+		}else if(accTxnId == newTxnId) {
+			this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.ACCEPT));
+		}else {
 			//REJECTION DAMNNN
-			this.send(from, reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal ));
+			this.send(from, reject(pkt.getInstanceNumber(), promisedValue, acceptedProposal, pkt.getCurVersion() ));
 		}
 	}
 	
@@ -135,13 +140,14 @@ public class AcceptorLayer {
 	 * @param acceptedProposal
 	 * @return a reject paxos packet
 	 */
-	public PaxosPacket reject(int instanceNum, int promisedValue, Proposal acceptedProposal ) {
+	public PaxosPacket reject(int instanceNum, int promisedValue, Proposal acceptedProposal, int curVersion) {
 		PaxosPacket response;
 		if( acceptedProposal == null ) {
 			response = new PaxosPacket(PaxosProtocol.REJECT, promisedValue, instanceNum, new byte[0]);
 		} else {
 			response = acceptedProposal.getPaxosPacket(PaxosProtocol.REJECT);
 		}
+		response.setCurVersion(curVersion);
 		return response;
 	}
 
@@ -163,7 +169,7 @@ public class AcceptorLayer {
 			if( acceptedProposal != null ) {
 				this.send(from, acceptedProposal.getPaxosPacket(PaxosProtocol.RECOVERY_ACCEPTED));
 			} else {
-				PaxosPacket recoveryReject = new PaxosPacket( PaxosProtocol.RECOVERY_REJECT, -1, this.maxInstanceNumber, new byte[0]);
+				PaxosPacket recoveryReject = new PaxosPacket( PaxosProtocol.RECOVERY_REJECT, -1, instanceNum, new byte[0]);
 				this.send(from, recoveryReject );
 			}
 			
