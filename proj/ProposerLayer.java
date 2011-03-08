@@ -12,19 +12,21 @@ import edu.washington.cs.cse490h.lib.Utility;
 public class ProposerLayer {
 
 	private PaxosLayer paxosLayer;
-	private int promises;
-	private int rejects;
+	private int promises;//promises received for current instance
+	private int rejects;//rejects received for current instance
 	private static int MAJORITY;
-	private int proposalNumber;
-	private int instanceNumber;
+	private int proposalNumber;//max proposal number for current instance
+	private int instanceNumber;//current instance
 	/**
 	 * instance num -> number of recovery responses returned
 	 */
-	private Map<Integer, Map<String, Integer>> instanceValues;
+	private Map<Integer, Map<String, Integer>> instanceValues;//maps instance number to value to 
+															  //number of times that value was received
+															  //in recovery
 	private Map<Integer, String> values;
-	private Queue<String> commits;
-	private int holes;
-	private int fixedHoles;
+	private Queue<String> commits;//commits received
+	private int holes;//number of holes found at new instance
+	private int fixedHoles;//number of holes fixed
 	private DistNode n;
 	/**
 	 * stores instances that aren't finished on recovery
@@ -52,10 +54,23 @@ public class ProposerLayer {
 		//this.instanceNumber = fillGaps();
 	}
 	
+	/**
+	 * sends the passed packet to the passed destination
+	 * @param destination
+	 * @param pkt to send
+	 */
 	public void send(int dest, PaxosPacket pkt){
 		this.paxosLayer.send(dest, pkt);
 	}
 
+	/**
+	 * Used for handling REJECT protocol and PROMISE protocol and keeping track
+	 * of max proposal number and value pairs
+	 * If # of rejects is larger then majority, then resend prepares
+	 * If # of promises is larger then majority, send proposal
+	 * @param from
+	 * @param pkt
+	 */
 	public void receivedPromise(int from, PaxosPacket pkt) {
 		if(pkt.getInstanceNumber() == this.instanceNumber && this.values.containsKey(this.instanceNumber)){
 			int propNumber = pkt.getProposalNumber();
@@ -81,11 +96,23 @@ public class ProposerLayer {
 		}
 	}
 	
+	/**
+	 * resets the rejects and promises to 0
+	 */
 	private void resetRP(){
 		this.promises = 0;
 		this.rejects = 0;
 	}
 	
+	/**
+	 * Handles receiving a recovery packet for a given instance
+	 * If it is a 'chosen' packet, we learn that value
+	 * If the majority has responded to that instance with a 'accepted' packet
+	 * and the same value, we learn that value
+	 * If the majority cannot come to a consensus, we finish that instance
+	 * @param from
+	 * @param pkt
+	 */
 	public void receivedRecovery(int from, PaxosPacket pkt){
 		if(pkt.getProtocol() == PaxosProtocol.RECOVERY_CHOSEN){
 			fixedHoles++;
@@ -133,6 +160,11 @@ public class ProposerLayer {
 		
 	}
 	
+	/**
+	 * Takes a collection of Integers and returns the max
+	 * @param coll
+	 * @return the max from the passed collection
+	 */
 	private static int max(Collection<Integer> coll){
 		int max = -1;
 		for(Integer i : coll)
@@ -141,6 +173,11 @@ public class ProposerLayer {
 		return max;
 	}
 	
+	/**
+	 * Takes a collection and returns the sum
+	 * @param coll
+	 * @return the sum of all Integers in the passed collection
+	 */
 	private static int reduce(Collection<Integer> coll){
 		int rtn = 0;
 		for(Integer i : coll)
@@ -148,6 +185,10 @@ public class ProposerLayer {
 		return rtn;
 	}
 	
+	/**
+	 * Sends a proposal message to all acceptors. Uses the current instance number
+	 * and the current value
+	 */
 	private void sendProposal() {
 		PaxosPacket pkt = new PaxosPacket(PaxosProtocol.PROPOSE, this.proposalNumber, 
 				this.instanceNumber, Utility.stringToByteArray(this.values.get(this.instanceNumber)));
@@ -156,6 +197,10 @@ public class ProposerLayer {
 		}
 	}
 
+	/**
+	 * Adds the passed commmit to the commit queue
+	 * @param commit
+	 */
 	public void receivedCommit(String commit){
 		commits.add(commit);
 		if(commits.size() == 1){
@@ -163,6 +208,11 @@ public class ProposerLayer {
 		}
 	}
 	
+	/**
+	 * Takes a learned value and tells you that that value was learned for the current instance
+	 * Now we can move onto the next commit and start a new instance of paxos
+	 * @param learnedValue
+	 */
 	public void instanceFinished(String learnedValue){
 		this.values.remove(this.instanceNumber);
 		this.instanceValues.remove(this.instanceNumber);
@@ -183,6 +233,10 @@ public class ProposerLayer {
 		}
 	}
 	
+	/**
+	 * Starts a new instance of Paxos
+	 * @param value
+	 */
 	private void newInstance(String value){
 		resetRP();
 		this.proposalNumber = 0;
@@ -190,6 +244,11 @@ public class ProposerLayer {
 		this.createTimeoutListener(this.instanceNumber, false);
 	}
 	
+	/**
+	 * Starts a new instance for a recovery instance that never finished
+	 * @param instanceNum
+	 * @param value
+	 */
 	private void newRecoveryInstance(int instanceNum, String value){
 		resetRP();
 		this.instanceNumber = instanceNum;
@@ -198,6 +257,10 @@ public class ProposerLayer {
 		//TODO: double check
 	}
 	
+	/**
+	 * Sends recovery messages to all acceptors for the missing instance
+	 * @param instance
+	 */
 	private void fixHole(int instance){
 		this.createTimeoutListener(instance, true);
 		for(int acceptor : PaxosLayer.ACCEPTORS){
@@ -243,6 +306,11 @@ public class ProposerLayer {
 		return largestInst;
 	}
 	
+	/**
+	 * Timeout listener created on current instance
+	 * @param instance - Instance for this timeout
+	 * @param isRecovery - True if it is a recovery timer. False otherwise
+	 */
 	private void createTimeoutListener(int instance, boolean isRecovery) {
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", this, new String[]{ "java.lang.Integer", "java.lang.Boolean"});
@@ -253,6 +321,14 @@ public class ProposerLayer {
 		}
 	}
 	
+	/**
+	 * Timeout called after 13 steps on a listener. If it was listening to a recovery and it has not learned yet,
+	 * we try fixing that hole again. Otherwise we do nothing
+	 * If it is an instance timer and we are still on that isntance, we start taht instance over again and set a new
+	 * timoutlistenr. 
+	 * @param instance
+	 * @param isRecovery
+	 */
 	public void onTimeout(Integer instance, Boolean isRecovery) {
 		//it timed out, time to resend packets!
 		if(isRecovery && !this.paxosLayer.getLearnerLayer().isLearned(instance)){
