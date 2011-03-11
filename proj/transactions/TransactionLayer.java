@@ -1021,6 +1021,7 @@ public class TransactionLayer {
 				
 				//start a new transaction by creating a new transaction object
 				this.txn = new Transaction( this.lastTXNnum );
+				this.n.onStart(this.txn.id);
 			}catch(Exception e){
 				e.printStackTrace();
 			}
