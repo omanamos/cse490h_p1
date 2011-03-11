@@ -11,8 +11,7 @@ public class ReadPosts extends FacebookOperation{
 												"txcommit"};
 	public ReadPosts(User u, DistNode n){
 		
-		super(COMMANDS, n);
-		this.user = u;
+		super(COMMANDS, n, u);
 		this.n.onFacebookCommand( this.cmds.poll() );
 	}
 	
@@ -21,7 +20,7 @@ public class ReadPosts extends FacebookOperation{
 		
 		switch(this.cmds.size()) {
 			case 2:
-				if( FacebookOperation.isUserLoggedIn(this.user, c.getContents()) ) {
+				if( FacebookOperation.isUserLoggedIn(this.user, this.n.addr, c.getContents()) ) {
 					//execute next command
 					String wallCommand = FacebookOperation.replaceField(this.cmds.poll(), "username", this.user.getUsername());
 					this.n.onFacebookCommand( wallCommand );

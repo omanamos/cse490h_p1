@@ -18,8 +18,9 @@ public abstract class FacebookOperation {
 	
 	protected int commandId;
 	
-	public FacebookOperation(String[] commands, DistNode n){
+	public FacebookOperation(String[] commands, DistNode n, User u){
 		this.n = n;
+		this.user = u;
 		this.cmds = new LinkedList<String>();
 		for(String s : commands)
 			this.cmds.add(s);
@@ -50,13 +51,22 @@ public abstract class FacebookOperation {
 		return userSet;
 	}
 	
-	public static boolean isUserLoggedIn( User u, String logString ) {
+	public void printError( String error ) {
+		System.out.println("ERROR: " + error );
+	}
+	
+	public static boolean isUserLoggedIn( User u, int nodeId, String logString ) {
 		String[] loggedUsers = logString.split("\\n");
-		for( String user : loggedUsers ) {
-			if( user.equals( u.getUsername() ) ) {
+		for( String userAddr : loggedUsers ) {
+			String[] tokens = userAddr.split(" ");
+			if( tokens[0].equals( u.getUsername() ) && tokens[1].equals( nodeId ) ) {
 				return true;
 			}
 		}
+		return false;
+	}
+	
+	public static boolean doesUserExist( User u, String existsString ) {
 		return false;
 	}
 	

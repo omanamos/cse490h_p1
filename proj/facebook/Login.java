@@ -12,7 +12,7 @@ public class Login extends FacebookOperation{
 												"txcommit"};
 
 	public Login(User u, DistNode n){
-		super(COMMANDS, n);
+		super(COMMANDS, n, u);
 		this.user = u;
 		this.n.onFacebookCommand( this.nextCommand() );
 	}
@@ -23,7 +23,7 @@ public class Login extends FacebookOperation{
 		switch( this.cmds.size() ) {
 		case 3:
 			//If the user is not logged in then do the next command
-			if( !FacebookOperation.isUserLoggedIn(this.user, c.getContents()) ) {
+			if( !FacebookOperation.isUserLoggedIn(this.user, this.n.addr, c.getContents()) ) {
 				//execute next command
 				this.n.onFacebookCommand( this.nextCommand() );
 			} else {
@@ -32,7 +32,8 @@ public class Login extends FacebookOperation{
 			break;
 		case 2:
 			if( FacebookOperation.doesUserExist( this.user, c.getContents() )) {
-				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "contents", replacement)
+				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "contents", this.user.getUsername() + " " + this.n.addr );
+				this.n.onFacebookCommand( newCommand );
 			} else {
 				//abort
 			}
@@ -52,7 +53,7 @@ public class Login extends FacebookOperation{
 
 	@Override
 	public void onCommit(Transaction txn) {
-		// TODO Auto-generated method stub
+		this.n.onLogin( this.user );
 		
 	}
 
