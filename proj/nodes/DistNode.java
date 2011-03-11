@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
 import paxos.PaxosLayer;
@@ -16,6 +17,7 @@ import utils.Update;
 
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
+import facebook.*;
 
 public class DistNode extends RIONode {
 	/**
@@ -29,6 +31,8 @@ public class DistNode extends RIONode {
 	public static double getDelayRate() { return 10.0 / 100.0; }
 	
 	public static final boolean DEBUG = false;
+	
+	private FacebookOperation fb;
 	
 	private Map<String, Update> fileList;
 	
@@ -177,7 +181,7 @@ public class DistNode extends RIONode {
 	
 	
 	/*========================================
-	 * START OUTPUT METHODS
+	 * START TXN LAYER OUTPUT METHODS
 	 *========================================*/
 	public void printError(Command c, int errCode){
 		if(DEBUG)
@@ -361,6 +365,13 @@ public class DistNode extends RIONode {
 		}
 	}
 	
+	/*
+	 * METHODS FOR FACEBOOK OPERATIONS
+	 */
+	
+	public void onStart(int txnID){
+		
+	}
 
 	public void onAbort(Transaction txn){
 		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ABORT");
@@ -374,11 +385,64 @@ public class DistNode extends RIONode {
 		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@COMMIT");
 	}
 	
-	@Override
+	public void onLogin(User curUser){
+		
+	}
+	
+	public void onLogout(User curUser){
+		
+	}
+	
+	public void notLoggedIn(User u){
+		
+	}
+	
 	/**
 	 * Handles given command. Prints error if command is not properly formed.
 	 */
-	public void onCommand(String command) {
+	public void onCommand(String command){
+		if(this.fb != null){
+			System.out.println("Node " + this.addr + ": Error: Cannot execute command (" + command + "). Another facebook operation is in progess.");
+			return;
+		}
+		
+		//TODO: create user logged in temporary file
+		User curUser = new User("", "");
+		
+		command = command.trim();
+		if(Pattern.matches("^((create|login|logout) [\\S]{4,} [\\S]{4,}|(request|accept) [\\S]{4,}|post (\\\".+\\\"|[^ ]+)|read)$", command)){
+			if(Pattern.matches("^(create|login|logout)", command)){
+				String[] parts = command.split(" ");
+				if(parts[0].equals("create")){
+					this.fb = new CreateUser(new User(parts[1], parts[2]));
+				}else if(parts[0].equals("login")){
+					this.fb = new Login(new User(parts[1], parts[2]));
+				}else{
+					this.fb = new Logout(curUser);
+				}
+			}else if(Pattern.matches("^(request|accept)", command)){
+				String[] parts = command.split(" ");
+				if(parts[0].equals("request")){
+					this.fb = new RequestFriend(curUser, new User(parts[1], parts[2]));
+				}else{
+					this.fb = new AcceptFriend(curUser, new User(parts[1], parts[2]));
+				}
+			}else if(Pattern.matches("^post", command)){
+				String message = command.substring(command.indexOf(' '));
+				this.fb = new PostMessage(curUser, message);
+			}else{
+				this.fb = new ReadPosts(curUser);
+			}
+		}else{
+			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
+			return;
+		}
+	}
+	
+	/**
+	 * Handles given command. Prints error if command is not properly formed.
+	 */
+	public void onFacebookCommand(String command) {
 		command = command.trim();
 		if(Pattern.matches("^((create|get|delete) [^ ]+|(put|append) [^ ]+ (\\\".+\\\"|[^ ]+))$", command)){
 			int indexOfSpace = command.indexOf(' ');
