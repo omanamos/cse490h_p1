@@ -14,12 +14,40 @@ public class CreateUser extends FacebookOperation{
 												"txcommit"};
 	public CreateUser(User u, DistNode n){
 		super(COMMANDS, n, u);
+		this.n.onFacebookCommand( this.nextCommand() );
 	}
 	
 	@Override
 	public void onCommandFinish(Command c) {
-		// TODO Auto-generated method stub
+		String newCommand;
 		
+		switch(this.cmds.size()) {
+		case 5:
+			if( !FacebookOperation.doesUserExist(this.user, c.getContents())) {
+				String replaceUsername = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
+				newCommand = FacebookOperation.replaceField(replaceUsername, "password", this.user.getPassword());
+				this.n.onFacebookCommand( newCommand );
+			} else {
+				this.printError("User already exists");
+			}
+			break;
+		case 4:
+			newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
+			this.n.onFacebookCommand(newCommand);
+			break;
+		case 3:
+			newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
+			this.n.onFacebookCommand(newCommand);
+			break;
+		case 2:
+			newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
+			this.n.onFacebookCommand(newCommand);
+			break;
+		case 1:
+			this.n.onFacebookCommand(this.nextCommand());
+			break;
+		
+		}
 	}
 
 	@Override
@@ -30,14 +58,13 @@ public class CreateUser extends FacebookOperation{
 
 	@Override
 	public void onCommit(Transaction txn) {
-		// TODO Auto-generated method stub
-		
+		System.out.println("User " + this.user.getUsername() + " created");
 	}
 
 	@Override
 	public void onStart(int txId) {
-		// TODO Auto-generated method stub
-		
+		this.commandId = txId;
+		this.n.onFacebookCommand( this.nextCommand() );
 	}
 
 }

@@ -26,7 +26,7 @@ public class Login extends FacebookOperation{
 				//execute next command
 				this.n.onFacebookCommand( this.nextCommand() );
 			} else {
-				//abort
+				this.printError("You are already logged in.");
 			}
 			break;
 		case 2:
@@ -34,7 +34,7 @@ public class Login extends FacebookOperation{
 				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "contents", this.user.getUsername() + " " + this.n.addr );
 				this.n.onFacebookCommand( newCommand );
 			} else {
-				//abort
+				this.printError("Login information invalid");
 			}
 			break;
 		case 1:
@@ -53,7 +53,6 @@ public class Login extends FacebookOperation{
 	@Override
 	public void onCommit(Transaction txn) {
 		this.n.onLogin( this.user );
-		
 	}
 
 	@Override

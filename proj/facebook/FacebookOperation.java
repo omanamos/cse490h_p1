@@ -42,7 +42,7 @@ public abstract class FacebookOperation {
 	public static HashSet<User> loadUsers( String userString ) {
 		HashSet<User> userSet = new HashSet<User>();
 		
-		String[] allUsers = userString.split("\\n");
+		String[] allUsers = userString.split("\n");
 		for( String userPass : allUsers ) {
 			String[] user = userPass.split(" ");
 			userSet.add( new User(user[0], user[1]));
@@ -51,12 +51,16 @@ public abstract class FacebookOperation {
 		return userSet;
 	}
 	
+	public void notLoggedIn() {
+		this.printError("You are not logged in.");
+	}
+	
 	public void printError( String error ) {
 		System.out.println("ERROR: " + error );
 	}
 	
 	public static boolean isUserLoggedIn( User u, int nodeId, String logString ) {
-		String[] loggedUsers = logString.split("\\n");
+		String[] loggedUsers = logString.split("\n");
 		for( String userAddr : loggedUsers ) {
 			String[] tokens = userAddr.split(" ");
 			if( tokens[0].equals( u.getUsername() ) && tokens[1].equals( nodeId ) ) {

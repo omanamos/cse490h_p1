@@ -11,12 +11,35 @@ public class Logout extends FacebookOperation {
 												"txcommit"};
 	public Logout(User u, DistNode n){
 		super(COMMANDS, n, u);
+		this.n.onFacebookCommand( this.nextCommand() );
 	}
 	
 	@Override
 	public void onCommandFinish(Command c) {
-		// TODO Auto-generated method stub
-
+		
+		switch( this.cmds.size() ) {
+		case 2:
+			if( FacebookOperation.isUserLoggedIn(this.user, this.n.addr, c.getContents())) {
+				//not sure what to do here, right now i just remove the user from the file contents
+				String newContents = "";
+				for( String line : c.getContents().split("\n") ) {
+					String tokens[] = line.split(" ");
+					//add everything to the newcontents except our username addr combo
+					if( !( tokens[0].equals( this.user.getUsername() ) && tokens[1].equals( this.n.addr + "") ) ) {
+						newContents += line + "\n";
+					}
+				}
+				String newCommand = FacebookOperation.replaceField( this.nextCommand(), "contents", newContents);
+				this.n.onFacebookCommand( newCommand );
+			} else {
+				this.notLoggedIn();
+			}
+			break;
+		case 1:
+			this.n.onFacebookCommand(this.nextCommand());
+			break;
+		}
+		
 	}
 
 	@Override
@@ -27,14 +50,13 @@ public class Logout extends FacebookOperation {
 
 	@Override
 	public void onCommit(Transaction txn) {
-		// TODO Auto-generated method stub
-
+		this.n.onLogout( this.user );
 	}
 
 	@Override
 	public void onStart(int txId) {
-		// TODO Auto-generated method stub
-		
+		this.commandId = txId;
+		this.n.onFacebookCommand( this.nextCommand() );
 	}
 
 }
