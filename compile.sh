@@ -1,5 +1,5 @@
 #!/bin/bash
 
-javac -cp ./jars/plume.jar:./jars/lib.jar proj/*.java
+javac -d bin -cp ./jars/plume.jar:./jars/lib.jar `find proj/ -name *.java`
 
 exit
