@@ -1,2 +1,4 @@
 Proposer does infinite retry until it learns about that instance (could be a different value).
 Unstable with high failure rate.
+
+call nodes.DistNode to run instead of just DistNode
