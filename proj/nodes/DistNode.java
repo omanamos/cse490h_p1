@@ -414,24 +414,24 @@ public class DistNode extends RIONode {
 			if(Pattern.matches("^(create|login|logout)", command)){
 				String[] parts = command.split(" ");
 				if(parts[0].equals("create")){
-					this.fb = new CreateUser(new User(parts[1], parts[2]));
+					this.fb = new CreateUser(new User(parts[1], parts[2]), this);
 				}else if(parts[0].equals("login")){
-					this.fb = new Login(new User(parts[1], parts[2]));
+					this.fb = new Login(new User(parts[1], parts[2]), this);
 				}else{
-					this.fb = new Logout(curUser);
+					this.fb = new Logout(curUser, this);
 				}
 			}else if(Pattern.matches("^(request|accept)", command)){
 				String[] parts = command.split(" ");
 				if(parts[0].equals("request")){
-					this.fb = new RequestFriend(curUser, new User(parts[1], parts[2]));
+					this.fb = new RequestFriend(curUser, new User(parts[1], parts[2]), this);
 				}else{
-					this.fb = new AcceptFriend(curUser, new User(parts[1], parts[2]));
+					this.fb = new AcceptFriend(curUser, new User(parts[1], parts[2]), this);
 				}
 			}else if(Pattern.matches("^post", command)){
 				String message = command.substring(command.indexOf(' '));
-				this.fb = new PostMessage(curUser, message);
+				this.fb = new PostMessage(curUser, message, this);
 			}else{
-				this.fb = new ReadPosts(curUser);
+				this.fb = new ReadPosts(curUser, this);
 			}
 		}else{
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);

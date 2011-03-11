@@ -1,5 +1,6 @@
 package facebook;
 
+import nodes.DistNode;
 import transactions.Command;
 import transactions.Transaction;
 
@@ -9,8 +10,8 @@ public class RequestFriend extends FacebookOperation {
 												"get users", //check friend exists
 												"append [friend]_requests \"[requester]\n\"",
 												"txcommit"};
-	public RequestFriend(User requester, User friend){
-		super(COMMANDS);
+	public RequestFriend(User requester, User friend, DistNode n){
+		super(COMMANDS, n, requester);
 	}
 	
 	@Override
@@ -29,6 +30,12 @@ public class RequestFriend extends FacebookOperation {
 	public void onCommit(Transaction txn) {
 		// TODO Auto-generated method stub
 
+	}
+
+	@Override
+	public void onStart(int txId) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

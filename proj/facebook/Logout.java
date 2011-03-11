@@ -1,5 +1,6 @@
 package facebook;
 
+import nodes.DistNode;
 import transactions.Command;
 import transactions.Transaction;
 
@@ -8,8 +9,8 @@ public class Logout extends FacebookOperation {
 												"get logged_in", //check if logged in as given User
 												"put logged_in [contents]",
 												"txcommit"};
-	public Logout(User u){
-		super(COMMANDS);
+	public Logout(User u, DistNode n){
+		super(COMMANDS, n, u);
 	}
 	
 	@Override
@@ -28,6 +29,12 @@ public class Logout extends FacebookOperation {
 	public void onCommit(Transaction txn) {
 		// TODO Auto-generated method stub
 
+	}
+
+	@Override
+	public void onStart(int txId) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }
