@@ -10,8 +10,8 @@ public class PostMessage extends FacebookOperation {
 												"get [username]_friends",
 												"append [friend]_wall \"[message]\n\"", //execute for each line in [username]_friends file
 												"txcommit"};
-	public PostMessage(User u, String message){
-		super(COMMANDS);
+	public PostMessage(User u, String message, DistNode n){
+		super(COMMANDS, n, u);
 	}
 	
 	@Override

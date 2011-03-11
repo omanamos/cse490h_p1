@@ -11,8 +11,7 @@ public class ReadPosts extends FacebookOperation{
 												"txcommit"};
 	public ReadPosts(User u, DistNode n){
 		
-		super(COMMANDS, n);
-		this.user = u;
+		super(COMMANDS, n, u);
 		this.n.onFacebookCommand( this.cmds.poll() );
 	}
 	

@@ -1,5 +1,6 @@
 package facebook;
 
+import nodes.DistNode;
 import transactions.Command;
 import transactions.Transaction;
 
@@ -11,8 +12,8 @@ public class CreateUser extends FacebookOperation{
 												"create [username]_friends",
 												"create [username]_wall",
 												"txcommit"};
-	public CreateUser(User u){
-		super(COMMANDS);
+	public CreateUser(User u, DistNode n){
+		super(COMMANDS, n, u);
 	}
 	
 	@Override

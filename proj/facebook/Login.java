@@ -12,8 +12,7 @@ public class Login extends FacebookOperation{
 												"txcommit"};
 
 	public Login(User u, DistNode n){
-		super(COMMANDS, n);
-		this.user = u;
+		super(COMMANDS, n, u);
 		this.n.onFacebookCommand( this.nextCommand() );
 	}
 	
