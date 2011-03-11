@@ -488,7 +488,7 @@ class OutChannel {
 						lastSequence = true;
 				}
 				n.TXNLayer.onRIOTimeout(this.destAddr, pkt.getPayload());
-				if(this.establishingSession){
+				if(!this.establishingSession){
 					establishSession();
 					this.n.printError("Node " + this.n.addr + ": Delay: Session timed out with node " + this.destAddr + ", establishing new session.");
 				}

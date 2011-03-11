@@ -68,6 +68,13 @@ public class Command extends Queueable{
 		return t == CREATE || t == GET || t == PUT || t == APPEND || t == DELETE || t == UPDATE;
 	}
 	
+	/**
+	 * Each field in the Command object is separated by a space.
+	 * The contents of the string are first converted to a byte
+	 * array and then put in the string so that no conflicts with
+	 * delimeters occur.
+	 * @return String representation of a Command
+	 */
 	public String buildCommit(){
 		byte[] tmp = Utility.stringToByteArray(this.contents);
 		String contents = "[";
@@ -79,6 +86,11 @@ public class Command extends Queueable{
 		return this.type + " " + this.f.getName() + " " + contents;
 	}
 	
+	/**
+	 * @param str string built by Command.buildCommit
+	 * @param cache
+	 * @return Command parsed from given string
+	 */
 	public static Command fromByteArray(String str, Map<String, File> cache){
 		String[] command = str.split(" ");
 		int type = Integer.parseInt(command[0]);

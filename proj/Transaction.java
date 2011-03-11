@@ -129,6 +129,12 @@ public class Transaction implements Iterable<Command> {
 		return txn;
 	}
 	
+	/**
+	 * Used for paxos string representation
+	 * @param str string built by Transaction.toString()
+	 * @param cache
+	 * @return Transaction object built from the given string
+	 */
 	public static Transaction fromString(String str, Map<String, File> cache){
 		String[] parts = str.split("#");
 		int id = Integer.parseInt(parts[0]);
@@ -150,6 +156,9 @@ public class Transaction implements Iterable<Command> {
 		return Integer.parseInt(str.split("#")[0]);
 	}
 	
+	/**
+	 * @return String representation of a Transaction, each command is separated by a hash sign
+	 */
 	public String toString(){
 		String rtn = this.id + "#";
 		
