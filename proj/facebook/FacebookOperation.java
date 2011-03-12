@@ -94,7 +94,7 @@ public abstract class FacebookOperation {
 	}
 	
 	public static String boxify(User u, String contents){
-		String[] lines = contents.split("\n");
+		String[] lines = contents.split("\\\\n");
 		int width = u.getUsername().length() + 6;
 		
 		for(String line : lines)
@@ -102,11 +102,11 @@ public abstract class FacebookOperation {
 				width = line.length();
 		
 		String bar = repeat("*", width + 4);
-		String rtn = bar + "\n";
-		rtn += "* From: " + u.getUsername() + repeat(" ", width - u.getUsername().length() - 6) + " *\n";
+		String rtn = bar + "\\n";
+		rtn += "* From: " + u.getUsername() + repeat(" ", width - u.getUsername().length() - 6) + " *\\n";
 		
 		for(String line : lines)
-			rtn += "* " + line + repeat(" ", width - line.length()) + " *\n";
+			rtn += "* " + line + repeat(" ", width - line.length()) + " *\\n";
 		
 		return rtn + bar;
 	}

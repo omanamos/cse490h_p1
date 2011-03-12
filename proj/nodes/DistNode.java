@@ -29,7 +29,7 @@ public class DistNode extends RIONode {
 	public static double getDropRate() { return 0.0 / 100.0; }
 	public static double getDelayRate() { return 0.0 / 100.0; }
 	
-	public static final boolean DEBUG = false;
+	public static final boolean DEBUG = true;
 	
 	private FacebookOperation fb;
 	

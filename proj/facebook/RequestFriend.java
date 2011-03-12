@@ -11,7 +11,6 @@ public class RequestFriend extends FacebookOperation {
 												"get [friend]_requests", //make sure they haven't already requested us
 												"get [username]_requests", //make sure we haven't requested them
 												"get [username]_friends", //make sure we aren't already friends with them
-												
 												"append [friend]_requests \"[requester]\\n\"",
 												"txcommit"};
 	

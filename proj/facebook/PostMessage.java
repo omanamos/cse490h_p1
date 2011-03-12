@@ -8,14 +8,15 @@ public class PostMessage extends FacebookOperation {
 	private static final String[] COMMANDS = {	"txstart",
 												"get logged_in", //check that curUser is logged in
 												"get [username]_friends",
-												"append [friend]_wall \"[message]\n\"", //execute for each line in [username]_friends file
+												"append [friend]_wall \"[message]\\n\\n\"", //execute for each line in [username]_friends file
 												"txcommit"};
 	private String message;
 	private int numFriends;
 	
 	public PostMessage(User u, String message, DistNode n){
 		super(COMMANDS, n, u);
-		this.n.onFacebookCommand( this.nextCommand());
+		if(message.charAt(0) == '"')
+			message = message.substring(1, message.length() - 1);
 		this.message = message;
 		this.numFriends = 0;
 	}
