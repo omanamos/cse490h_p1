@@ -15,6 +15,7 @@ public class PostMessage extends FacebookOperation {
 	
 	public PostMessage(User u, String message, DistNode n){
 		super(COMMANDS, n, u);
+		message = message.trim();
 		if(message.charAt(0) == '"')
 			message = message.substring(1, message.length() - 1);
 		this.message = message;

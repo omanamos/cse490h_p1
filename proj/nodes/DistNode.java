@@ -29,7 +29,7 @@ public class DistNode extends RIONode {
 	public static double getDropRate() { return 0.0 / 100.0; }
 	public static double getDelayRate() { return 0.0 / 100.0; }
 	
-	public static final boolean DEBUG = true;
+	public static final boolean DEBUG = false;
 	
 	private FacebookOperation fb;
 	
@@ -456,17 +456,14 @@ public class DistNode extends RIONode {
 		
 		if(curUser == null && !Pattern.matches("^(login|create).*$", command)){
 			System.out.println("Node " + this.addr + ": Error: Cannot execute command (" + command + "). Not logged in.");
-		}else if(Pattern.matches("^((create|login|logout) [\\S]{4,} [\\S]{4,}|(request|accept) [\\S]{4,}|post (\\\".+\\\"|[^ ]+)|read)$", command)){
-			if(Pattern.matches("^(create|login|logout).*$", command)){
+		}else if(Pattern.matches("^((create|login) [\\S]{4,} [\\S]{4,}|(request|accept) [\\S]{4,}|post (\\\".+\\\"|[^ ]+)|(read|logout))$", command)){
+			if(Pattern.matches("^(create|login).*$", command)){
 				String[] parts = command.split(" ");
 				if(parts[0].equals("create")){
 					this.fb = new CreateUser(new User(parts[1], parts[2]), this);
 					this.fb.execute();
-				}else if(parts[0].equals("login")){
+				}else {//if(parts[0].equals("login")){
 					this.fb = new Login(new User(parts[1], parts[2]), this);
-					this.fb.execute();
-				}else{
-					this.fb = new Logout(curUser, this);
 					this.fb.execute();
 				}
 			}else if(Pattern.matches("^(request|accept).*$", command)){
@@ -483,8 +480,13 @@ public class DistNode extends RIONode {
 				this.fb = new PostMessage(curUser, message, this);
 				this.fb.execute();
 			}else{
-				this.fb = new ReadPosts(curUser, this);
-				this.fb.execute();
+				if(command.equals("logout")){
+						this.fb = new Logout(curUser, this);
+						this.fb.execute();
+				}else{
+					this.fb = new ReadPosts(curUser, this);
+					this.fb.execute();
+				}
 			}
 		}else{
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
@@ -532,6 +534,7 @@ public class DistNode extends RIONode {
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);
 			return;
 		}
+		//TODO: DONT SPLIT ON SPACES, IT REMOVES MANY FROM THE POSTS
 	}
 	
 	
