@@ -10,19 +10,44 @@ public class RequestFriend extends FacebookOperation {
 												"get users", //check friend exists
 												"append [friend]_requests \"[requester]\n\"",
 												"txcommit"};
+	
+	protected User friend;
+	
 	public RequestFriend(User requester, User friend, DistNode n){
 		super(COMMANDS, n, requester);
+		this.n.onFacebookCommand( this.nextCommand() );
+		this.friend = friend;
 	}
 	
 	@Override
 	public void onCommandFinish(Command c) {
-		// TODO Auto-generated method stub
+		switch( this.cmds.size()  ) {
+		case 3:
+			if( FacebookOperation.isUserLoggedIn(this.user, this.n.addr, c.getContents())) {
+				this.n.onFacebookCommand( this.nextCommand() );
+			} else {
+				this.notLoggedIn();
+			}
+			break;
+		case 2:
+			if( FacebookOperation.doesUserExist(this.friend, c.getContents())) {
+				String replaceFriend = FacebookOperation.replaceField( this.nextCommand(), "friend", this.friend.getUsername() );
+				String newCommand = FacebookOperation.replaceField(replaceFriend, "requester", this.user.getUsername());
+				this.n.onFacebookCommand( newCommand );
+			} else {
+				this.printError("User " + this.friend.getUsername() + " does not exist" );
+			}
+			break;
+		case 1:
+			this.n.onFacebookCommand( this.nextCommand() );
+			break;
+		}
 
 	}
 
 	@Override
 	public void onAbort(Transaction txn) {
-		// TODO Auto-generated method stub
+		System.out.println("Successfully requested friend " + this.friend.getUsername() );
 
 	}
 
@@ -34,7 +59,8 @@ public class RequestFriend extends FacebookOperation {
 
 	@Override
 	public void onStart(int txId) {
-		// TODO Auto-generated method stub
+		this.commandId = txId;
+		this.n.onFacebookCommand( this.nextCommand() );
 		
 	}
 
