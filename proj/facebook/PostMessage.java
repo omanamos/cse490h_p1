@@ -34,7 +34,7 @@ public class PostMessage extends FacebookOperation {
 			}
 			break;
 		case 2:
-			String replaceMessage = FacebookOperation.replaceField(this.nextCommand(), "message", this.message);
+			String replaceMessage = FacebookOperation.replaceField(this.nextCommand(), "message", FacebookOperation.boxify(this.user, this.message));
 			String[] friends = c.getContents().split("\n");
 			this.numFriends = friends.length;
 			for( String friend : c.getContents().split("\n") ) {

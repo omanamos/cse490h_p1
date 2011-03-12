@@ -10,7 +10,7 @@ public class ReadPosts extends FacebookOperation{
 												"get [username]_wall",
 												"txcommit"};
 	
-	private static String posts;
+	private String posts;
 	public ReadPosts(User u, DistNode n){
 		
 		super(COMMANDS, n, u);
