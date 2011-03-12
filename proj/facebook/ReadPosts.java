@@ -28,7 +28,7 @@ public class ReadPosts extends FacebookOperation{
 					this.n.onFacebookCommand( wallCommand );
 				} else {
 					//abort
-					this.n.notLoggedIn( this.user );
+					this.notLoggedIn();
 				}
 				break;
 			case 1:

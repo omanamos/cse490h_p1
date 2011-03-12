@@ -53,6 +53,7 @@ public abstract class FacebookOperation {
 	
 	public void notLoggedIn() {
 		this.printError("You are not logged in.");
+		this.n.notLoggedIn();
 	}
 	
 	public void printError( String error ) {
@@ -83,6 +84,31 @@ public abstract class FacebookOperation {
 	
 	public static String replaceField( String command, String fieldName, String replacement ) {
 		return command.replaceAll("[" + fieldName + "]", replacement);
+	}
+	
+	public static String boxify(User u, String contents){
+		String[] lines = contents.split("\n");
+		int width = u.getUsername().length() + 6;
+		
+		for(String line : lines)
+			if(line.length() > width)
+				width = line.length();
+		
+		String bar = repeat("*", width + 4);
+		String rtn = bar + "\n";
+		rtn += "* From: " + u.getUsername() + repeat(" ", width - u.getUsername().length() - 6) + " *\n";
+		
+		for(String line : lines)
+			rtn += "* " + line + repeat(" ", width - line.length()) + " *\n";
+		
+		return rtn + bar;
+	}
+	
+	private static String repeat(String str, int count){
+		String rtn = "";
+		for(int i = 0; i < count; i++)
+			rtn += str;
+		return rtn;
 	}
 
 	
