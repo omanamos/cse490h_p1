@@ -403,7 +403,7 @@ public class DistNode extends RIONode {
 		updateCurUser(null);
 	}
 	
-	public void notLoggedIn(User u){
+	public void notLoggedIn(){
 		updateCurUser(null);
 	}
 	
