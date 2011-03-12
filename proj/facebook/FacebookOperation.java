@@ -71,6 +71,13 @@ public abstract class FacebookOperation {
 	}
 	
 	public static boolean doesUserExist( User u, String existsString ) {
+		for( String line : existsString.split("\n") ) {
+			String[] toks = line.split(" ");
+			if( u.getUsername().equals(toks[0]) && ( u.getPassword() == null || u.getPassword().equals(toks[1]))) {
+				return true;
+			}
+		}
+		
 		return false;
 	}
 	

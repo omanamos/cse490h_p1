@@ -7,36 +7,65 @@ import transactions.Transaction;
 public class PostMessage extends FacebookOperation {
 	private static final String[] COMMANDS = {	"txstart",
 												"get logged_in", //check that curUser is logged in
-												"get users", //check that requester exists -> if not, remove from [curUser]_requests file
 												"get [username]_friends",
 												"append [friend]_wall \"[message]\n\"", //execute for each line in [username]_friends file
 												"txcommit"};
+	private String message;
+	private int numFriends;
+	
 	public PostMessage(User u, String message, DistNode n){
 		super(COMMANDS, n, u);
+		this.n.onFacebookCommand( this.nextCommand());
+		this.message = message;
+		this.numFriends = 0;
 	}
 	
 	@Override
 	public void onCommandFinish(Command c) {
-		// TODO Auto-generated method stub
-
+		String newCommand;
+		
+		switch( this.cmds.size() ) {
+		case 3:
+			if( FacebookOperation.isUserLoggedIn(this.user, this.n.addr, c.getContents())) {
+				newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
+				this.n.onFacebookCommand( newCommand );
+			} else {
+				this.notLoggedIn();
+			}
+			break;
+		case 2:
+			String replaceMessage = FacebookOperation.replaceField(this.nextCommand(), "message", this.message);
+			String[] friends = c.getContents().split("\n");
+			this.numFriends = friends.length;
+			for( String friend : c.getContents().split("\n") ) {
+				newCommand = FacebookOperation.replaceField(replaceMessage, "friend", friend);
+				this.n.onFacebookCommand( newCommand );
+			}
+			break;
+		case 1:
+			this.numFriends--;
+			if( this.numFriends <= 0 ) {
+				this.n.onFacebookCommand(this.nextCommand());
+			}
+			break;
+		}
 	}
 
 	@Override
 	public void onAbort(Transaction txn) {
-		// TODO Auto-generated method stub
-
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
 	}
 
 	@Override
 	public void onCommit(Transaction txn) {
-		// TODO Auto-generated method stub
+		System.out.println("Successfully posted message.");
 
 	}
 
 	@Override
 	public void onStart(int txId) {
-		// TODO Auto-generated method stub
-		
+		this.commandId = txId;
+		this.n.onFacebookCommand( this.nextCommand());
 	}
 
 }

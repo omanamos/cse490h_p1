@@ -9,6 +9,8 @@ public class ReadPosts extends FacebookOperation{
 												"get logged_in", //check that curUser is logged in
 												"get [username]_wall",
 												"txcommit"};
+	
+	private static String posts;
 	public ReadPosts(User u, DistNode n){
 		
 		super(COMMANDS, n, u);
@@ -30,6 +32,7 @@ public class ReadPosts extends FacebookOperation{
 				}
 				break;
 			case 1:
+				this.posts = c.getContents();
 				this.n.onFacebookCommand( this.cmds.poll() );
 				break;
 		}
@@ -37,13 +40,12 @@ public class ReadPosts extends FacebookOperation{
 
 	@Override
 	public void onAbort(Transaction txn) {
-		// TODO Auto-generated method stub
-		
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
 	}
 
 	@Override
 	public void onCommit(Transaction txn) {
-		// TODO Auto-generated method stub
+		System.out.println( this.posts );
 		
 	}
 

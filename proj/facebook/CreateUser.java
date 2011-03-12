@@ -52,8 +52,7 @@ public class CreateUser extends FacebookOperation{
 
 	@Override
 	public void onAbort(Transaction txn) {
-		// TODO Auto-generated method stub
-		
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
 	}
 
 	@Override

@@ -44,13 +44,13 @@ public class Logout extends FacebookOperation {
 
 	@Override
 	public void onAbort(Transaction txn) {
-		// TODO Auto-generated method stub
-
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
 	}
 
 	@Override
 	public void onCommit(Transaction txn) {
 		this.n.onLogout( this.user );
+		System.out.println("Successfully Logged out");
 	}
 
 	@Override

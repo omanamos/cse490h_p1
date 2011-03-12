@@ -47,13 +47,12 @@ public class RequestFriend extends FacebookOperation {
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Successfully requested friend " + this.friend.getUsername() );
-
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
 	}
 
 	@Override
 	public void onCommit(Transaction txn) {
-		// TODO Auto-generated method stub
+		System.out.println("Successfully requested friend " + this.friend.getUsername() );
 
 	}
 

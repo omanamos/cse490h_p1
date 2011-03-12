@@ -46,13 +46,13 @@ public class Login extends FacebookOperation{
 
 	@Override
 	public void onAbort(Transaction txn) {
-		// TODO Auto-generated method stub
-		
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
 	}
 
 	@Override
 	public void onCommit(Transaction txn) {
 		this.n.onLogin( this.user );
+		System.out.println("Successfully Logged in.");
 	}
 
 	@Override
