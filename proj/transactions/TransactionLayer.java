@@ -623,8 +623,8 @@ public class TransactionLayer {
 						this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + " " + sourceTxn + " " + contents));
 						if(c.getType() == Command.GET)
 							c.setContents(contents);
-						this.n.onCommandFinish(txn, c);
 						this.txn.add(c);
+						this.n.onCommandFinish(txn, c);
 						this.txnExecute();
 					} catch (IOException e) {
 						this.n.printError("Node " + this.n.addr + ": Fatal Error: Couldn't update file: " + fileName + " to version: " + version + ".");
@@ -785,8 +785,8 @@ public class TransactionLayer {
 			else{
 				try{
 					c.setContents(this.txn.getVersionContents(f, this.n.get(f.getName())));
-					this.n.onCommandFinish(txn, c);
 					this.txn.add( c );
+					this.n.onCommandFinish(txn, c);
 				}catch(Exception e){
 					e.printStackTrace();
 				}
@@ -816,9 +816,9 @@ public class TransactionLayer {
 		}else{
 			f.execute();
 			if(this.txn.isDeleted(f)){
-				this.n.onCommandFinish(txn, c);
 				this.txn.add(c);
 				f.setState(File.RW);
+				this.n.onCommandFinish(txn, c);
 			}else
 				this.n.printError(c, Error.ERR_11);
 			this.txnExecute();
@@ -848,8 +848,8 @@ public class TransactionLayer {
 				this.n.printError(c, Error.ERR_10);
 			}
 			else {
-				this.n.onCommandFinish(txn, c);
 				this.txn.add( c );
+				this.n.onCommandFinish(txn, c);
 			}
 			txnExecute();
 			return true;
@@ -878,8 +878,8 @@ public class TransactionLayer {
 			if(this.txn.isDeleted(f)) {
 				this.n.printError(c, Error.ERR_10);
 			} else {
-				this.n.onCommandFinish(txn, c);
 				this.txn.add( c );
+				this.n.onCommandFinish(txn, c);
 			}
 			txnExecute();
 			return true;

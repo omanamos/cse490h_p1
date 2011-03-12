@@ -8,7 +8,7 @@ public class RequestFriend extends FacebookOperation {
 	private static final String[] COMMANDS = {	"txstart",
 												"get logged_in", //check if logged in as given requester
 												"get users", //check friend exists
-												"append [friend]_requests \"[requester]\n\"",
+												"append [friend]_requests \"[requester]\\n\"",
 												"txcommit"};
 	
 	protected User friend;
@@ -51,7 +51,7 @@ public class RequestFriend extends FacebookOperation {
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("Successfully requested friend " + this.friend.getUsername() );
+		System.out.println("Node " + this.n.addr + ": User " + this.user.getUsername() + ": Successfully requested friend " + this.friend.getUsername() );
 
 	}
 

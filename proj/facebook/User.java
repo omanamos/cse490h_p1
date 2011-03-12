@@ -23,7 +23,7 @@ public class User {
 	}
 	
 	public static User fromString(String user){
-		String[] parts = user.split("|");
+		String[] parts = user.split("\\|");
 		return new User(parts[0], parts[1]);
 	}
 	

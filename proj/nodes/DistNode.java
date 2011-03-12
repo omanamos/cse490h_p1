@@ -26,8 +26,8 @@ public class DistNode extends RIONode {
 	 */
 	public static double getFailureRate() { return 0.0 / 100.0; }
 	public static double getRecoveryRate() { return 100.0 / 100.0; }
-	public static double getDropRate() { return 10.0 / 100.0; }
-	public static double getDelayRate() { return 10.0 / 100.0; }
+	public static double getDropRate() { return 0.0 / 100.0; }
+	public static double getDelayRate() { return 0.0 / 100.0; }
 	
 	public static final boolean DEBUG = false;
 	
@@ -436,7 +436,7 @@ public class DistNode extends RIONode {
 	private User getCurUser(){
 		User u = null;
 		try{
-			this.get(".cur_user");
+			u = User.fromString(this.get(".cur_user"));
 		}catch(Exception e){}
 		return u;
 	}
@@ -471,10 +471,10 @@ public class DistNode extends RIONode {
 			}else if(Pattern.matches("^(request|accept).*$", command)){
 				String[] parts = command.split(" ");
 				if(parts[0].equals("request")){
-					this.fb = new RequestFriend(curUser, new User(parts[1], parts[2]), this);
+					this.fb = new RequestFriend(curUser, new User(parts[1]), this);
 					this.fb.execute();
 				}else{
-					this.fb = new AcceptFriend(curUser, new User(parts[1], parts[2]), this);
+					this.fb = new AcceptFriend(curUser, new User(parts[1]), this);
 					this.fb.execute();
 				}
 			}else if(Pattern.matches("^post.*$", command)){

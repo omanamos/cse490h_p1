@@ -7,7 +7,7 @@ import transactions.Transaction;
 public class CreateUser extends FacebookOperation{
 	private static final String[] COMMANDS = {	"txstart",
 												"get users", //check if user exists
-												"append users \"[username] [password]\n\"",
+												"append users \"[username] [password]\\n\"",
 												"create [username]_requests",
 												"create [username]_friends",
 												"create [username]_wall",
@@ -56,7 +56,7 @@ public class CreateUser extends FacebookOperation{
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("User " + this.user.getUsername() + " created");
+		System.out.println("Node " + this.n.addr + ": Success: User " + this.user.getUsername() + " created");
 	}
 
 	@Override

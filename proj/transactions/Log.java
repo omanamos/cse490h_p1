@@ -51,6 +51,7 @@ public class Log implements Iterable<MasterFile>{
 					break;
 			}
 		}
+		return;
 	}
 	
 	

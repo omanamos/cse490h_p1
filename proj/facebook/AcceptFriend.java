@@ -9,8 +9,8 @@ public class AcceptFriend extends FacebookOperation {
 												"get logged_in", //check that curUser is logged in
 												"get users", //check that requester exists -> if not, remove from [curUser]_requests file
 												"get [curUser]_requests", //check that requester actually requested to be friends
-												"append [curUser]_friends \"[requester]\n\"",
-												"append [requester]_friends \"[curUser]\n\"",
+												"append [curUser]_friends \"[requester]\\n\"",
+												"append [requester]_friends \"[curUser]\\n\"",
 												"put [curUser]_requests \"[contents]\"",
 												"txcommit"};
 	
@@ -101,7 +101,7 @@ public class AcceptFriend extends FacebookOperation {
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("You are now friends with " + this.requester.getUsername() );
+		System.out.println("Node " + this.n.addr + ": User " + this.user.getUsername() + ": You are now friends with " + this.requester.getUsername() );
 
 	}
 
