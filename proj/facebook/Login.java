@@ -25,12 +25,13 @@ public class Login extends FacebookOperation{
 					//execute next command
 					this.n.onFacebookCommand( this.nextCommand() );
 				} else {
-					this.printError("Node " + this.n.addr + ": User " + this.user.getUsername() + ": Already logged in.");
+					this.cmds.clear();
+					this.n.onFacebookCommand("txcommit");
 				}
 				break;
 			case 2:
 				if( FacebookOperation.doesUserExist( this.user, c.getContents() )) {
-					String newCommand = FacebookOperation.replaceField(this.nextCommand(), "contents", this.user.getUsername() + " " + this.n.addr );
+					String newCommand = FacebookOperation.replaceField(this.nextCommand(), "contents", this.user.getUsername() + " " + this.n.addr + "\\n" );
 					this.n.onFacebookCommand( newCommand );
 				} else {
 					this.printError("Node " + this.n.addr + ": Error: Couldn't login as " + this.user.getUsername() + ". Login information invalid");

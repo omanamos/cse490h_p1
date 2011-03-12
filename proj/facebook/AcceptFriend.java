@@ -78,7 +78,7 @@ public class AcceptFriend extends FacebookOperation {
 	private String removeRequesterFromRequests() {
 		String newContents = "";
 		for( String username : this.currentRequests.split("\n")) {
-			if( !this.requester.equals(username)) {
+			if( !this.requester.getUsername().equals(username)) {
 				newContents += username + "\n";
 			}
 		}
@@ -101,7 +101,7 @@ public class AcceptFriend extends FacebookOperation {
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": User " + this.user.getUsername() + ": You are now friends with " + this.requester.getUsername() );
+		System.out.println("Node " + this.n.addr + ": Success: User " + this.user.getUsername() + ": You are now friends with " + this.requester.getUsername() );
 
 	}
 

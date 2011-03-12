@@ -419,6 +419,7 @@ public class DistNode extends RIONode {
 	
 	public void notLoggedIn(){
 		updateCurUser(null);
+		this.fb = null;
 	}
 	
 	private void updateCurUser(User u){

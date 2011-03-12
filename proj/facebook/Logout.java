@@ -25,7 +25,7 @@ public class Logout extends FacebookOperation {
 					String tokens[] = line.split(" ");
 					//add everything to the newcontents except our username addr combo
 					if( !( tokens[0].equals( this.user.getUsername() ) && tokens[1].equals( this.n.addr + "") ) ) {
-						newContents += line + "\n";
+						newContents += line + "\\n";
 					}
 				}
 				String newCommand = FacebookOperation.replaceField( this.nextCommand(), "contents", newContents);

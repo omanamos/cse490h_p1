@@ -69,7 +69,7 @@ public abstract class FacebookOperation {
 			String[] loggedUsers = logString.split("\n");
 			for( String userAddr : loggedUsers ) {
 				String[] tokens = userAddr.split(" ");
-				if( tokens[0].equals( u.getUsername() ) && tokens[1].equals( nodeId ) ) {
+				if( tokens[0].equals( u.getUsername() ) && tokens[1].equals( nodeId+"" ) ) {
 					return true;
 				}
 			}
