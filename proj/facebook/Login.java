@@ -13,7 +13,6 @@ public class Login extends FacebookOperation{
 
 	public Login(User u, DistNode n){
 		super(COMMANDS, n, u);
-		this.n.onFacebookCommand( this.nextCommand() );
 	}
 	
 	@Override

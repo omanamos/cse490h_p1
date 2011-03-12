@@ -15,7 +15,6 @@ public class RequestFriend extends FacebookOperation {
 	
 	public RequestFriend(User requester, User friend, DistNode n){
 		super(COMMANDS, n, requester);
-		this.n.onFacebookCommand( this.nextCommand() );
 		this.friend = friend;
 	}
 	

@@ -14,7 +14,6 @@ public class CreateUser extends FacebookOperation{
 												"txcommit"};
 	public CreateUser(User u, DistNode n){
 		super(COMMANDS, n, u);
-		this.n.onFacebookCommand( this.nextCommand() );
 	}
 	
 	@Override

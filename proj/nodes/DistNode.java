@@ -304,6 +304,20 @@ public class DistNode extends RIONode {
 		}
 		
 		if(this.isMaster()){
+			if(!fileExists("users")){
+				try {
+					this.write("users", "", false, true);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+			if(!fileExists("logged_in")){
+				try {
+					this.write("logged_in", "", false, true);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 			//CACHE RECOVERY ON MASTER NODE
 			if(!fileExists(".l")){
 				try {
@@ -439,30 +453,37 @@ public class DistNode extends RIONode {
 		
 		User curUser = getCurUser();
 		
-		if(curUser == null && !Pattern.matches("^login", command)){
+		if(curUser == null && !Pattern.matches("^(login|create).*$", command)){
 			System.out.println("Node " + this.addr + ": Error: Cannot execute command (" + command + "). Not logged in.");
 		}else if(Pattern.matches("^((create|login|logout) [\\S]{4,} [\\S]{4,}|(request|accept) [\\S]{4,}|post (\\\".+\\\"|[^ ]+)|read)$", command)){
-			if(Pattern.matches("^(create|login|logout)", command)){
+			if(Pattern.matches("^(create|login|logout).*$", command)){
 				String[] parts = command.split(" ");
 				if(parts[0].equals("create")){
 					this.fb = new CreateUser(new User(parts[1], parts[2]), this);
+					this.fb.execute();
 				}else if(parts[0].equals("login")){
 					this.fb = new Login(new User(parts[1], parts[2]), this);
+					this.fb.execute();
 				}else{
 					this.fb = new Logout(curUser, this);
+					this.fb.execute();
 				}
-			}else if(Pattern.matches("^(request|accept)", command)){
+			}else if(Pattern.matches("^(request|accept).*$", command)){
 				String[] parts = command.split(" ");
 				if(parts[0].equals("request")){
 					this.fb = new RequestFriend(curUser, new User(parts[1], parts[2]), this);
+					this.fb.execute();
 				}else{
 					this.fb = new AcceptFriend(curUser, new User(parts[1], parts[2]), this);
+					this.fb.execute();
 				}
-			}else if(Pattern.matches("^post", command)){
+			}else if(Pattern.matches("^post.*$", command)){
 				String message = command.substring(command.indexOf(' '));
 				this.fb = new PostMessage(curUser, message, this);
+				this.fb.execute();
 			}else{
 				this.fb = new ReadPosts(curUser, this);
+				this.fb.execute();
 			}
 		}else{
 			System.out.println("Node: " + this.addr + " Error: Invalid command: " + command);

@@ -34,6 +34,10 @@ public abstract class FacebookOperation {
 		return this.cmds.poll();
 	}
 	
+	public void execute(){
+		this.n.onFacebookCommand( this.nextCommand() );
+	}
+	
 	public abstract void onCommandFinish(Command c);
 	public abstract void onAbort(Transaction txn);
 	public abstract void onCommit(Transaction txn);
@@ -61,13 +65,16 @@ public abstract class FacebookOperation {
 	}
 	
 	public static boolean isUserLoggedIn( User u, int nodeId, String logString ) {
-		String[] loggedUsers = logString.split("\n");
-		for( String userAddr : loggedUsers ) {
-			String[] tokens = userAddr.split(" ");
-			if( tokens[0].equals( u.getUsername() ) && tokens[1].equals( nodeId ) ) {
-				return true;
+		try{
+			String[] loggedUsers = logString.split("\n");
+			for( String userAddr : loggedUsers ) {
+				String[] tokens = userAddr.split(" ");
+				if( tokens[0].equals( u.getUsername() ) && tokens[1].equals( nodeId ) ) {
+					return true;
+				}
 			}
-		}
+		}catch(Exception e){}
+		
 		return false;
 	}
 	

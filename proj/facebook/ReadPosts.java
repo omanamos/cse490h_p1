@@ -12,9 +12,7 @@ public class ReadPosts extends FacebookOperation{
 	
 	private String posts;
 	public ReadPosts(User u, DistNode n){
-		
 		super(COMMANDS, n, u);
-		this.n.onFacebookCommand( this.cmds.poll() );
 	}
 	
 	@Override

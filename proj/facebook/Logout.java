@@ -11,7 +11,6 @@ public class Logout extends FacebookOperation {
 												"txcommit"};
 	public Logout(User u, DistNode n){
 		super(COMMANDS, n, u);
-		this.n.onFacebookCommand( this.nextCommand() );
 	}
 	
 	@Override
