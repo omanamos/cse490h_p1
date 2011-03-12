@@ -42,7 +42,7 @@ public class AcceptFriend extends FacebookOperation {
 				newCommand = FacebookOperation.replaceField(this.nextCommand(), "curUser", this.user.getUsername());
 				this.n.onFacebookCommand(newCommand);
 			} else {
-				this.printError("User " + this.requester.getUsername() + " does not exist.");
+				this.printError("Error: Node " + this.n.addr + ":User " + this.requester.getUsername() + " does not exist.");
 			}
 			break;
 		case 4:
@@ -53,7 +53,7 @@ public class AcceptFriend extends FacebookOperation {
 				replaceRequestor = FacebookOperation.replaceField(replaceCurUser, "requester", this.requester.getUsername());
 				this.n.onFacebookCommand(replaceRequestor);
 			} else {
-				this.printError("User " + this.requester.getUsername() + " did not request to be friends.");
+				this.printError("Error: Node " + this.n.addr + ":User " + this.requester.getUsername() + " did not request to be friends.");
 			}
 			
 			break;
@@ -102,7 +102,6 @@ public class AcceptFriend extends FacebookOperation {
 	@Override
 	public void onCommit(Transaction txn) {
 		System.out.println("Node " + this.n.addr + ": Success: User " + this.user.getUsername() + ": You are now friends with " + this.requester.getUsername() );
-
 	}
 
 	@Override

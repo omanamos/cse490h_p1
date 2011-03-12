@@ -53,12 +53,12 @@ public class PostMessage extends FacebookOperation {
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Error: Node " + this.n.addr + ": Cannot execute command: Please try again");
 	}
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("Successfully posted message.");
+		System.out.println("Success: Node " + this.n.addr + ": Successfully posted message.");
 
 	}
 

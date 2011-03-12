@@ -38,12 +38,12 @@ public class ReadPosts extends FacebookOperation{
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Error: Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
 	}
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println( this.posts );
+		System.out.println("Success: Node " + this.n.addr + ":\n" + this.posts );
 		
 	}
 

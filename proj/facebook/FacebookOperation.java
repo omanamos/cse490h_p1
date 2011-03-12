@@ -56,12 +56,12 @@ public abstract class FacebookOperation {
 	}
 	
 	public void notLoggedIn() {
-		this.printError("You are not logged in.");
+		this.printError("Node " + this.n.addr + " :You are not logged in.");
 		this.n.notLoggedIn();
 	}
 	
 	public void printError( String error ) {
-		System.out.println("ERROR: " + error );
+		System.out.println("Error: " + error );
 	}
 	
 	public static boolean isUserLoggedIn( User u, int nodeId, String logString ) {

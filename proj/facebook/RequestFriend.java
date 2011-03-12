@@ -34,7 +34,7 @@ public class RequestFriend extends FacebookOperation {
 				String newCommand = FacebookOperation.replaceField(replaceFriend, "requester", this.user.getUsername());
 				this.n.onFacebookCommand( newCommand );
 			} else {
-				this.printError("User " + this.friend.getUsername() + " does not exist" );
+				this.printError("Node " + this.n.addr + ":User " + this.friend.getUsername() + " does not exist" );
 			}
 			break;
 		case 1:
@@ -51,7 +51,7 @@ public class RequestFriend extends FacebookOperation {
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": User " + this.user.getUsername() + ": Successfully requested friend " + this.friend.getUsername() );
+		System.out.println("Success: Node " + this.n.addr + ": User " + this.user.getUsername() + ": Successfully requested friend " + this.friend.getUsername() );
 
 	}
 
