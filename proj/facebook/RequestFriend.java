@@ -34,7 +34,7 @@ public class RequestFriend extends FacebookOperation {
 				String newCommand = FacebookOperation.replaceField(replaceFriend, "requester", this.user.getUsername());
 				this.n.onFacebookCommand( newCommand );
 			} else {
-				this.printError("User " + this.friend.getUsername() + " does not exist" );
+				this.printError("Node " + this.n.addr + ":User " + this.friend.getUsername() + " does not exist" );
 			}
 			break;
 		case 1:

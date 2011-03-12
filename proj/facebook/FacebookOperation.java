@@ -56,7 +56,7 @@ public abstract class FacebookOperation {
 	}
 	
 	public void notLoggedIn() {
-		this.printError("You are not logged in.");
+		this.printError("Node " + this.n.addr + " :You are not logged in.");
 		this.n.notLoggedIn();
 	}
 	

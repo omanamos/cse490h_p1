@@ -58,7 +58,7 @@ public class PostMessage extends FacebookOperation {
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("Successfully posted message.");
+		System.out.println("Node " + this.n.addr + ": Successfully posted message.");
 
 	}
 

@@ -43,7 +43,7 @@ public class ReadPosts extends FacebookOperation{
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println( this.posts );
+		System.out.println("Node " + this.n.addr + ":\n" + this.posts );
 		
 	}
 
