@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.StringTokenizer;
 import java.util.regex.Pattern;
 
 import paxos.PaxosLayer;
@@ -370,47 +369,79 @@ public class DistNode extends RIONode {
 	 */
 	
 	public void onStart(int txnID){
-		
+		this.fb.onStart(txnID);
 	}
 
 	public void onAbort(Transaction txn){
+		if(this.fb != null && txn.id == this.fb.getCommandId()){
+			this.fb.onAbort(txn);
+			this.fb = null;
+		}
 		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ABORT");
 	}
 	
-	public void onCommandFinish(Command c){
+	public void onCommandFinish(Transaction txn, Command c){
+		if(this.fb != null && txn.id == this.fb.getCommandId()){
+			this.fb.onCommandFinish(c);
+		}
 		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" + c.toString());
 	}
 	
 	public void onCommit(Transaction txn){
+		if(this.fb != null && txn.id == this.fb.getCommandId()){
+			this.fb.onCommit(txn);
+			this.fb = null;
+		}
 		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@COMMIT");
 	}
 	
 	public void onLogin(User curUser){
-		
+		updateCurUser(curUser);
 	}
 	
 	public void onLogout(User curUser){
-		
+		updateCurUser(null);
 	}
 	
 	public void notLoggedIn(User u){
-		
+		updateCurUser(null);
+	}
+	
+	private void updateCurUser(User u){
+		try{
+			if(u == null){
+				this.getWriter(".cur_user", false).delete();
+			}else{
+				this.write(".cur_user", u.toString(), false, true);
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	private User getCurUser(){
+		User u = null;
+		try{
+			this.get(".cur_user");
+		}catch(Exception e){}
+		return u;
 	}
 	
 	/**
 	 * Handles given command. Prints error if command is not properly formed.
 	 */
 	public void onCommand(String command){
+		command = command.trim();
 		if(this.fb != null){
 			System.out.println("Node " + this.addr + ": Error: Cannot execute command (" + command + "). Another facebook operation is in progess.");
 			return;
 		}
 		
-		//TODO: create user logged in temporary file
-		User curUser = new User("", "");
+		User curUser = getCurUser();
 		
-		command = command.trim();
-		if(Pattern.matches("^((create|login|logout) [\\S]{4,} [\\S]{4,}|(request|accept) [\\S]{4,}|post (\\\".+\\\"|[^ ]+)|read)$", command)){
+		if(curUser == null && !Pattern.matches("^login", command)){
+			System.out.println("Node " + this.addr + ": Error: Cannot execute command (" + command + "). Not logged in.");
+		}else if(Pattern.matches("^((create|login|logout) [\\S]{4,} [\\S]{4,}|(request|accept) [\\S]{4,}|post (\\\".+\\\"|[^ ]+)|read)$", command)){
 			if(Pattern.matches("^(create|login|logout)", command)){
 				String[] parts = command.split(" ");
 				if(parts[0].equals("create")){

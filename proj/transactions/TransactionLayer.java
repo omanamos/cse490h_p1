@@ -623,7 +623,7 @@ public class TransactionLayer {
 						this.txn.add(new Command(MASTER_NODE, Command.UPDATE, f, version + " " + sourceTxn + " " + contents));
 						if(c.getType() == Command.GET)
 							c.setContents(contents);
-						this.n.onCommandFinish(c);
+						this.n.onCommandFinish(txn, c);
 						this.txn.add(c);
 						this.txnExecute();
 					} catch (IOException e) {
@@ -785,7 +785,7 @@ public class TransactionLayer {
 			else{
 				try{
 					c.setContents(this.txn.getVersionContents(f, this.n.get(f.getName())));
-					this.n.onCommandFinish(c);
+					this.n.onCommandFinish(txn, c);
 					this.txn.add( c );
 				}catch(Exception e){
 					e.printStackTrace();
@@ -816,7 +816,7 @@ public class TransactionLayer {
 		}else{
 			f.execute();
 			if(this.txn.isDeleted(f)){
-				this.n.onCommandFinish(c);
+				this.n.onCommandFinish(txn, c);
 				this.txn.add(c);
 				f.setState(File.RW);
 			}else
@@ -848,7 +848,7 @@ public class TransactionLayer {
 				this.n.printError(c, Error.ERR_10);
 			}
 			else {
-				this.n.onCommandFinish(c);
+				this.n.onCommandFinish(txn, c);
 				this.txn.add( c );
 			}
 			txnExecute();
@@ -878,7 +878,7 @@ public class TransactionLayer {
 			if(this.txn.isDeleted(f)) {
 				this.n.printError(c, Error.ERR_10);
 			} else {
-				this.n.onCommandFinish(c);
+				this.n.onCommandFinish(txn, c);
 				this.txn.add( c );
 			}
 			txnExecute();
@@ -905,7 +905,7 @@ public class TransactionLayer {
 			return false;//WQ
 		} else {
 			f.execute();
-			this.n.onCommandFinish(c);
+			this.n.onCommandFinish(txn, c);
 			this.txn.add(c);
 			txnExecute();
 			return true;
