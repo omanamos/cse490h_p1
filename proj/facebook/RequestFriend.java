@@ -8,6 +8,10 @@ public class RequestFriend extends FacebookOperation {
 	private static final String[] COMMANDS = {	"txstart",
 												"get logged_in", //check if logged in as given requester
 												"get users", //check friend exists
+												"get [friend]_requests", //make sure they haven't already requested us
+												"get [username]_requests", //make sure we haven't requested them
+												"get [username]_friends", //make sure we aren't already friends with them
+												
 												"append [friend]_requests \"[requester]\\n\"",
 												"txcommit"};
 	
