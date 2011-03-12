@@ -25,20 +25,44 @@ public class RequestFriend extends FacebookOperation {
 	@Override
 	public void onCommandFinish(Command c) {
 		switch( this.cmds.size()  ) {
-		case 3:
+		case 6:
 			if( FacebookOperation.isUserLoggedIn(this.user, this.n.addr, c.getContents())) {
 				this.n.onFacebookCommand( this.nextCommand() );
 			} else {
 				this.notLoggedIn();
 			}
 			break;
-		case 2:
+		case 5:
 			if( FacebookOperation.doesUserExist(this.friend, c.getContents())) {
+				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "friend", this.friend.getUsername());
+				this.n.onFacebookCommand( newCommand );
+			} else {
+				this.printError("Error: Node " + this.n.addr + ":User " + this.friend.getUsername() + " does not exist" );
+			}
+			break;
+		case 4:
+			if( !doesRequestExistsAlready( c.getContents(), this.friend ) ) {
+				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
+				this.n.onFacebookCommand( newCommand );
+			} else {
+				this.printError("Error: Node " + this.n.addr + ":User " + this.friend.getUsername() + " has already requested user: " + this.user.getUsername() + " as a friend.");
+			}
+			break;
+		case 3:
+			if( !doesRequestExistsAlready( c.getContents(), this.user ) ) {
+				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
+				this.n.onFacebookCommand( newCommand );
+			} else {
+				this.printError("Error: Node " + this.n.addr + ":User " + this.user.getUsername() + " has already requested user: " + this.friend.getUsername() + " as a friend.");
+			}
+			break;
+		case 2:
+			if( !doesRequestExistsAlready( c.getContents(), this.user ) ) {
 				String replaceFriend = FacebookOperation.replaceField( this.nextCommand(), "friend", this.friend.getUsername() );
 				String newCommand = FacebookOperation.replaceField(replaceFriend, "requester", this.user.getUsername());
 				this.n.onFacebookCommand( newCommand );
 			} else {
-				this.printError("Node " + this.n.addr + ":User " + this.friend.getUsername() + " does not exist" );
+				this.printError("Error: Node " + this.n.addr + ":User " + this.user.getUsername() + " is already friends with user: " + this.friend.getUsername() );
 			}
 			break;
 		case 1:
@@ -48,6 +72,15 @@ public class RequestFriend extends FacebookOperation {
 
 	}
 
+	private boolean doesRequestExistsAlready( String requestContents, User u ) {
+		for( String username : requestContents.split("\n")) {
+			if( username.equals( u.getUsername() ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	@Override
 	public void onAbort(Transaction txn) {
 		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
