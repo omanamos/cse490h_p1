@@ -49,7 +49,7 @@ public class Logout extends FacebookOperation {
 	@Override
 	public void onCommit(Transaction txn) {
 		this.n.onLogout( this.user );
-		System.out.println("Node " + this.n.addr + ": Successfully Logged out user: " + this.user.getUsername());
+		System.out.println("Success: Node " + this.n.addr + ": Successfully Logged out user: " + this.user.getUsername());
 	}
 
 	@Override

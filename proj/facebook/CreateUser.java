@@ -27,7 +27,7 @@ public class CreateUser extends FacebookOperation{
 				newCommand = FacebookOperation.replaceField(replaceUsername, "password", this.user.getPassword());
 				this.n.onFacebookCommand( newCommand );
 			} else {
-				this.printError("Node " + this.n.addr + ": User " + this.user.getUsername() + "User already exists");
+				this.printError("Error:Node " + this.n.addr + ": User " + this.user.getUsername() + "User already exists");
 			}
 			break;
 		case 4:

@@ -61,7 +61,7 @@ public abstract class FacebookOperation {
 	}
 	
 	public void printError( String error ) {
-		System.out.println("ERROR: " + error );
+		System.out.println("Error: " + error );
 	}
 	
 	public static boolean isUserLoggedIn( User u, int nodeId, String logString ) {

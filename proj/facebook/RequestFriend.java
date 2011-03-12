@@ -51,7 +51,7 @@ public class RequestFriend extends FacebookOperation {
 
 	@Override
 	public void onCommit(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": User " + this.user.getUsername() + ": Successfully requested friend " + this.friend.getUsername() );
+		System.out.println("Success: Node " + this.n.addr + ": User " + this.user.getUsername() + ": Successfully requested friend " + this.friend.getUsername() );
 
 	}
 
