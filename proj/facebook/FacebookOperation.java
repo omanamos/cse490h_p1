@@ -90,7 +90,7 @@ public abstract class FacebookOperation {
 	}
 	
 	public static String replaceField( String command, String fieldName, String replacement ) {
-		return command.replaceAll("[" + fieldName + "]", replacement);
+		return command.replace("[" + fieldName + "]", replacement);
 	}
 	
 	public static String boxify(User u, String contents){
