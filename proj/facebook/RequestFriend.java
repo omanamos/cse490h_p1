@@ -36,6 +36,7 @@ public class RequestFriend extends FacebookOperation {
 				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "friend", this.friend.getUsername());
 				this.n.onFacebookCommand( newCommand );
 			} else {
+				this.n.abortOperation();
 				this.printError("Error: Node " + this.n.addr + ":User " + this.friend.getUsername() + " does not exist" );
 			}
 			break;
@@ -44,6 +45,7 @@ public class RequestFriend extends FacebookOperation {
 				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
 				this.n.onFacebookCommand( newCommand );
 			} else {
+				this.n.abortOperation();
 				this.printError("Error: Node " + this.n.addr + ":User " + this.friend.getUsername() + " has already requested user: " + this.user.getUsername() + " as a friend.");
 			}
 			break;
@@ -52,6 +54,7 @@ public class RequestFriend extends FacebookOperation {
 				String newCommand = FacebookOperation.replaceField(this.nextCommand(), "username", this.user.getUsername());
 				this.n.onFacebookCommand( newCommand );
 			} else {
+				this.n.abortOperation();
 				this.printError("Error: Node " + this.n.addr + ":User " + this.user.getUsername() + " has already requested user: " + this.friend.getUsername() + " as a friend.");
 			}
 			break;
@@ -61,6 +64,7 @@ public class RequestFriend extends FacebookOperation {
 				String newCommand = FacebookOperation.replaceField(replaceFriend, "requester", this.user.getUsername());
 				this.n.onFacebookCommand( newCommand );
 			} else {
+				this.n.abortOperation();
 				this.printError("Error: Node " + this.n.addr + ":User " + this.user.getUsername() + " is already friends with user: " + this.friend.getUsername() );
 			}
 			break;
@@ -82,7 +86,7 @@ public class RequestFriend extends FacebookOperation {
 	
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command request: Please try again");
 	}
 
 	@Override

@@ -38,7 +38,7 @@ public class ReadPosts extends FacebookOperation{
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Error: Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Error: Node " + this.n.addr + ": Error: Cannot execute command read: Please try again");
 	}
 
 	@Override

@@ -27,6 +27,7 @@ public class CreateUser extends FacebookOperation{
 				newCommand = FacebookOperation.replaceField(replaceUsername, "password", this.user.getPassword());
 				this.n.onFacebookCommand( newCommand );
 			} else {
+				this.n.abortOperation();
 				this.printError("Error:Node " + this.n.addr + ": User " + this.user.getUsername() + "User already exists");
 			}
 			break;
@@ -51,7 +52,7 @@ public class CreateUser extends FacebookOperation{
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command create: Please try again");
 	}
 
 	@Override

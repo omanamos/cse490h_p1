@@ -43,7 +43,7 @@ public class Logout extends FacebookOperation {
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command logout: Please try again");
 	}
 
 	@Override

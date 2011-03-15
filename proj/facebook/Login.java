@@ -34,6 +34,7 @@ public class Login extends FacebookOperation{
 					String newCommand = FacebookOperation.replaceField(this.nextCommand(), "contents", this.user.getUsername() + " " + this.n.addr + "\\n" );
 					this.n.onFacebookCommand( newCommand );
 				} else {
+					this.n.abortOperation();
 					this.printError("Node " + this.n.addr + ": Error: Couldn't login as " + this.user.getUsername() + ". Login information invalid");
 				}
 				break;
@@ -46,7 +47,7 @@ public class Login extends FacebookOperation{
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command login: Please try again");
 	}
 
 	@Override

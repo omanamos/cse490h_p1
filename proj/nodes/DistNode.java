@@ -394,6 +394,10 @@ public class DistNode extends RIONode {
 		System.out.println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ABORT");
 	}
 	
+	public void abortOperation(){
+		this.fb = null;
+	}
+	
 	public void onCommandFinish(Transaction txn, Command c){
 		if(this.fb != null && txn.id == this.fb.getCommandId()){
 			this.fb.onCommandFinish(c);

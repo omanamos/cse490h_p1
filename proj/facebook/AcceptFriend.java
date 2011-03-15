@@ -42,6 +42,7 @@ public class AcceptFriend extends FacebookOperation {
 				newCommand = FacebookOperation.replaceField(this.nextCommand(), "curUser", this.user.getUsername());
 				this.n.onFacebookCommand(newCommand);
 			} else {
+				this.n.abortOperation();
 				this.printError("Error: Node " + this.n.addr + ":User " + this.requester.getUsername() + " does not exist.");
 			}
 			break;
@@ -53,6 +54,7 @@ public class AcceptFriend extends FacebookOperation {
 				replaceRequestor = FacebookOperation.replaceField(replaceCurUser, "requester", this.requester.getUsername());
 				this.n.onFacebookCommand(replaceRequestor);
 			} else {
+				this.n.abortOperation();
 				this.printError("Error: Node " + this.n.addr + ":User " + this.requester.getUsername() + " did not request to be friends.");
 			}
 			
@@ -96,7 +98,7 @@ public class AcceptFriend extends FacebookOperation {
 
 	@Override
 	public void onAbort(Transaction txn) {
-		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command: Please try again");
+		System.out.println("Node " + this.n.addr + ": Error: Cannot execute command accept: Please try again");
 	}
 
 	@Override
